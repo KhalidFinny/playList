@@ -16,8 +16,8 @@ export const Turntable = ({
   progress,
   thumbnail,
 }: TurntableProps) => {
-  const accentColor = isPlaying ? "rgba(249,115,22,1)" : "rgba(0,0,0,0.2)";
-  const glowColor = isPlaying ? "rgba(249,115,22,0.1)" : "rgba(0,0,0,0.03)";
+  const accentColor = isPlaying ? "rgba(249,115,22,1)" : "rgba(0,0,0,0.4)";
+  const glowColor = isPlaying ? "rgba(249,115,22,0.1)" : "rgba(0,0,0,0.08)";
 
   return (
     <figure className="relative w-full aspect-square max-w-[1200px] flex items-center justify-center p-0">
@@ -94,7 +94,7 @@ export const Turntable = ({
               cy="50%"
               r={`${4 + i * 1.05}%`}
               fill="none"
-              stroke={isPlaying ? "rgba(249,115,22,0.3)" : "rgba(0,0,0,0.05)"}
+              stroke={isPlaying ? "rgba(249,115,22,0.3)" : "rgba(0,0,0,0.12)"}
               strokeWidth="1"
             />
           ))}
@@ -112,24 +112,24 @@ export const Turntable = ({
         disabled={!onToggle}
         className={`absolute z-20 w-[28%] h-[28%] rounded-full flex items-center justify-center bg-white border transition-colors duration-1000 ${isPlaying ? "border-orange-500/30" : "border-black/10"} shadow-xl shadow-black/5 ${onToggle ? "cursor-pointer hover:scale-105 active:scale-95" : "cursor-default"} transition-transform`}
       >
-        <div className="w-20 h-20 md:w-24 md:h-24 flex items-center justify-center">
+        <div className="w-[30%] h-[30%] flex items-center justify-center">
           {isPlaying ? (
             <img
               src={pauseIcon}
               alt="Pause"
-              className="relative w-8 h-8 opacity-40 transition-all duration-1000"
+              className="relative w-full h-full opacity-90 transition-all duration-300"
             />
           ) : (
             <img
               src={playIcon}
               alt="Play"
-              className="relative w-8 h-8 opacity-40 translate-x-1 grayscale transition-all duration-1000"
+              className="relative w-full h-full opacity-90 translate-x-[2px] grayscale-0 transition-all duration-300"
             />
           )}
         </div>
 
         <div
-          className={`absolute -top-10 w-5 h-5 z-40 transition-opacity duration-1000 ${isPlaying ? "opacity-40" : "opacity-10"}`}
+          className={`absolute -top-[5%] w-[6%] h-[6%] z-40 transition-opacity duration-1000 ${isPlaying ? "opacity-55" : "opacity-35"}`}
         >
           <img
             src={logo}
@@ -140,25 +140,41 @@ export const Turntable = ({
       </button>
 
       {/* NEEDLE ASSEMBLY */}
-      <div className="absolute -top-20 right-[-280px] w-1/2 h-full pointer-events-none z-30 flex justify-end p-24 origin-top-right">
-        <div
-          className={`relative w-14 h-14 rounded-full border bg-white flex items-center justify-center z-50 shadow-sm transition-colors duration-1000 ${isPlaying ? "border-orange-500/30" : "border-black/10"}`}
-        >
+      {/* Re-anchored so the stylus lands on vinyl grooves instead of floating off-axis */}
+      <div className="absolute inset-0 pointer-events-none z-30">
+        <div className="absolute left-[117%] top-[-3%]">
+          {/* Pivot base (beefier) */}
           <div
-            className={`w-2 h-2 rounded-full transition-colors duration-1000 ${isPlaying ? "bg-orange-500/40" : "bg-black/20"}`}
-          />
-          <motion.div
-            initial={false}
-            animate={{ rotate: isPlaying ? -15 : -35 }}
-            transition={{ type: "spring", stiffness: 40, damping: 20 }}
-            className={`absolute top-1/2 left-1/2 w-px h-[320px] transition-colors duration-1000 origin-top ${isPlaying ? "bg-orange-500/30" : "bg-black/10"}`}
+            className={`relative w-[clamp(18px,1.9vw,30px)] h-[clamp(18px,1.9vw,30px)] rounded-full border-[2px] bg-white flex items-center justify-center shadow-md transition-colors duration-700 ${isPlaying ? "border-orange-500/65 shadow-orange-500/20" : "border-black/15"}`}
           >
             <div
-              className={`w-10 h-10 border rounded-sm absolute -bottom-10 -left-5 bg-white flex items-center justify-center shadow-md transition-colors duration-1000 ${isPlaying ? "border-orange-500/30" : "border-black/10"}`}
+              className={`w-[4px] h-[4px] rounded-full transition-colors duration-700 ${isPlaying ? "bg-orange-500" : "bg-black/35"}`}
+            />
+          </div>
+
+          {/* Tonearm */}
+          <motion.div
+            initial={false}
+            animate={{ rotate: isPlaying ? 168 : 180 }}
+            transition={{ type: "spring", stiffness: 82, damping: 17 }}
+            className="absolute left-1/2 top-1/2 -translate-y-1/2"
+            style={{ transformOrigin: "0 50%" }}
+          >
+            <div
+              className={`relative w-[clamp(190px,34vw,340px)] h-[clamp(5px,0.6vw,8px)] rounded-full transition-all duration-700 ${isPlaying ? "bg-orange-500/75 shadow-[0_0_18px_rgba(249,115,22,0.45)]" : "bg-black/28"}`}
             >
+              {/* Counterweight */}
+              <div className="absolute -left-[8px] top-1/2 -translate-y-1/2 w-[clamp(12px,1.2vw,18px)] h-[clamp(12px,1.2vw,18px)] rounded-full border-2 border-black/20 bg-white" />
+
+              {/* Headshell + cartridge */}
               <div
-                className={`w-px h-8 rounded-full transition-colors duration-1000 ${isPlaying ? "bg-orange-500/40" : "bg-black/20"}`}
-              />
+                className={`absolute -right-[3px] top-1/2 -translate-y-1/2 w-[clamp(16px,1.9vw,26px)] h-[clamp(13px,1.5vw,20px)] rounded-[3px] border-2 bg-white transition-colors duration-700 ${isPlaying ? "border-orange-500/60" : "border-black/18"}`}
+              >
+                {/* Stylus */}
+                <div
+                  className={`absolute left-1/2 top-full -translate-x-1/2 w-[2px] h-[clamp(8px,0.9vw,12px)] transition-colors duration-700 ${isPlaying ? "bg-orange-500" : "bg-black/35"}`}
+                />
+              </div>
             </div>
           </motion.div>
         </div>

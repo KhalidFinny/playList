@@ -1,9 +1,10 @@
 import { LogOut } from 'lucide-react';
 import { Card } from '@/shared/components/card';
 import { Button } from '@/shared/components/button';
+import type { PendingAdmin } from '@/shared/types';
 
 interface AdminApprovalCardProps {
-  admin: any;
+  admin: PendingAdmin;
   onApprove: (id: string) => void;
   onDeny: (id: string) => void;
 }

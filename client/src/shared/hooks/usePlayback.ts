@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import type { Track } from '../types';
 
 export interface PlaybackState {
@@ -7,17 +7,21 @@ export interface PlaybackState {
 }
 
 export function usePlayback(initialTrack: Track | null = null) {
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlayingOverride, setIsPlayingOverride] = useState<boolean | null>(null);
   const [progress, setProgress] = useState(0);
 
-  useEffect(() => {
-    if (initialTrack) setIsPlaying(true);
-    else setIsPlaying(false);
-  }, [initialTrack]);
+  const isPlaying = isPlayingOverride ?? Boolean(initialTrack);
+
+  const setIsPlaying = useCallback((value: boolean) => {
+    setIsPlayingOverride(value);
+  }, []);
 
   const togglePlay = useCallback(() => {
-    setIsPlaying(prev => !prev);
-  }, []);
+    setIsPlayingOverride((prev) => {
+      const current = prev ?? Boolean(initialTrack);
+      return !current;
+    });
+  }, [initialTrack]);
 
   const updateProgress = useCallback((newProgress: number) => {
     setProgress(newProgress);
@@ -29,6 +33,6 @@ export function usePlayback(initialTrack: Track | null = null) {
     progress,
     setProgress,
     togglePlay,
-    updateProgress
+    updateProgress,
   };
 }

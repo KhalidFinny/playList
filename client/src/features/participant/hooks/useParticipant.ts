@@ -1,15 +1,76 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { socket, getUserId } from '../../../shared/lib/socket';
 import { useDebounce } from '../../../shared/hooks/useDebounce';
 import type { Track, SearchResult } from '../../../shared/types';
 
+type StatusMessage = { type: 'success' | 'error'; text: string } | null;
+
+type SuggestionsResponse = {
+  success: boolean;
+  suggestions?: string[];
+};
+
+type NowPlayingResponse = {
+  nowPlaying?: Track | null;
+};
+
+type JoinRoomResponse = {
+  success: boolean;
+  message?: string;
+  error?: string;
+};
+
+type SearchSongsResponse = {
+  success: boolean;
+  results?: SearchResult[];
+};
+
+type SubmitSongResponse = {
+  success: boolean;
+  error?: string;
+};
+
+type JoinByPasskeyResponse = {
+  success: boolean;
+  roomId?: string;
+  error?: string;
+};
+
+type QueueLikeSong = Track & { status?: string };
+
+const normalize = (value: string) => value.toLowerCase().trim();
+
+const rankSuggestions = (query: string, rawSuggestions: string[]) => {
+  const q = normalize(query);
+  const unique = Array.from(new Set(rawSuggestions.map((item) => item.trim()).filter(Boolean)));
+
+  return unique
+    .map((text) => {
+      const n = normalize(text);
+      return {
+        text,
+        starts: n.startsWith(q),
+        idx: n.indexOf(q),
+        len: n.length,
+      };
+    })
+    .sort((a, b) => {
+      if (a.starts !== b.starts) return a.starts ? -1 : 1;
+      if (a.idx !== b.idx) return a.idx - b.idx;
+      return a.len - b.len;
+    })
+    .map((item) => item.text);
+};
+
 export function useParticipant(roomId: string) {
-  const [query, setQuery] = useState('');
+  const [query, setQueryValue] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [requestMarker, setRequestMarker] = useState('');
+  const [responseMarker, setResponseMarker] = useState('');
   const [submitting, setSubmitting] = useState<string | null>(null);
   const [nowPlaying, setNowPlaying] = useState<Track | null>(null);
-  const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [statusMsg, setStatusMsg] = useState<StatusMessage>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
 
   const [isConfirmed, setIsConfirmed] = useState(false);
@@ -22,154 +83,209 @@ export function useParticipant(roomId: string) {
       }, 4000);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [statusMsg]);
 
   const debouncedQuery = useDebounce(query, 300);
+  const debouncedSuggestionQuery = useDebounce(query, 120);
 
-  // Clear confirmation when query is cleared
+  const latestQueryRef = useRef('');
+  const suggestionRequestIdRef = useRef(0);
+  const searchRequestIdRef = useRef(0);
+
   useEffect(() => {
-    if (!query) setIsConfirmed(false);
+    latestQueryRef.current = query;
   }, [query]);
+
+  const setQuery = useCallback((nextQuery: string) => {
+    setQueryValue(nextQuery);
+
+    if (isConfirmed) {
+      setIsConfirmed(false);
+    }
+
+    const trimmed = nextQuery.trim();
+    if (trimmed.length < 2) {
+      setSuggestions([]);
+    }
+
+    if (trimmed.length === 0) {
+      setResults([]);
+      setRequestMarker('');
+      setResponseMarker('');
+    } else {
+      setRequestMarker(trimmed);
+    }
+  }, [isConfirmed]);
 
   // Suggestions Effect
   useEffect(() => {
-    const trimmed = query.trim();
+    const trimmed = debouncedSuggestionQuery.trim();
     if (trimmed.length < 2 || isConfirmed) {
-      setSuggestions([]);
       return;
     }
 
-    socket.emit('get_search_suggestions', { query: trimmed }, (res: any) => {
-      // Prevents suggestions from re-appearing if the user already clicked one
-      // or if they've cleared the query while this was in flight.
-      if (res.success && !isConfirmed) {
-        setSuggestions(res.suggestions);
+    const requestId = ++suggestionRequestIdRef.current;
+    const requestedQuery = trimmed.toLowerCase();
+
+    socket.emit('get_search_suggestions', { query: trimmed }, (res: SuggestionsResponse) => {
+      const latestQuery = latestQueryRef.current.trim().toLowerCase();
+      const isLatestRequest = requestId === suggestionRequestIdRef.current;
+      const isForCurrentQuery = requestedQuery === latestQuery;
+
+      if (res.success && isLatestRequest && isForCurrentQuery && !isConfirmed) {
+        const ranked = rankSuggestions(trimmed, res.suggestions ?? []);
+        setSuggestions(ranked.slice(0, 8));
       }
     });
-  }, [query, isConfirmed]);
+  }, [debouncedSuggestionQuery, isConfirmed]);
 
   useEffect(() => {
     if (!roomId) return;
-    
+
     socket.connect();
-    
+
     // Initial fetch
-    socket.emit('get_now_playing', { roomId }, (res: any) => {
-      if (res.nowPlaying) setNowPlaying(res.nowPlaying);
+    socket.emit('get_now_playing', { roomId }, (res: NowPlayingResponse) => {
+      if (res.nowPlaying) {
+        setNowPlaying(res.nowPlaying);
+        setIsPlaying(true);
+      }
     });
 
-    socket.on('now_playing_updated', (track: Track) => {
+    const handleNowPlayingUpdated = (track: Track) => {
       setNowPlaying(track);
-    });
+      setIsPlaying(true);
+    };
 
-    socket.on('queue_updated', (newQueue: any[]) => {
+    const handleQueueUpdated = (newQueue: QueueLikeSong[]) => {
       // Filter for only approved songs for the public view
-      setQueue(newQueue.filter(s => s.status === 'approved') as Track[]);
-    });
+      setQueue(newQueue.filter((song) => song.status === 'approved') as Track[]);
+    };
+
+    const handlePlaybackUpdated = (state: { isPlaying: boolean }) => {
+      setIsPlaying(state.isPlaying);
+    };
+
+    socket.on('now_playing_updated', handleNowPlayingUpdated);
+    socket.on('queue_updated', handleQueueUpdated);
+    socket.on('playback_updated', handlePlaybackUpdated);
 
     return () => {
-      socket.off('now_playing_updated');
-      socket.off('queue_updated');
+      socket.off('now_playing_updated', handleNowPlayingUpdated);
+      socket.off('queue_updated', handleQueueUpdated);
+      socket.off('playback_updated', handlePlaybackUpdated);
     };
   }, [roomId]);
 
-  const joinRoom = (passkey: string, callback?: (success: boolean, error?: string) => void) => {
-    setStatusMsg(null); // Clear previous errors
-    socket.emit('join_room', { roomId, role: 'participant', passkey }, (res: any) => {
+  const joinRoom = (passkey: string, callback?: (success: boolean, error?: string) => void, silent = false) => {
+    if (!silent) setStatusMsg(null);
+    socket.emit('join_room', { roomId, role: 'participant', passkey }, (res: JoinRoomResponse) => {
       if (res?.success) {
-        setStatusMsg({ type: 'success', text: "Access granted! Welcome to the room." });
-        if (callback) callback(true);
+        if (!silent) setStatusMsg({ type: 'success', text: 'Access granted! Welcome to the room.' });
+        callback?.(true);
       } else {
-        setStatusMsg({ type: 'error', text: res?.message || res?.error || "Failed to join" });
-        if (callback) callback(false, res?.message || res?.error || "Failed to join");
+        const errorText = res?.message || res?.error || 'Failed to join';
+        if (!silent) setStatusMsg({ type: 'error', text: errorText });
+        callback?.(false, errorText);
       }
     });
   };
 
-
-
   // Live Search Effect
   useEffect(() => {
-    let isCancelled = false;
-
     const trimmed = debouncedQuery.trim();
     if (trimmed.length < 1) {
-      if (trimmed.length === 0) setResults([]);
-      setLoading(false);
       return;
     }
 
-    setLoading(true);
-    
-    // Track this specific request
-    const currentSearch = trimmed;
+    const requestId = ++searchRequestIdRef.current;
+    const currentSearch = trimmed.toLowerCase();
 
-    socket.emit('search_songs', { query: currentSearch }, (res: any) => {
-      // ONLY update if this request wasn't cancelled by a newer one
-      if (!isCancelled) {
-        setLoading(false);
+    socket.emit('search_songs', { query: trimmed }, (res: SearchSongsResponse) => {
+      const latestQuery = latestQueryRef.current.trim().toLowerCase();
+      const isLatestRequest = requestId === searchRequestIdRef.current;
+      const isForCurrentQuery = currentSearch === latestQuery;
+
+      if (isLatestRequest && isForCurrentQuery) {
+        setResponseMarker(trimmed);
         if (res.success) {
-          setResults(res.results);
+          setResults(res.results ?? []);
           setStatusMsg(null);
         }
       }
     });
-
-    // Cleanup function cancels the previous request when debouncedQuery changes
-    return () => {
-      isCancelled = true;
-    };
   }, [debouncedQuery]);
 
   const handleSelect = (song: SearchResult) => {
     const originalQuery = query;
     const originalResults = results;
-    
-    setSubmitting(song.youtubeId);
-    setStatusMsg({ type: 'success', text: "Submitting request..." });
 
-    socket.emit('submit_song', {
-      roomId,
-      youtubeId: song.youtubeId,
-      title: song.title,
-      author: song.author,
-      userId: getUserId()
-    }, (res: any) => {
-      setSubmitting(null);
-      if (res.success) {
-        setStatusMsg({ type: 'success', text: "Song added to queue!" });
-      } else {
-        setResults(originalResults);
-        setQuery(originalQuery);
-        setStatusMsg({ type: 'error', text: res.error });
-      }
-    });
+    setSubmitting(song.youtubeId);
+    setStatusMsg({ type: 'success', text: 'Submitting request...' });
+
+    socket.emit(
+      'submit_song',
+      {
+        roomId,
+        youtubeId: song.youtubeId,
+        title: song.title,
+        author: song.author,
+        userId: getUserId(),
+      },
+      (res: SubmitSongResponse) => {
+        setSubmitting(null);
+        if (res.success) {
+          setStatusMsg({ type: 'success', text: 'Song added to queue!' });
+        } else {
+          setResults(originalResults);
+          setQuery(originalQuery);
+          setStatusMsg({ type: 'error', text: res.error ?? 'Unable to submit song' });
+        }
+      },
+    );
   };
+
+  const clearStatusMsg = useCallback(() => {
+    setStatusMsg(null);
+  }, []);
+
+  const resolveRoomByKey = useCallback(
+    (passkey: string, callback: (success: boolean, resolvedRoomId?: string, error?: string) => void) => {
+      setStatusMsg(null);
+      socket.emit('join_by_passkey', { passkey }, (res: JoinByPasskeyResponse) => {
+        if (res.success) {
+          setStatusMsg({ type: 'success', text: 'Room found! Redirecting...' });
+          callback(true, res.roomId);
+        } else {
+          callback(false, undefined, res.error);
+        }
+      });
+    },
+    [],
+  );
+
+  const visibleResults = query.trim().length === 0 ? [] : results;
+  const visibleSuggestions = query.trim().length < 2 || isConfirmed ? [] : suggestions;
+
+  const loading = query.trim().length > 0 && requestMarker !== responseMarker;
 
   return {
     query,
     setQuery,
     isConfirmed,
     setIsConfirmed,
-    results,
+    results: visibleResults,
     loading,
     submitting,
     nowPlaying,
+    isPlaying,
     queue,
     statusMsg,
-    suggestions,
+    suggestions: visibleSuggestions,
     handleSelect,
     joinRoom,
-    clearStatusMsg: () => setStatusMsg(null),
-    resolveRoomByKey: (passkey: string, callback: (success: boolean, roomId?: string, error?: string) => void) => {
-      setStatusMsg(null);
-      socket.emit('join_by_passkey', { passkey }, (res: any) => {
-        if (res.success) {
-          setStatusMsg({ type: 'success', text: "Room found! Redirecting..." });
-          callback(true, res.roomId);
-        }
-        else callback(false, undefined, res.error);
-      });
-    }
+    clearStatusMsg,
+    resolveRoomByKey,
   };
 }

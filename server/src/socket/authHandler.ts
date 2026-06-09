@@ -113,6 +113,20 @@ export function handleAuthEvents(io: Server, socket: Socket) {
     }
   });
 
+  // Logout — invalidate session server-side
+  socket.on("admin_logout", async (data: { token: string }, callback) => {
+    const { token } = data;
+    if (!token) return callback?.({ success: false });
+    try {
+      await redisCache.client.del(`admin_session:${token}`);
+      console.log("[AUTH] Session invalidated");
+      if (callback) callback({ success: true });
+    } catch (err) {
+      console.error("[AUTH] Logout error:", err);
+      if (callback) callback({ success: false });
+    }
+  });
+
   // Get pending admins (Super Admin only)
   socket.on("get_pending_admins", async (data: { adminToken: string }, callback) => {
     const { adminToken } = data;

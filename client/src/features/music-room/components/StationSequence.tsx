@@ -26,7 +26,7 @@ export const StationSequence: React.FC<StationSequenceProps> = ({
         </div>
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
-          <span className="text-xs font-bold text-black/20 uppercase tracking-widest">
+          <span className="text-xs font-bold text-black/45 uppercase tracking-widest">
             Live
           </span>
         </div>
@@ -34,9 +34,9 @@ export const StationSequence: React.FC<StationSequenceProps> = ({
 
       <div className="flex-1 overflow-y-auto space-y-10 pr-4 no-scrollbar">
         {queue.length === 0 && (
-          <div className="h-48 flex flex-col items-center justify-center border-2 border-dashed border-black/5 px-8 text-center">
-            <Headphones className="text-black/5 mb-4" size={32} />
-            <span className="text-xs font-bold text-black/20 uppercase tracking-widest leading-relaxed">
+          <div className="h-48 flex flex-col items-center justify-center border-2 border-dashed border-black/15 px-8 text-center">
+            <Headphones className="text-black/30 mb-4" size={32} />
+            <span className="text-xs font-bold text-black/55 uppercase tracking-widest leading-relaxed">
               Queue is empty
               <br />
               Add some songs!
@@ -47,7 +47,7 @@ export const StationSequence: React.FC<StationSequenceProps> = ({
         {queue.map((track, index) => (
           <div key={track.id} className="group relative">
             <div className="flex items-center gap-6">
-              <span className="text-[10px] font-bold text-black/10 uppercase font-poppins shrink-0">
+              <span className="text-[10px] font-bold text-black/30 uppercase font-poppins shrink-0">
                 {(index + 1).toString().padStart(2, "0")}
               </span>
               <div className="relative w-16 h-16 shrink-0 bg-black/5 overflow-hidden rounded-sm">

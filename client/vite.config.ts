@@ -6,6 +6,16 @@ import path from "path"
 
 // https://vite.dev/config/
 export default defineConfig({
+  server: {
+    host: "0.0.0.0",
+    allowedHosts: true,
+    proxy: {
+      "/socket.io": {
+        target: "http://localhost:3001",
+        ws: true
+      }
+    }
+  },
   plugins: [
     tailwindcss(),
     react()

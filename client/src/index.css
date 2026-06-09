@@ -94,3 +94,69 @@
     display: none; /* Chrome, Safari and Opera */
   }
 }
+
+/* ===== Mobile Responsive Utilities ===== */
+
+/* Mobile: leave room for fixed bottom nav */
+.mobile-content-area {
+  padding-bottom: 5rem;
+}
+
+@media (min-width: 1024px) {
+  .mobile-content-area {
+    padding-bottom: 0;
+  }
+}
+
+/* Mobile responsive breakpoints */
+@media (max-width: 639px) {
+  html {
+    font-size: 15px;
+  }
+
+  .hide-mobile {
+    display: none !important;
+  }
+
+  .show-mobile {
+    display: flex !important;
+  }
+
+  /* Make cards stack full-width on mobile */
+  .mobile-stack {
+    @apply flex-col;
+  }
+
+  .mobile-full {
+    @apply w-full;
+  }
+
+  /* Reduce huge padding/margins */
+  .mobile-compact {
+    @apply px-4 py-6;
+  }
+
+  /* Overscroll behavior for horizontal scroll areas */
+  .mobile-scroll-x {
+    @apply overflow-x-auto snap-x snap-mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Tablet adjustments */
+@media (min-width: 640px) and (max-width: 1023px) {
+  .hide-tablet {
+    display: none !important;
+  }
+
+  .show-tablet {
+    display: flex !important;
+  }
+}
+
+/* Desktop: hide mobile-only elements */
+@media (min-width: 1024px) {
+  .hide-desktop {
+    display: none !important;
+  }
+}

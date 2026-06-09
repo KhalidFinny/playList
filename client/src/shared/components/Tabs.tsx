@@ -21,7 +21,7 @@ export function Tabs({
   activeColor = "#F57923",
 }: TabsProps) {
   return (
-    <nav className={`flex items-center gap-12 ${className}`}>
+    <nav className={`flex items-center gap-6 sm:gap-12 overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth ${className}`}>
       {tabs.map((tab) => {
         const isActive = activeTab === tab.id;
 

@@ -6,8 +6,6 @@ import { Home, CheckCircle2, AlertCircle } from "lucide-react";
 // Shared Components
 import { Badge } from "@/shared/components/badge";
 import { SecretDoor } from "@/shared/components/SecretDoor";
-import { TransitionOverlay } from "@/shared/components/TransitionOverlay";
-import { MusicRoomView } from "../features/shared/components/MusicRoomView";
 
 // Feature Components
 import { JoinFlow } from "../features/participant/components/JoinFlow";
@@ -23,7 +21,6 @@ export function ParticipantPage() {
     passkey,
     handlePasskeyChange,
     isJoined,
-    isRevealing,
     isResolving,
     query,
     setQuery,
@@ -33,14 +30,11 @@ export function ParticipantPage() {
     loading,
     submitting,
     nowPlaying,
-    queue,
     statusMsg,
     suggestions,
     handleSelect,
     handleKeySubmit,
     vibes,
-    activeTab,
-    setActiveTab,
   } = useParticipantPage();
 
   // SEO
@@ -72,22 +66,6 @@ export function ParticipantPage() {
             </span>
           </div>
 
-          {isJoined && (
-            <div className="hidden lg:flex items-center gap-6 ml-8">
-              <button
-                onClick={() => setActiveTab("request")}
-                className={`text-[12px] font-bold uppercase tracking-[0.3em] transition-all ${activeTab === "request" ? "text-orange-500" : "text-black/20 hover:text-black"}`}
-              >
-                Request
-              </button>
-              <button
-                onClick={() => setActiveTab("music")}
-                className={`text-[12px] font-bold uppercase tracking-[0.3em] transition-all ${activeTab === "music" ? "text-orange-500" : "text-black/20 hover:text-black"}`}
-              >
-                Music Room
-              </button>
-            </div>
-          )}
         </div>
 
         <div className="flex items-center gap-4">
@@ -118,23 +96,6 @@ export function ParticipantPage() {
             onSubmit={handleKeySubmit}
             isResolving={isResolving}
           />
-        ) : activeTab === "music" ? (
-          <motion.div
-            key="music-room"
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.02 }}
-            className="relative z-20 pt-32 px-6 w-full"
-          >
-            <MusicRoomView
-              roomId={roomId}
-              nowPlaying={nowPlaying}
-              queue={queue}
-              isPlaying={!!nowPlaying}
-              progress={0}
-              role="participant"
-            />
-          </motion.div>
         ) : (
           <RequestFlow
             query={query}
@@ -154,48 +115,36 @@ export function ParticipantPage() {
       <NowPlayingBar
         nowPlaying={nowPlaying}
         roomId={roomId}
-        isVisible={isJoined && !!nowPlaying && activeTab === "request"}
+        isVisible={isJoined && !!nowPlaying}
       />
 
       <AnimatePresence>
         {statusMsg && (
           <motion.div
-            initial={{ opacity: 0, y: -50, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9, y: -20 }}
-            className="fixed top-28 left-0 right-0 flex justify-center pointer-events-none z-100"
+            initial={{ opacity: 0, y: -16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="fixed top-24 left-0 right-0 flex justify-center pointer-events-none z-100"
           >
-            <div
-              className={`pointer-events-auto flex items-center gap-6 px-8 py-6 rounded-[32px] border transition-all duration-500 min-w-[400px] ${
-                statusMsg?.type === "success"
-                  ? "bg-white border-green-500/20"
-                  : "bg-white border-red-500/20"
-              }`}
-            >
+            <div className="pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-2xl bg-white border border-black/10 shadow-lg shadow-black/5">
               <div
-                className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
+                className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
                   statusMsg?.type === "success"
-                    ? "bg-green-500 text-white"
+                    ? "bg-orange-500 text-white"
                     : "bg-red-500 text-white"
                 }`}
               >
                 {statusMsg?.type === "success" ? (
-                  <CheckCircle2 size={24} />
+                  <CheckCircle2 size={16} />
                 ) : (
-                  <AlertCircle size={24} />
+                  <AlertCircle size={16} />
                 )}
               </div>
-              <div className="flex-1">
-                <p
-                  className={`text-xs font-bold uppercase tracking-[0.2em] mb-1 ${
-                    statusMsg?.type === "success"
-                      ? "text-green-500"
-                      : "text-red-500"
-                  }`}
-                >
-                  {statusMsg?.type === "success" ? "Confirmed" : "Attention"}
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-black/30 mb-0.5">
+                  {statusMsg?.type === "success" ? "Confirmed" : "Error"}
                 </p>
-                <p className="text-base font-bold text-black/80 leading-tight tracking-tight">
+                <p className="text-sm font-bold text-black/80 leading-tight tracking-tight truncate max-w-[320px]">
                   {statusMsg?.text}
                 </p>
               </div>
@@ -204,35 +153,7 @@ export function ParticipantPage() {
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {isJoined && activeTab === "music" && !nowPlaying && (
-          <motion.section
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-30 bg-[#fdfdfc] flex flex-col items-center justify-center p-12 text-center"
-          >
-            <div className="max-w-xl space-y-12">
-              <div className="space-y-6">
-                <h2 className="text-8xl font-bebas tracking-tighter text-black leading-none uppercase">
-                  No music playing
-                </h2>
-                <p className="text-black/40 text-sm font-bold uppercase tracking-widest italic">
-                  Waiting for the admin to play a song
-                </p>
-              </div>
-              <button
-                onClick={() => setActiveTab("request")}
-                className="px-12 h-16 bg-black text-white rounded-3xl text-xs font-bold uppercase tracking-widest hover:bg-orange-500 transition-all active:scale-95 flex items-center gap-2"
-              >
-                Add a song
-              </button>
-            </div>
-          </motion.section>
-        )}
-      </AnimatePresence>
 
-      <TransitionOverlay isVisible={isRevealing} />
     </div>
   );
 }

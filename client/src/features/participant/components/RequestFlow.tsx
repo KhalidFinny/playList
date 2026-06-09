@@ -81,8 +81,6 @@ export function RequestFlow({
                       onClick={() => {
                         setQuery(suggestion);
                         setIsConfirmed(true);
-                        // Force clear suggestions to avoid re-appearing race conditions
-                        suggestions.length = 0; 
                       }}
                       className="w-full text-left px-8 py-4 hover:bg-black/5 transition-colors flex items-center gap-4 group"
                     >
@@ -145,7 +143,6 @@ export function RequestFlow({
                         isSubmitting={submitting === song.youtubeId}
                         onSelect={(s) => {
                           onSelect(s);
-                          setQuery('');
                         }}
                       />
                     ))

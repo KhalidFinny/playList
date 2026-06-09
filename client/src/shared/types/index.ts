@@ -24,3 +24,20 @@ export interface SearchResult {
   duration: string;
   author: string;
 }
+
+export interface AdminUser {
+  id: string;
+  username: string;
+  email: string;
+  role: string;
+}
+
+export interface PendingAdmin extends AdminUser {
+  createdAt: string;
+}
+
+export interface Station {
+  id: string;
+  passkey: string;
+  createdAt: string;
+}

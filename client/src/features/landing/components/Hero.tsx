@@ -86,37 +86,81 @@ export const Hero: React.FC = () => {
         className="absolute inset-0 z-1 pointer-events-none bg-black/10"
       />
 
-      <div className="absolute inset-0 p-10 md:p-16 flex flex-col justify-between pointer-events-none z-30">
+      {/* Corner metadata — compact on mobile */}
+      <div className="absolute inset-0 p-6 sm:p-10 md:p-16 flex flex-col justify-between pointer-events-none z-30">
         <div className="flex justify-between items-start">
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="text-white/90 text-[14px] md:text-[18px] tracking-normal font-syne leading-relaxed"
+            className="text-white/90 text-[10px] sm:text-[14px] md:text-[18px] tracking-normal font-syne leading-relaxed"
           >
             SHARE YOUR MUSIC
-            <div className="w-10 h-[2px] bg-orange-500 mt-5 shadow-[0_0_20px_rgba(249,115,22,1)]"></div>
+            <div className="w-6 sm:w-10 h-[2px] bg-orange-500 mt-3 sm:mt-5 shadow-[0_0_20px_rgba(249,115,22,1)]"></div>
           </motion.div>
           <div /> 
         </div>
 
         <div className="flex justify-between items-end">
-          <motion.div className="text-white/90 text-[14px] md:text-[18px] tracking-normal font-syne">
-            <div className="w-10 h-[2px] bg-orange-500 mb-5 shadow-[0_0_10px_rgba(249,115,22,0.5)]"></div>
+          <motion.div className="text-white/90 text-[10px] sm:text-[14px] md:text-[18px] tracking-normal font-syne">
+            <div className="w-6 sm:w-10 h-[2px] bg-orange-500 mb-3 sm:mb-5 shadow-[0_0_10px_rgba(249,115,22,0.5)]"></div>
             LIVE STREAMING
           </motion.div>
-          <div className="text-white/5 text-2xl md:text-4xl font-light font-syne">÷</div>
+          <div className="text-white/5 text-lg sm:text-2xl md:text-4xl font-light font-syne">÷</div>
         </div>
       </div>
 
-      <div className="relative z-20 w-full h-full flex items-center justify-center">
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center w-full max-w-[100vw] gap-8 md:gap-16 px-4 md:px-0">
-          
+      <div className="relative z-20 w-full h-full flex items-center justify-center px-4 sm:px-8 md:px-0">
+        {/* Mobile: vertical stack (PLAY above, circle, LIST below) */}
+        <div className="flex sm:hidden flex-col items-center justify-center gap-6 w-full">
+          <motion.h1 
+            initial={{ opacity: 0, y: -30 }}
+            animate={{ opacity: 1, y: 0 }}
+            onClick={handleVinylClick}
+            className="text-[28vw] leading-none text-white tracking-widest select-none cursor-pointer drop-shadow-2xl text-center font-bebas transition-all hover:text-orange-500"
+          >
+            PLAY
+          </motion.h1>
+
+          <div className="relative flex items-center justify-center z-40 my-2">
+            <motion.div 
+               animate={{ scale: [1, 1.05, 1], opacity: [0.02, 0.05, 0.02] }}
+               transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
+               className="absolute w-[180px] h-[180px] sm:w-[250px] sm:h-[250px] rounded-full bg-white/5 blur-[80px]"
+            />
+            <motion.div 
+               whileHover={{ scale: 1.05 }}
+               whileTap={{ scale: 0.96 }}
+               onClick={handleVinylClick}
+               className="relative cursor-pointer w-20 h-20 sm:w-24 sm:h-24 bg-linear-to-br from-orange-300 via-orange-400 to-orange-500 rounded-full flex items-center justify-center shadow-[0_20px_60px_rgba(0,0,0,0.8)] border border-white/5 transition-all duration-500 will-change-transform overflow-hidden group"
+            >
+                <div className="relative w-1/2 h-1/2 ml-[8%] flex items-center justify-center z-10">
+                   <img 
+                      src={logo} 
+                      alt="Logo" 
+                      className="relative w-full h-full brightness-[1.1]" 
+                   />
+                </div>
+            </motion.div>
+          </div>
+
+          <motion.h1 
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            onClick={handleVinylClick}
+            className="text-[28vw] leading-none text-white tracking-widest select-none cursor-pointer drop-shadow-2xl text-center font-bebas transition-all hover:text-orange-500"
+          >
+            LIST
+          </motion.h1>
+        </div>
+
+        {/* Desktop/tablet: horizontal layout (PLAY — ● — LIST) */}
+        <div className="hidden sm:grid grid-cols-[1fr_auto_1fr] items-center w-full max-w-[100vw] gap-8 md:gap-16">
           <div className="flex justify-end overflow-visible">
             <motion.h1 
               initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
               onClick={handleVinylClick}
-              className="text-[22vw] md:text-[18vw] leading-none text-white tracking-widest select-none cursor-pointer drop-shadow-2xl text-right font-bebas transition-all hover:text-orange-500"
+              className="text-[18vw] leading-none text-white tracking-widest select-none cursor-pointer drop-shadow-2xl text-right font-bebas transition-all hover:text-orange-500"
             >
               PLAY
             </motion.h1>
@@ -133,7 +177,7 @@ export const Hero: React.FC = () => {
                  whileHover={{ scale: 1.05 }}
                  whileTap={{ scale: 0.96 }}
                  onClick={handleVinylClick}
-                 className="relative cursor-pointer w-24 h-24 md:w-56 md:h-56 bg-linear-to-br from-orange-300 via-orange-400 to-orange-500 rounded-full flex items-center justify-center shadow-[0_20px_60px_rgba(0,0,0,0.8)] border border-white/5 transition-all duration-500 will-change-transform overflow-hidden group"
+                 className="relative cursor-pointer w-28 h-28 md:w-56 md:h-56 bg-linear-to-br from-orange-300 via-orange-400 to-orange-500 rounded-full flex items-center justify-center shadow-[0_20px_60px_rgba(0,0,0,0.8)] border border-white/5 transition-all duration-500 will-change-transform overflow-hidden group"
               >
                   <div className="relative w-1/2 h-1/2 ml-[8%] flex items-center justify-center z-10">
                      <img 
@@ -150,12 +194,11 @@ export const Hero: React.FC = () => {
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
               onClick={handleVinylClick}
-              className="text-[22vw] md:text-[18vw] leading-none text-white tracking-widest select-none cursor-pointer drop-shadow-2xl text-left font-bebas transition-all hover:text-orange-500 ml-12 md:ml-24"
+              className="text-[18vw] leading-none text-white tracking-widest select-none cursor-pointer drop-shadow-2xl text-left font-bebas transition-all hover:text-orange-500 ml-12 md:ml-24"
             >
               LIST
             </motion.h1>
           </div>
-
         </div>
       </div>
     </section>

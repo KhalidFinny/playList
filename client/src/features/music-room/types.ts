@@ -7,4 +7,6 @@ export interface StationSequenceProps {
 
 export interface TrackMetadataProps {
     track: Track | null;
+    currentTime?: number;
+    duration?: number;
 }

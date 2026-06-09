@@ -22,14 +22,19 @@ export function handleEOEvents(io: Server, socket: Socket) {
         return;
       }
 
-      // Mark the currently playing one as 'done'
-      const currentlyPlaying = roomManager.getNowPlaying(roomId);
-      if (currentlyPlaying) {
-        console.log(`Marking song ${currentlyPlaying.id} as done.`);
+      // Mark any currently playing songs as 'done' to prevent stale playback state
+      const playingRows = await sql`
+        SELECT id
+        FROM songs
+        WHERE room_id = ${roomId} AND status = 'playing'
+      `;
+      if (playingRows.length > 0) {
+        const playingIds = playingRows.map((row: any) => row.id);
+        console.log(`Marking ${playingIds.length} playing song(s) as done.`);
         await sql`
-          UPDATE songs 
-          SET status = 'done' 
-          WHERE id = ${currentlyPlaying.id}
+          UPDATE songs
+          SET status = 'done'
+          WHERE room_id = ${roomId} AND status = 'playing'
         `;
         roomManager.setNowPlaying(roomId, null);
       }
@@ -45,6 +50,20 @@ export function handleEOEvents(io: Server, socket: Socket) {
 
       if (nextSongs.length === 0) {
         console.log(`No approved songs found for room ${roomId}.`);
+
+        const queueRows = await sql`
+          SELECT id, youtube_id as "youtubeId", title, author, status, submitted_by as "submittedBy", created_at as "createdAt"
+          FROM songs
+          WHERE room_id = ${roomId} AND status IN ('pending', 'approved')
+          ORDER BY approved_at ASC NULLS LAST, created_at ASC
+        `;
+        const updatedQueue = [...queueRows];
+        roomManager.setQueue(roomId, updatedQueue);
+
+        io.to(`${roomId}:admin`).emit("queue_updated", updatedQueue);
+        io.to(`${roomId}:participant`).emit("queue_updated", updatedQueue.filter(q => q.status === 'approved'));
+        io.to(`${roomId}:eo`).emit("queue_updated", updatedQueue.filter(q => q.status === 'approved'));
+
         io.to(roomId).emit("now_playing_updated", null); 
         if (callback) callback({ success: true, message: "Queue is empty", nextTrack: null });
         return;
@@ -81,7 +100,21 @@ export function handleEOEvents(io: Server, socket: Socket) {
       `;
       const upNext = upcoming[0] || null;
 
-      // 6. Broadcast to room what is now playing
+      // 6. Refresh queue cache/broadcast after status transitions
+      const queueRows = await sql`
+        SELECT id, youtube_id as "youtubeId", title, author, status, submitted_by as "submittedBy", created_at as "createdAt"
+        FROM songs
+        WHERE room_id = ${roomId} AND status IN ('pending', 'approved')
+        ORDER BY approved_at ASC NULLS LAST, created_at ASC
+      `;
+      const updatedQueue = [...queueRows];
+      roomManager.setQueue(roomId, updatedQueue);
+
+      io.to(`${roomId}:admin`).emit("queue_updated", updatedQueue);
+      io.to(`${roomId}:participant`).emit("queue_updated", updatedQueue.filter(q => q.status === 'approved'));
+      io.to(`${roomId}:eo`).emit("queue_updated", updatedQueue.filter(q => q.status === 'approved'));
+
+      // Broadcast to room what is now playing
       io.to(roomId).emit("now_playing_updated", nextTrack);
 
       // Return both for EO
@@ -91,6 +124,14 @@ export function handleEOEvents(io: Server, socket: Socket) {
       console.error(err);
       if (callback) callback({ success: false, error: "Database error" });
     }
+  });
+
+  // Admin syncs playback progress to all participants
+  socket.on("sync_playback", (data: { roomId: string; currentTime: number; duration: number; isPlaying: boolean }) => {
+    const { roomId, currentTime, duration, isPlaying } = data;
+    if (!roomId) return;
+    // Broadcast to everyone in the room (including sender for consistency)
+    io.to(roomId).emit("playback_sync", { currentTime, duration, isPlaying });
   });
 
   // EO toggles playback (Play/Pause)

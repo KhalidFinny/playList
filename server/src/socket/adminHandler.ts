@@ -30,22 +30,25 @@ export function handleAdminEvents(io: Server, socket: Socket) {
 
       const updatedSong = result[0];
 
-      // 2. Sync with Memory Cache (roomManager)
-      const currentQueue = roomManager.getQueue(roomId) || [];
-      const updatedQueue = currentQueue.map(s => s.id === songId ? updatedSong : s);
+      // 2. Reload canonical queue from DB and sync memory cache
+      const queueRows = await sql`
+        SELECT id, youtube_id as "youtubeId", title, author, status, submitted_by as "submittedBy", created_at as "createdAt"
+        FROM songs
+        WHERE room_id = ${roomId} AND status IN ('pending', 'approved')
+        ORDER BY approved_at ASC NULLS LAST, created_at ASC
+      `;
+      const updatedQueue = [...queueRows];
       roomManager.setQueue(roomId, updatedQueue);
 
       // 3. Broadcast targeted updates
-      // Full queue for admins (so they see pending/approved)
-      io.to(`${roomId}:admin`).emit("queue_updated", updatedQueue); 
-      
-      // Filtered queue for participants and the Music Player (EO)
+      io.to(`${roomId}:admin`).emit("queue_updated", updatedQueue);
+
       const approvedOnly = updatedQueue.filter(q => q.status === 'approved');
       io.to(`${roomId}:participant`).emit("queue_updated", approvedOnly);
       io.to(`${roomId}:eo`).emit("queue_updated", approvedOnly);
-      
+
       // Also notify admins specifically to clear their pending item
-      io.to(`${roomId}:admin`).emit("song_approved", updatedSong); 
+      io.to(`${roomId}:admin`).emit("song_approved", updatedSong);
 
       if (callback) callback({ success: true, message: "Song approved" });
     } catch (err) {
@@ -71,8 +74,22 @@ export function handleAdminEvents(io: Server, socket: Socket) {
       `;
 
       if (result.length > 0) {
-        // Emit deletion event to admins so that they can remove it from their UI locally
+        // Reload canonical queue and broadcast to all roles
+        const queueRows = await sql`
+          SELECT id, youtube_id as "youtubeId", title, author, status, submitted_by as "submittedBy", created_at as "createdAt"
+          FROM songs
+          WHERE room_id = ${roomId} AND status IN ('pending', 'approved')
+          ORDER BY approved_at ASC NULLS LAST, created_at ASC
+        `;
+        const updatedQueue = [...queueRows];
+        roomManager.setQueue(roomId, updatedQueue);
+
         io.to(`${roomId}:admin`).emit("song_deleted", { songId });
+        io.to(`${roomId}:admin`).emit("queue_updated", updatedQueue);
+
+        const approvedOnly = updatedQueue.filter(q => q.status === 'approved');
+        io.to(`${roomId}:participant`).emit("queue_updated", approvedOnly);
+        io.to(`${roomId}:eo`).emit("queue_updated", approvedOnly);
       }
 
       if (callback) callback({ success: true, message: "Song deleted" });

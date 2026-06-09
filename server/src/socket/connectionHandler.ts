@@ -120,38 +120,50 @@ export function handleConnection(io: Server, socket: Socket) {
     // Optional scoping by role: we can also join a role-specific room for easy admin broadcasting
     socket.join(`${roomId}:${role}`);
 
-    // 3. Push initial state to all roles
-    const nowPlaying = roomManager.getNowPlaying(roomId);
+    // 3. Push initial state to all roles (always fresh from DB)
+    let nowPlaying = null;
+    try {
+      const nowPlayingRows = await sql`
+        SELECT id, youtube_id as "youtubeId", title, author
+        FROM songs
+        WHERE room_id = ${roomId} AND status = 'playing'
+        ORDER BY approved_at DESC NULLS LAST, created_at DESC
+        LIMIT 1
+      `;
+      nowPlaying = nowPlayingRows[0] || null;
+      roomManager.setNowPlaying(roomId, nowPlaying);
+    } catch (err) {
+      console.error("[DB ERROR] Failed to fetch nowPlaying:", err);
+      nowPlaying = roomManager.getNowPlaying(roomId);
+    }
+
     socket.emit("now_playing_updated", nowPlaying);
 
     // Push current playback state
     socket.emit("playback_updated", { isPlaying: roomManager.getIsPlaying(roomId) });
 
-    // Push queue (Priority: Memory Cache -> DB)
-    let queue: any[] | null = roomManager.getQueue(roomId);
-    
-    if (!queue) {
-      try {
-        console.log(`[QUEUE] Cache miss for ${roomId}, fetching from DB...`);
-        const rows = await sql`
-          SELECT id, youtube_id as "youtubeId", title, author, status, submitted_by as "submittedBy", created_at as "createdAt"
-          FROM songs 
-          WHERE room_id = ${roomId} AND status IN ('pending', 'approved')
-          ORDER BY approved_at ASC NULLS LAST, created_at ASC
-        `;
-        queue = [...rows];
-        roomManager.setQueue(roomId, queue);
-      } catch (err) {
-        console.error("[DB ERROR] Failed to fetch queue:", err);
-        queue = [];
-      }
+    // Push queue (always fresh from DB to prevent stale cache issues)
+    let queue: any[] = [];
+    try {
+      const rows = await sql`
+        SELECT id, youtube_id as "youtubeId", title, author, status, submitted_by as "submittedBy", created_at as "createdAt"
+        FROM songs 
+        WHERE room_id = ${roomId} AND status IN ('pending', 'approved')
+        ORDER BY approved_at ASC NULLS LAST, created_at ASC
+      `;
+      queue = [...rows];
+      roomManager.setQueue(roomId, queue);
+    } catch (err) {
+      console.error("[DB ERROR] Failed to fetch queue:", err);
+      queue = [];
+      roomManager.setQueue(roomId, []);
     }
 
     // Filter queue based on role
     if (role === "admin") {
-      socket.emit("queue_updated", queue || []);
+      socket.emit("queue_updated", queue);
     } else {
-      socket.emit("queue_updated", (queue || []).filter(q => q.status === 'approved'));
+      socket.emit("queue_updated", queue.filter(q => q.status === 'approved'));
     }
 
     console.log(`Socket ${socket.id} joined room ${roomId} as ${role}`);

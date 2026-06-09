@@ -18,10 +18,10 @@ export function useAdminDashboardPage() {
   };
 
   const tabs = [
-    { id: 'review', label: 'REVIEW QUEUE', icon: '' },
-    { id: 'music', label: 'MUSIC ROOM', icon: '' },
-    { id: 'search', label: 'FIND TRACKS', icon: '' },
-    { id: 'room', label: 'ACCESS CODE', icon: '' },
+    { id: 'review', label: 'REVIEW QUEUE' },
+    { id: 'music', label: 'MUSIC ROOM' },
+    { id: 'search', label: 'FIND TRACKS' },
+    { id: 'room', label: 'ACCESS CODE' },
   ];
 
   return {

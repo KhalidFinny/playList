@@ -7,8 +7,9 @@ export interface PlaybackControllerProps {
   roomId: string;
   nowPlaying: Track | null;
   upNext: Track | null;
+  fullQueue: Track[];
   activePlayer: 'A' | 'B';
-  onPlayerReady: (id: 'A' | 'B') => YouTubeProps['onReady'];
+  onPlayerReady: (id: 'A' | 'B') => NonNullable<YouTubeProps['onReady']>;
   onPlayerEnd: () => void;
   togglePlayback: (isPlaying: boolean) => void;
 }
@@ -24,6 +25,7 @@ export interface ModerationQueueProps {
   startEditing: (song: PendingSong) => void;
   handleSaveEdit: (id: string) => void;
   setEditingId: (id: string | null) => void;
+  onPreviewChange: (previewId: string | null) => void;
 }
 
 export interface DashboardHeaderProps {
