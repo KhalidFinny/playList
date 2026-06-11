@@ -3,9 +3,9 @@ import { spawn } from "bun";
 console.log("\n\x1b[36m%s\x1b[0m", "🎵 Starting PlayMusic Development Stack...");
 console.log("\x1b[2m%s\x1b[0m", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
-// Ensure Dependencies are running via Docker
-console.log("🐳 Starting database & cache via Docker Compose...");
-const docker = spawn(["docker", "compose", "up", "-d", "postgres", "redis"], {
+// Ensure cache is running via Docker Compose. Postgres uses existing `postgres` Docker container.
+console.log("🐳 Starting Redis via Docker Compose...");
+const docker = spawn(["docker", "compose", "up", "-d", "redis"], {
   stdout: "inherit",
   stderr: "inherit",
 });
@@ -31,8 +31,8 @@ process.on("SIGINT", async () => {
   server.kill();
   client.kill();
   
-  console.log("🐳 Stopping Docker containers...");
-  const dockerStop = spawn(["docker", "compose", "stop", "postgres", "redis"], {
+  console.log("🐳 Stopping Redis container...");
+  const dockerStop = spawn(["docker", "compose", "stop", "redis"], {
     stdout: "inherit",
     stderr: "inherit",
   });

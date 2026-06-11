@@ -38,12 +38,11 @@ services:
       - app_net
     ports:
       - "127.0.0.1:20004:3001"
-    # environment:
-    #   DATABASE_URL: postgresql://playmusic:password@postgres:5432/playmusic?sslmode=disable
-    #   REDIS_URL: redis://redis:6379
-    #   ADMIN_INVITE_CODE: PLAY-ADMIN-2026
     env_file:
       - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
     volumes:
       - ./server:/app
       - /app/node_modules
@@ -70,8 +69,10 @@ services:
 volumes:
   # postgres_data:
   redis_data:
+    name: playmusic_redis_data
+    external: true
 
 networks:
   app_net:
     name: iknoball_app_net
-    driver: bridge
+    external: true
