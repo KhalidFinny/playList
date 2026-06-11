@@ -1,7 +1,8 @@
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
+import { useMachine } from '@xstate/react';
 import YouTube from 'react-youtube';
 import { socket } from '@/shared/lib/socket';
-import { usePlayback } from '@/shared/hooks/usePlayback';
+import { playbackMachine } from '@/machines/playbackMachine';
 import { MusicRoomView } from '../../shared/components/MusicRoomView';
 import type { PlaybackControllerProps } from '../types';
 
@@ -27,9 +28,11 @@ export function PlaybackController({
   onGoToSearch,
   togglePlayback,
 }: PlaybackControllerProps) {
-  const { isPlaying, setIsPlaying, progress, setProgress } = usePlayback(nowPlaying);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const [playback, sendPlayback] = useMachine(playbackMachine);
+  const isPlaying = playback.matches('playing');
+  const currentTime = playback.context.currentTime;
+  const duration = playback.context.duration;
+  const progress = duration > 0 ? currentTime / duration : 0;
   const playerRefA = useRef<PlayerRef | null>(null);
   const playerRefB = useRef<PlayerRef | null>(null);
   const isPlayingRef = useRef(isPlaying);
@@ -39,6 +42,10 @@ export function PlaybackController({
   useEffect(() => {
     isPlayingRef.current = isPlaying;
   }, [isPlaying]);
+
+  useEffect(() => {
+    if (nowPlaying) sendPlayback({ type: 'TRACK_LOADED' });
+  }, [nowPlaying, sendPlayback]);
 
   const emitPlaybackSync = useCallback((ref: PlayerRef, isImmediate = false, forcedPlaying?: boolean) => {
     const ct = ref.getCurrentTime();
@@ -70,9 +77,7 @@ export function PlaybackController({
         const ct = ref.getCurrentTime();
         const dur = ref.getDuration();
         if (dur > 0) {
-          setCurrentTime(ct);
-          setDuration(dur);
-          setProgress(ct / dur);
+          sendPlayback({ type: 'SYNC_TICK', currentTime: ct, duration: dur, isPlaying: isPlayingRef.current });
           emitPlaybackSync(ref);
         }
       } catch {
@@ -81,43 +86,50 @@ export function PlaybackController({
     }, 1000);
 
     return () => clearInterval(syncInterval);
-  }, [roomId, activePlayer, setProgress, emitPlaybackSync]);
+  }, [roomId, activePlayer, emitPlaybackSync, sendPlayback]);
 
   const handleTogglePlay = useCallback(() => {
     const ref = activePlayer === 'A' ? playerRefA : playerRefB;
 
     if (isPlaying) {
-      setIsPlaying(false);
+      sendPlayback({ type: 'PAUSE' });
       togglePlayback(false);
       if (ref.current) {
         ref.current.pauseVideo();
         emitPlaybackSync(ref.current, true, false);
       }
     } else {
-      setIsPlaying(true);
+      sendPlayback({ type: 'PLAY' });
       togglePlayback(true);
       if (ref.current) {
         ref.current.playVideo();
         emitPlaybackSync(ref.current, true, true);
       }
     }
-  }, [isPlaying, activePlayer, setIsPlaying, togglePlayback, emitPlaybackSync]);
+  }, [isPlaying, activePlayer, sendPlayback, togglePlayback, emitPlaybackSync]);
 
   const handlePlayerPlay = useCallback((ref: React.MutableRefObject<PlayerRef | null>) => {
-    setIsPlaying(true);
+    sendPlayback({ type: 'PLAY' });
     togglePlayback(true);
     if (ref.current) {
       emitPlaybackSync(ref.current, true, true);
     }
-  }, [setIsPlaying, togglePlayback, emitPlaybackSync]);
+  }, [sendPlayback, togglePlayback, emitPlaybackSync]);
 
   const handlePlayerPause = useCallback((ref: React.MutableRefObject<PlayerRef | null>) => {
-    setIsPlaying(false);
+    sendPlayback({ type: 'PAUSE' });
     togglePlayback(false);
     if (ref.current) {
       emitPlaybackSync(ref.current, true, false);
     }
-  }, [setIsPlaying, togglePlayback, emitPlaybackSync]);
+  }, [sendPlayback, togglePlayback, emitPlaybackSync]);
+
+  const handleTrackEnd = useCallback(() => {
+    if (playback.matches('transitioning')) return;
+    sendPlayback({ type: 'TRACK_ENDED' });
+    onPlayerEnd();
+    sendPlayback({ type: 'NEXT_RESOLVED' });
+  }, [onPlayerEnd, playback, sendPlayback]);
 
   return (
     <section className="w-full h-full">
@@ -132,7 +144,7 @@ export function PlaybackController({
                 playerRefA.current = e.target as unknown as PlayerRef;
                 onPlayerReady('A')(e);
               }}
-              onEnd={onPlayerEnd}
+              onEnd={handleTrackEnd}
               onPlay={() => handlePlayerPlay(playerRefA)}
               onPause={() => handlePlayerPause(playerRefA)}
             />
@@ -147,7 +159,7 @@ export function PlaybackController({
                 playerRefB.current = e.target as unknown as PlayerRef;
                 onPlayerReady('B')(e);
               }}
-              onEnd={onPlayerEnd}
+              onEnd={handleTrackEnd}
               onPlay={() => handlePlayerPlay(playerRefB)}
               onPause={() => handlePlayerPause(playerRefB)}
             />
@@ -171,7 +183,7 @@ export function PlaybackController({
         currentTime={currentTime}
         duration={duration}
         role="admin"
-        onSkip={onPlayerEnd}
+        onSkip={handleTrackEnd}
         onPrevious={onPrevious}
         onTogglePlay={handleTogglePlay}
         onGoToSearch={onGoToSearch}
