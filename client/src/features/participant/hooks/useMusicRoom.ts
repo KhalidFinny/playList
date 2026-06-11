@@ -65,6 +65,14 @@ export function useMusicRoom(roomId: string) {
       setQueue(newQueue.filter(s => s.status === 'approved') as Track[]);
     };
 
+    const handleSongApproved = (song: Track) => {
+      setQueue((prev) => (prev.some((item) => item.id === song.id) ? prev : [...prev, song]));
+    };
+
+    const handleSongRemoved = ({ songId }: { songId: string }) => {
+      setQueue((prev) => prev.filter((song) => song.id !== songId));
+    };
+
     // Re-join room on socket reconnect
     const handleConnect = () => {
       const passkey = sessionStorage.getItem(`room_${roomId}_key`);
@@ -89,6 +97,8 @@ export function useMusicRoom(roomId: string) {
     socket.on('playback_updated', handlePlaybackUpdated);
     socket.on('playback_sync', handlePlaybackSync);
     socket.on('queue_updated', handleQueueUpdated);
+    socket.on('song_approved', handleSongApproved);
+    socket.on('song_removed_from_queue', handleSongRemoved);
 
     // Cleanup
     return () => {
@@ -99,6 +109,8 @@ export function useMusicRoom(roomId: string) {
       socket.off('playback_updated', handlePlaybackUpdated);
       socket.off('playback_sync', handlePlaybackSync);
       socket.off('queue_updated', handleQueueUpdated);
+      socket.off('song_approved', handleSongApproved);
+      socket.off('song_removed_from_queue', handleSongRemoved);
     };
   }, [roomId]);
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ListMusic, Pencil, X, Check, Loader2, Play, Headphones } from 'lucide-react';
+import { ListMusic, X, Check, Loader2, Play, Headphones } from 'lucide-react';
 import { Button } from '@/shared/components/button';
 import { Card } from '@/shared/components/card';
 import { Input } from '@/shared/components/input';
@@ -17,7 +17,6 @@ export function ModerationQueue({
   setEditValue,
   handleApprove,
   handleDelete,
-  startEditing,
   handleSaveEdit,
   onPreviewChange,
 }: ModerationQueueProps) {

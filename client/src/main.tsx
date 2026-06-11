@@ -103,16 +103,30 @@ function ScaledViewport({ children }: { children: ReactNode }) {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
 
   useEffect(() => {
+    let frame = 0;
     const update = () => {
       const w = window.innerWidth;
       const h = window.innerHeight;
-      setIsMobile(w < 1024);
-      const s = Math.min(1, w / BASE_WIDTH, h / BASE_HEIGHT);
-      setScale(Math.max(0.68, s));
+      const nextIsMobile = w < 1024;
+      const nextScale = Math.max(0.68, Math.min(1, w / BASE_WIDTH, h / BASE_HEIGHT));
+
+      setIsMobile((current) => (current === nextIsMobile ? current : nextIsMobile));
+      setScale((current) => (Math.abs(current - nextScale) < 0.001 ? current : nextScale));
     };
+    const scheduleUpdate = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        update();
+      });
+    };
+
     update();
-    window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
+    window.addEventListener('resize', scheduleUpdate, { passive: true });
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      window.removeEventListener('resize', scheduleUpdate);
+    };
   }, []);
 
   // On mobile: no scaling — native responsive CSS takes over

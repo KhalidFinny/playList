@@ -8,7 +8,7 @@
     "target": "ES2020",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "module": "esnext",
-    "types": ["vite/client"],
+    "types": ["vite-plus/client"],
     "skipLibCheck": true,
     "strict": true,
     "strictNullChecks": true,

@@ -1,32 +1,43 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
+import { defineConfig } from "vite-plus";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+import path from "node:path";
 
-import path from "path"
-
-// https://vite.dev/config/
 export default defineConfig({
-  server: {
-    host: "0.0.0.0",
-    allowedHosts: true,
-    proxy: {
-      "/socket.io": {
-        target: "http://localhost:3001",
-        ws: true
-      }
-    }
+  fmt: {},
+  lint: {
+    plugins: ["oxc", "typescript", "unicorn", "react"],
+    categories: {
+      correctness: "warn",
+    },
+    env: {
+      builtin: true,
+    },
+    ignorePatterns: ["dist"],
+    options: {
+      typeAware: true,
+      typeCheck: true,
+    },
+    jsPlugins: [
+      {
+        name: "vite-plus",
+        specifier: "vite-plus/oxlint-plugin",
+      },
+    ],
+    rules: {
+      "vite-plus/prefer-vite-plus-imports": "error",
+      "react/only-export-components": "off",
+    },
   },
-  plugins: [
-    tailwindcss(),
-    react()
-  ],
+  plugins: [tailwindcss(), react()],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": path.resolve(import.meta.dirname, "./src"),
     },
   },
   server: {
-    allowedHosts: ["playlist.fiinnyy.my.id"],
+    host: "0.0.0.0",
+    allowedHosts: ["playlist.fiinnyy.my.id", "playlist.ryuko.my.id", "localhost"],
     proxy: {
       "/socket.io": {
         target: "http://localhost:3001",
@@ -34,4 +45,4 @@ export default defineConfig({
       },
     },
   },
-})
+});

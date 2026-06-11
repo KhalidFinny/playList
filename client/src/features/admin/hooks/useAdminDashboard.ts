@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { socket, getUserId } from '../../../shared/lib/socket';
+import { socket } from '../../../shared/lib/socket';
 import { useDebounce } from '../../../shared/hooks/useDebounce';
 import type { YouTubeProps } from 'react-youtube';
 import type { Track, PendingSong, SearchResult } from '../types';
@@ -128,7 +128,7 @@ export function useAdminDashboard(roomId: string) {
     if (!roomId || isRequestingNextRef.current) return;
 
     isRequestingNextRef.current = true;
-    socket.emit('eo_track_ended', { roomId }, (res: EoTrackEndedResponse) => {
+    socket.emit('eo_track_ended', { roomId, idempotencyKey: crypto.randomUUID() }, (res: EoTrackEndedResponse) => {
       if (res.success) {
         setNowPlaying(res.nextTrack);
         setUpNext(res.upNext);
@@ -166,7 +166,7 @@ export function useAdminDashboard(roomId: string) {
     }
 
     // Always fetch next upNext from server
-    socket.emit('eo_track_ended', { roomId }, (res: EoTrackEndedResponse) => {
+    socket.emit('eo_track_ended', { roomId, idempotencyKey: crypto.randomUUID() }, (res: EoTrackEndedResponse) => {
       if (res.success) setUpNext(res.upNext);
     });
     // Broadcast that we're still playing (next track started)
@@ -266,14 +266,19 @@ export function useAdminDashboard(roomId: string) {
 
     const handleSongDeleted = ({ songId }: { songId: string }) => {
       setPendingQueue((prev) => prev.filter((s) => s.id !== songId));
+      setFullQueue((prev) => prev.filter((s) => s.id !== songId));
     };
 
-    const handleSongApproved = (song: PendingSong) => {
+    const handleSongApproved = (song: PendingSong & Partial<Track>) => {
       setPendingQueue((prev) => prev.filter((s) => s.id !== song.id));
+      setFullQueue((prev) => (prev.some((s) => s.id === song.id) ? prev : [...prev, song as Track]));
     };
 
     const handleSongUpdated = (updated: SongUpdatedPayload) => {
       setPendingQueue((prev) =>
+        prev.map((s) => (s.id === updated.id ? { ...s, title: updated.title } : s)),
+      );
+      setFullQueue((prev) =>
         prev.map((s) => (s.id === updated.id ? { ...s, title: updated.title } : s)),
       );
     };
@@ -289,6 +294,7 @@ export function useAdminDashboard(roomId: string) {
     socket.on('queue_updated', handleQueueUpdated);
     socket.on('new_pending_song', handleNewPendingSong);
     socket.on('song_deleted', handleSongDeleted);
+    socket.on('song_removed_from_queue', handleSongDeleted);
     socket.on('song_approved', handleSongApproved);
     socket.on('song_updated', handleSongUpdated);
     socket.on('disconnect', handleDisconnect);
@@ -301,6 +307,7 @@ export function useAdminDashboard(roomId: string) {
       socket.off('queue_updated', handleQueueUpdated);
       socket.off('new_pending_song', handleNewPendingSong);
       socket.off('song_deleted', handleSongDeleted);
+      socket.off('song_removed_from_queue', handleSongDeleted);
       socket.off('song_approved', handleSongApproved);
       socket.off('song_updated', handleSongUpdated);
       socket.off('disconnect', handleDisconnect);

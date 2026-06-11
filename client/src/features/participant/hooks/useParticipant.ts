@@ -102,8 +102,8 @@ export function useParticipant(roomId: string) {
     return () => clearInterval(timer);
   }, [cooldownSeconds]);
 
-  const debouncedQuery = useDebounce(query, 300);
-  const debouncedSuggestionQuery = useDebounce(query, 120);
+  const debouncedQuery = useDebounce(query, 350);
+  const debouncedSuggestionQuery = useDebounce(query, 250);
 
   const latestQueryRef = useRef('');
   const suggestionRequestIdRef = useRef(0);
@@ -183,14 +183,26 @@ export function useParticipant(roomId: string) {
       setIsPlaying(state.isPlaying);
     };
 
+    const handleSongApproved = (song: Track) => {
+      setQueue((prev) => (prev.some((item) => item.id === song.id) ? prev : [...prev, song]));
+    };
+
+    const handleSongRemoved = ({ songId }: { songId: string }) => {
+      setQueue((prev) => prev.filter((song) => song.id !== songId));
+    };
+
     socket.on('now_playing_updated', handleNowPlayingUpdated);
     socket.on('queue_updated', handleQueueUpdated);
     socket.on('playback_updated', handlePlaybackUpdated);
+    socket.on('song_approved', handleSongApproved);
+    socket.on('song_removed_from_queue', handleSongRemoved);
 
     return () => {
       socket.off('now_playing_updated', handleNowPlayingUpdated);
       socket.off('queue_updated', handleQueueUpdated);
       socket.off('playback_updated', handlePlaybackUpdated);
+      socket.off('song_approved', handleSongApproved);
+      socket.off('song_removed_from_queue', handleSongRemoved);
     };
   }, [roomId]);
 
@@ -211,7 +223,9 @@ export function useParticipant(roomId: string) {
   // Live Search Effect
   useEffect(() => {
     const trimmed = debouncedQuery.trim();
-    if (trimmed.length < 1) {
+    if (trimmed.length < 2) {
+      setResults([]);
+      setResponseMarker('');
       return;
     }
 

@@ -4,7 +4,6 @@ import { Search } from 'lucide-react';
 import { SearchBar } from '@/shared/components/SearchBar';
 import { ResultCard } from '@/features/participant/components/ResultCard';
 import type { SongSearchProps } from '../types';
-import type { SearchResult } from '@/shared/types';
 
 // Quick vibe categories for admin
 const VIBES = [

@@ -33,13 +33,33 @@ export function PlaybackController({
   const playerRefA = useRef<PlayerRef | null>(null);
   const playerRefB = useRef<PlayerRef | null>(null);
   const isPlayingRef = useRef(isPlaying);
+  const lastPlaybackSyncRef = useRef({ currentTime: 0, duration: 0, isPlaying: false });
 
   // Keep ref in sync for the interval closure
   useEffect(() => {
     isPlayingRef.current = isPlaying;
   }, [isPlaying]);
 
-  // Poll timing from the active player every 1s and sync to participants
+  const emitPlaybackSync = useCallback((ref: PlayerRef, isImmediate = false, forcedPlaying?: boolean) => {
+    const ct = ref.getCurrentTime();
+    const dur = ref.getDuration();
+    if (dur <= 0) return;
+
+    const playing = forcedPlaying ?? isPlayingRef.current;
+    const last = lastPlaybackSyncRef.current;
+    const shouldSync =
+      isImmediate ||
+      last.isPlaying !== playing ||
+      Math.abs(last.currentTime - ct) >= 3 ||
+      Math.abs(last.duration - dur) >= 1;
+
+    if (!shouldSync) return;
+
+    lastPlaybackSyncRef.current = { currentTime: ct, duration: dur, isPlaying: playing };
+    socket.emit('sync_playback', { roomId, currentTime: ct, duration: dur, isPlaying: playing });
+  }, [roomId]);
+
+  // Poll timing for local UI every 1s, but broadcast only on coarse drift/state changes.
   useEffect(() => {
     if (!roomId) return;
 
@@ -53,9 +73,7 @@ export function PlaybackController({
           setCurrentTime(ct);
           setDuration(dur);
           setProgress(ct / dur);
-          
-          // Sync timing only — isPlaying comes from YouTube onPlay/onPause events
-          socket.emit('sync_playback', { roomId, currentTime: ct, duration: dur, isPlaying: isPlayingRef.current });
+          emitPlaybackSync(ref);
         }
       } catch {
         // Player not ready yet
@@ -63,7 +81,7 @@ export function PlaybackController({
     }, 1000);
 
     return () => clearInterval(syncInterval);
-  }, [roomId, activePlayer, setIsPlaying, togglePlayback, setProgress]);
+  }, [roomId, activePlayer, setProgress, emitPlaybackSync]);
 
   const handleTogglePlay = useCallback(() => {
     const ref = activePlayer === 'A' ? playerRefA : playerRefB;
@@ -73,33 +91,33 @@ export function PlaybackController({
       togglePlayback(false);
       if (ref.current) {
         ref.current.pauseVideo();
-        socket.emit('sync_playback', { roomId, currentTime: ref.current.getCurrentTime(), duration: ref.current.getDuration(), isPlaying: false });
+        emitPlaybackSync(ref.current, true, false);
       }
     } else {
       setIsPlaying(true);
       togglePlayback(true);
       if (ref.current) {
         ref.current.playVideo();
-        socket.emit('sync_playback', { roomId, currentTime: ref.current.getCurrentTime(), duration: ref.current.getDuration(), isPlaying: true });
+        emitPlaybackSync(ref.current, true, true);
       }
     }
-  }, [isPlaying, activePlayer, roomId, setIsPlaying, togglePlayback]);
+  }, [isPlaying, activePlayer, setIsPlaying, togglePlayback, emitPlaybackSync]);
 
   const handlePlayerPlay = useCallback((ref: React.MutableRefObject<PlayerRef | null>) => {
     setIsPlaying(true);
     togglePlayback(true);
     if (ref.current) {
-      socket.emit('sync_playback', { roomId, currentTime: ref.current.getCurrentTime(), duration: ref.current.getDuration(), isPlaying: true });
+      emitPlaybackSync(ref.current, true, true);
     }
-  }, [roomId, setIsPlaying, togglePlayback]);
+  }, [setIsPlaying, togglePlayback, emitPlaybackSync]);
 
   const handlePlayerPause = useCallback((ref: React.MutableRefObject<PlayerRef | null>) => {
     setIsPlaying(false);
     togglePlayback(false);
     if (ref.current) {
-      socket.emit('sync_playback', { roomId, currentTime: ref.current.getCurrentTime(), duration: ref.current.getDuration(), isPlaying: false });
+      emitPlaybackSync(ref.current, true, false);
     }
-  }, [roomId, setIsPlaying, togglePlayback]);
+  }, [setIsPlaying, togglePlayback, emitPlaybackSync]);
 
   return (
     <section className="w-full h-full">
