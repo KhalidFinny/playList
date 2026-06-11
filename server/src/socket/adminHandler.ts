@@ -2,6 +2,7 @@ import { Server, Socket } from "socket.io";
 import { sql } from "../db/client";
 import { roomManager } from "../state/roomManager";
 import { redisCache } from "../lib/redis";
+import { addApprovedSong, approveSong, deleteSong, updateSongTitle } from "../services/liveQueue/index";
 
 export function handleAdminEvents(io: Server, socket: Socket) {
   
@@ -15,42 +16,17 @@ export function handleAdminEvents(io: Server, socket: Socket) {
     }
 
     try {
-      // 1. Update DB
-      const result = await sql`
-        UPDATE songs 
-        SET status = 'approved', approved_at = NOW()
-        WHERE id = ${songId} AND room_id = ${roomId} AND status = 'pending'
-        RETURNING id, youtube_id as "youtubeId", title, author, status, submitted_by as "submittedBy", created_at as "createdAt"
-      `;
-
-      if (result.length === 0) {
+      const result = await approveSong(roomId, songId);
+      if (!result.ok) {
         if (callback) callback({ success: false, error: "Song not found or already processed" });
         return;
       }
 
-      const updatedSong = result[0];
+      io.to(`${roomId}:admin`).emit("song_approved", result.song);
+      io.to(`${roomId}:participant`).emit("song_approved", result.song);
+      io.to(`${roomId}:eo`).emit("song_approved", result.song);
 
-      // 2. Reload canonical queue from DB and sync memory cache
-      const queueRows = await sql`
-        SELECT id, youtube_id as "youtubeId", title, author, status, submitted_by as "submittedBy", created_at as "createdAt"
-        FROM songs
-        WHERE room_id = ${roomId} AND status IN ('pending', 'approved')
-        ORDER BY approved_at ASC NULLS LAST, created_at ASC
-      `;
-      const updatedQueue = [...queueRows];
-      roomManager.setQueue(roomId, updatedQueue);
-
-      // 3. Broadcast targeted updates
-      io.to(`${roomId}:admin`).emit("queue_updated", updatedQueue);
-
-      const approvedOnly = updatedQueue.filter(q => q.status === 'approved');
-      io.to(`${roomId}:participant`).emit("queue_updated", approvedOnly);
-      io.to(`${roomId}:eo`).emit("queue_updated", approvedOnly);
-
-      // Also notify admins specifically to clear their pending item
-      io.to(`${roomId}:admin`).emit("song_approved", updatedSong);
-
-      if (callback) callback({ success: true, message: "Song approved" });
+      if (callback) callback({ success: true, message: "Song approved", song: result.song });
     } catch (err) {
       console.error(err);
       if (callback) callback({ success: false, error: "Database error" });
@@ -67,30 +43,14 @@ export function handleAdminEvents(io: Server, socket: Socket) {
     }
 
     try {
-      const result = await sql`
-        DELETE FROM songs 
-        WHERE id = ${songId} AND room_id = ${roomId}
-        RETURNING id
-      `;
-
-      if (result.length > 0) {
-        // Reload canonical queue and broadcast to all roles
-        const queueRows = await sql`
-          SELECT id, youtube_id as "youtubeId", title, author, status, submitted_by as "submittedBy", created_at as "createdAt"
-          FROM songs
-          WHERE room_id = ${roomId} AND status IN ('pending', 'approved')
-          ORDER BY approved_at ASC NULLS LAST, created_at ASC
-        `;
-        const updatedQueue = [...queueRows];
-        roomManager.setQueue(roomId, updatedQueue);
-
-        io.to(`${roomId}:admin`).emit("song_deleted", { songId });
-        io.to(`${roomId}:admin`).emit("queue_updated", updatedQueue);
-
-        const approvedOnly = updatedQueue.filter(q => q.status === 'approved');
-        io.to(`${roomId}:participant`).emit("queue_updated", approvedOnly);
-        io.to(`${roomId}:eo`).emit("queue_updated", approvedOnly);
+      const result = await deleteSong(roomId, songId);
+      if (!result.ok) {
+        if (callback) callback({ success: false, error: "Song not found" });
+        return;
       }
+
+      io.to(roomId).emit("song_deleted", { songId });
+      if (result.song.status === "playing") io.to(roomId).emit("now_playing_updated", null);
 
       if (callback) callback({ success: true, message: "Song deleted" });
     } catch (err) {
@@ -109,23 +69,15 @@ export function handleAdminEvents(io: Server, socket: Socket) {
     }
 
     try {
-      const result = await sql`
-        UPDATE songs 
-        SET title = ${newTitle}
-        WHERE id = ${songId} AND room_id = ${roomId}
-        RETURNING id, title
-      `;
-
-      if (result.length === 0) {
+      const result = await updateSongTitle(roomId, songId, newTitle);
+      if (!result.ok) {
         if (callback) callback({ success: false, error: "Song not found" });
         return;
       }
 
-      const updated = result[0];
-      // Broadcast update to all admins and the EO
-      io.to(roomId).emit("song_updated", updated);
+      io.to(roomId).emit("song_updated", result.song);
 
-      if (callback) callback({ success: true, song: updated });
+      if (callback) callback({ success: true, song: result.song });
     } catch (err) {
       console.error(err);
       if (callback) callback({ success: false, error: "Database error" });
@@ -151,38 +103,20 @@ export function handleAdminEvents(io: Server, socket: Socket) {
         return;
       }
 
-      // Insert with approved status so it goes straight to queue
-      const result = await sql`
-        INSERT INTO songs (room_id, youtube_id, title, author, submitted_by, status, approved_at)
-        VALUES (${roomId}, ${youtubeId}, ${title}, ${author || ""}, ${adminId}, 'approved', NOW())
-        RETURNING id, youtube_id as "youtubeId", title, author, status, submitted_by as "submittedBy", created_at as "createdAt"
-      `;
-
-      const newSong = result[0];
-      if (!newSong) {
-        if (callback) callback({ success: false, error: "Failed to create song" });
-        return;
-      }
+      const newSong = await addApprovedSong(roomId, {
+        id: crypto.randomUUID(),
+        youtubeId,
+        title,
+        author: author || "",
+        submittedBy: adminId,
+        createdAt: new Date().toISOString(),
+      });
 
       console.log(`[ADMIN] Song directly added to queue for room ${roomId}: ${newSong.title}`);
 
-      // Refresh and broadcast queue to all roles
-      const queueRows = await sql`
-        SELECT id, youtube_id as "youtubeId", title, author, status, submitted_by as "submittedBy", created_at as "createdAt"
-        FROM songs
-        WHERE room_id = ${roomId} AND status IN ('pending', 'approved')
-        ORDER BY approved_at ASC NULLS LAST, created_at ASC
-      `;
-      const updatedQueue = [...queueRows];
-
-      io.to(`${roomId}:admin`).emit("queue_updated", updatedQueue);
-
-      const approvedOnly = updatedQueue.filter((q: any) => q.status === 'approved');
-      io.to(`${roomId}:participant`).emit("queue_updated", approvedOnly);
-      io.to(`${roomId}:eo`).emit("queue_updated", approvedOnly);
-
-      // Also trigger song_approved so pending queue UI updates
       io.to(`${roomId}:admin`).emit("song_approved", newSong);
+      io.to(`${roomId}:participant`).emit("song_approved", newSong);
+      io.to(`${roomId}:eo`).emit("song_approved", newSong);
 
       if (callback) callback({ success: true, song: newSong });
     } catch (err) {

@@ -12,10 +12,19 @@ export type RoomState = {
   isPlaying: boolean;
   passkey: string | null;
   queue: any[] | null;
+  lastAccessedAt: number;
 };
+
+const ROOM_STATE_TTL_MS = 6 * 60 * 60 * 1000;
+const ROOM_CLEANUP_INTERVAL_MS = 30 * 60 * 1000;
 
 class RoomManager {
   private rooms = new Map<string, RoomState>();
+
+  public constructor() {
+    const cleanupTimer = setInterval(() => this.cleanupInactiveRooms(), ROOM_CLEANUP_INTERVAL_MS);
+    cleanupTimer.unref?.();
+  }
 
   private getOrInitRoom(roomId: string): RoomState {
     if (!this.rooms.has(roomId)) {
@@ -26,9 +35,22 @@ class RoomManager {
         isPlaying: false,
         passkey: null,
         queue: null,
+        lastAccessedAt: Date.now(),
       });
     }
-    return this.rooms.get(roomId)!;
+
+    const room = this.rooms.get(roomId)!;
+    room.lastAccessedAt = Date.now();
+    return room;
+  }
+
+  private cleanupInactiveRooms(): void {
+    const cutoff = Date.now() - ROOM_STATE_TTL_MS;
+    for (const [roomId, state] of this.rooms) {
+      if (!state.playbackControllerSocketId && state.lastAccessedAt < cutoff) {
+        this.rooms.delete(roomId);
+      }
+    }
   }
 
   // --- QUEUE ---

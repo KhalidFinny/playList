@@ -1,12 +1,25 @@
 import { Server, Socket } from "socket.io";
-import { sql } from "../db/client";
 import ytsort from "yt-search";
+import { countPendingSongs, submitSong } from "../services/liveQueue/index";
+import { normalizeSearchQuery, TtlLruCache } from "./searchCache";
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
-// Simple in-memory cache for search results (5 minute TTL)
-const searchCache = new Map<string, { results: any[]; expires: number }>();
-const CACHE_TTL = 5 * 60 * 1000;
+const SEARCH_MIN_QUERY_LENGTH = 2;
+const SEARCH_CACHE_TTL_MS = 5 * 60 * 1000;
+const SEARCH_CACHE_MAX_SIZE = 250;
+const SUGGESTION_CACHE_TTL_MS = 60 * 1000;
+const SUGGESTION_CACHE_MAX_SIZE = 200;
+
+const searchCache = new TtlLruCache<any[]>(SEARCH_CACHE_TTL_MS, SEARCH_CACHE_MAX_SIZE);
+const suggestionCache = new TtlLruCache<string[]>(SUGGESTION_CACHE_TTL_MS, SUGGESTION_CACHE_MAX_SIZE);
+
+const cacheCleanupTimer = setInterval(() => {
+  const now = Date.now();
+  searchCache.deleteExpired(now);
+  suggestionCache.deleteExpired(now);
+}, 60_000);
+cacheCleanupTimer.unref?.();
 
 // --- Spam protection ---
 
@@ -14,9 +27,11 @@ const CACHE_TTL = 5 * 60 * 1000;
 const USER_COOLDOWN_MS = 3000;
 const lastRequestTime = new Map<string, number>();
 
-// Search rate limit: per-socket, longer cooldown (5s)
-const SEARCH_COOLDOWN_MS = 5000;
+// Search rate limit: per-socket; client debounce handles normal typing.
+const SEARCH_COOLDOWN_MS = 750;
+const SUGGESTION_COOLDOWN_MS = 350;
 const lastSearchTime = new Map<string, number>();
+const lastSuggestionTime = new Map<string, number>();
 
 // Duplicate detection: same user + same video within 60s
 const DUPLICATE_WINDOW_MS = 60_000;
@@ -81,6 +96,13 @@ function isSearchRateLimited(socketId: string): boolean {
   return false;
 }
 
+function isSuggestionRateLimited(socketId: string): boolean {
+  const last = lastSuggestionTime.get(socketId);
+  if (last && Date.now() - last < SUGGESTION_COOLDOWN_MS) return true;
+  lastSuggestionTime.set(socketId, Date.now());
+  return false;
+}
+
 function isDuplicate(userId: string, videoId: string): boolean {
   const userSubs = recentSubmissions.get(userId) || [];
   const now = Date.now();
@@ -89,22 +111,6 @@ function isDuplicate(userId: string, videoId: string): boolean {
   fresh.push({ videoId, at: now });
   recentSubmissions.set(userId, fresh);
   return dup;
-}
-
-async function countPendingUserRequests(roomId: string, userId: string): Promise<number> {
-  const result = await sql`
-    SELECT COUNT(*) as count FROM songs
-    WHERE room_id = ${roomId} AND submitted_by = ${userId} AND status = 'pending'
-  `;
-  return Number(result[0]?.count || 0);
-}
-
-async function countPendingRoomRequests(roomId: string): Promise<number> {
-  const result = await sql`
-    SELECT COUNT(*) as count FROM songs
-    WHERE room_id = ${roomId} AND status = 'pending'
-  `;
-  return Number(result[0]?.count || 0);
 }
 
 function isRoomFlooded(roomId: string): boolean {
@@ -120,24 +126,26 @@ function isRoomFlooded(roomId: string): boolean {
 export function handleParticipantEvents(io: Server, socket: Socket) {
   // Search for songs on YouTube
   socket.on("search_songs", async (data: { query: string }, callback) => {
-    const { query } = data;
-    if (!query) return;
+    const normalizedQuery = normalizeSearchQuery(data.query ?? "");
+    if (normalizedQuery.length < SEARCH_MIN_QUERY_LENGTH) {
+      if (callback) callback({ success: true, results: [] });
+      return;
+    }
 
-    // Rate limit searches per socket
+    const cached = searchCache.get(normalizedQuery);
+    if (cached) {
+      console.log(`Cache Hit for: "${normalizedQuery}"`);
+      return callback({ success: true, results: cached });
+    }
+
+    // Rate limit searches per socket after cache lookup, so repeated cached queries stay cheap.
     if (isSearchRateLimited(socket.id)) {
       if (callback) callback({ success: false, error: "Please wait before searching again" });
       return;
     }
 
-    const normalizedQuery = query.toLowerCase().trim();
-    const cached = searchCache.get(normalizedQuery);
-    if (cached && cached.expires > Date.now()) {
-      console.log(`Cache Hit for: "${normalizedQuery}"`);
-      return callback({ success: true, results: cached.results });
-    }
-
     try {
-      const refinedQuery = `${query} official audio`;
+      const refinedQuery = `${normalizedQuery} official audio`;
       console.log(`Searching YouTube via yt-search for: "${refinedQuery}"`);
       const r = await ytsort(refinedQuery);
 
@@ -150,13 +158,9 @@ export function handleParticipantEvents(io: Server, socket: Socket) {
         author: item.author?.name,
       }));
 
-      // Update cache
-      searchCache.set(normalizedQuery, {
-        results: tracks,
-        expires: Date.now() + CACHE_TTL,
-      });
+      searchCache.set(normalizedQuery, tracks);
 
-      console.log(`Found ${tracks.length} videos via yt-search for "${query}"`);
+      console.log(`Found ${tracks.length} videos via yt-search for "${normalizedQuery}"`);
 
       if (tracks.length === 0) {
         return callback({
@@ -179,11 +183,25 @@ export function handleParticipantEvents(io: Server, socket: Socket) {
   socket.on(
     "get_search_suggestions",
     async (data: { query: string }, callback) => {
-      const { query } = data;
-      if (!query || query.length < 2) return;
+      const normalizedQuery = normalizeSearchQuery(data.query ?? "");
+      if (normalizedQuery.length < SEARCH_MIN_QUERY_LENGTH) {
+        if (callback) callback({ success: true, suggestions: [] });
+        return;
+      }
+
+      const cached = suggestionCache.get(normalizedQuery);
+      if (cached) {
+        callback({ success: true, suggestions: cached });
+        return;
+      }
+
+      if (isSuggestionRateLimited(socket.id)) {
+        callback({ success: true, suggestions: [] });
+        return;
+      }
 
       try {
-        const url = `http://suggestqueries.google.com/complete/search?client=youtube&ds=yt&q=${encodeURIComponent(query)}`;
+        const url = `http://suggestqueries.google.com/complete/search?client=youtube&ds=yt&q=${encodeURIComponent(normalizedQuery)}`;
         const response = await fetch(url);
         const text = await response.text();
 
@@ -195,7 +213,9 @@ export function handleParticipantEvents(io: Server, socket: Socket) {
           Array.isArray(item) ? item[0] : item,
         );
 
-        callback({ success: true, suggestions });
+        const limitedSuggestions = suggestions.slice(0, 8);
+        suggestionCache.set(normalizedQuery, limitedSuggestions);
+        callback({ success: true, suggestions: limitedSuggestions });
       } catch (err) {
         callback({ success: false, suggestions: [] });
       }
@@ -245,7 +265,7 @@ export function handleParticipantEvents(io: Server, socket: Socket) {
 
       // 4. Max pending requests per user
       try {
-        const pendingCount = await countPendingUserRequests(roomId, userId);
+        const pendingCount = await countPendingSongs(roomId, userId);
         if (pendingCount >= MAX_PENDING_PER_USER) {
           if (callback) callback({ success: false, error: `You can only have ${MAX_PENDING_PER_USER} pending requests at a time` });
           return;
@@ -258,7 +278,7 @@ export function handleParticipantEvents(io: Server, socket: Socket) {
 
       // 5. Max total pending songs in room
       try {
-        const totalPending = await countPendingRoomRequests(roomId);
+        const totalPending = await countPendingSongs(roomId);
         if (totalPending >= MAX_PENDING_PER_ROOM) {
           if (callback) callback({ success: false, error: "This room's request queue is full right now" });
           return;
@@ -276,22 +296,19 @@ export function handleParticipantEvents(io: Server, socket: Socket) {
       }
 
       try {
-        // 7. Insert into DB
-        const result = await sql`
-        INSERT INTO songs (room_id, youtube_id, title, author, submitted_by, status)
-        VALUES (${roomId}, ${youtubeId}, ${title}, ${author || ""}, ${userId}, 'pending')
-        RETURNING id, youtube_id as "youtubeId", title, author, status, submitted_by as "submittedBy", created_at as "createdAt"
-      `;
+        const newSong = await submitSong(roomId, {
+          id: crypto.randomUUID(),
+          youtubeId,
+          title,
+          author: author || "",
+          submittedBy: userId,
+          createdAt: new Date().toISOString(),
+        });
 
-        const newSong = result[0];
-        console.log(
-          `[QUEUE] New song submitted for room ${roomId}: ${newSong.title}`,
-        );
+        console.log(`[QUEUE] New song submitted for room ${roomId}: ${newSong.title}`);
 
-        // 8. Emit only to Admins in this room
         io.to(`${roomId}:admin`).emit("new_pending_song", newSong);
 
-        // 9. Acknowledge success to the user
         if (callback) callback({ success: true, message: "Request submitted" });
       } catch (err) {
         console.error(err);
