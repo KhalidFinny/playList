@@ -24,7 +24,7 @@ This makes route hierarchy come from folders/files instead of `getParentRoute` c
 /                         LandingPage
 /r/$roomId                MusicRoom under ParticipantLayout
 /r/$roomId/request        ParticipantPage under ParticipantLayout
-/admin/login              AdminLoginPage
+/login                    AdminLoginPage
 /admin                    AdminHubPage, protected
 /admin/$roomId            AdminDashboardPage, protected
 ```
@@ -40,7 +40,7 @@ client/src/routes/
       route.tsx
       index.tsx
       request.tsx
-  admin_.login.tsx      # public /admin/login, non-nested so it avoids admin guard
+  login.tsx             # public /login, root-level so it avoids admin guard
   admin/
     route.tsx           # protected /admin parent
     index.tsx           # /admin
@@ -58,10 +58,10 @@ client/src/routes/admin/route.tsx
 It should:
 
 - check `localStorage.getItem('adminToken')`
-- redirect to `/admin/login` if missing
+- redirect to `/login` if missing
 - render `<Outlet />` if authenticated
 
-Important: `/admin/login` must not inherit this guard.
+Important: `/login` must not inherit this guard.
 
 ## Main Bootstrap After Migration
 

@@ -36,6 +36,7 @@ export function MusicRoomView({
   onGoToSearch
 }: MusicRoomViewProps) {
   const isAdmin = role === 'admin';
+  const hasNextTrack = queue.length > 0;
 
   return (
     <div className="w-full h-full min-h-0 flex flex-col lg:flex-row items-center justify-center gap-4 lg:gap-8 px-2 lg:px-6 overflow-hidden">
@@ -88,8 +89,11 @@ export function MusicRoomView({
             <div className="flex items-center gap-8 mt-2">
               {isAdmin && (
                 <button 
-                  onClick={onSkip}
-                  className="text-black/30 hover:text-black transition-colors"
+                  onClick={hasNextTrack ? onSkip : undefined}
+                  disabled={!hasNextTrack}
+                  aria-label={hasNextTrack ? 'Skip to next track' : 'No next track available'}
+                  title={hasNextTrack ? 'Skip to next track' : 'No next track available'}
+                  className={`transition-colors ${hasNextTrack ? 'text-black/30 hover:text-black' : 'text-black/10 cursor-not-allowed'}`}
                 >
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="4" x2="19" y2="20"/>
@@ -145,8 +149,11 @@ export function MusicRoomView({
               </figure>
 
               <button 
-                onClick={isAdmin ? onSkip : undefined}
-                className={`text-black/35 transition-colors shrink-0 ${isAdmin ? 'hover:text-black cursor-pointer' : 'opacity-0 pointer-events-none'}`}
+                onClick={isAdmin && hasNextTrack ? onSkip : undefined}
+                disabled={isAdmin && !hasNextTrack}
+                aria-label={hasNextTrack ? 'Skip to next track' : 'No next track available'}
+                title={hasNextTrack ? 'Skip to next track' : 'No next track available'}
+                className={`text-black/35 transition-colors shrink-0 ${isAdmin ? (hasNextTrack ? 'hover:text-black cursor-pointer' : 'opacity-25 cursor-not-allowed') : 'opacity-0 pointer-events-none'}`}
               >
                 <svg width="28" height="28" className="lg:w-10 lg:h-10 xl:w-12 xl:h-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="4" x2="19" y2="20"/>

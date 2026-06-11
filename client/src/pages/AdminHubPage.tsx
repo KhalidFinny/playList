@@ -29,7 +29,7 @@ export function AdminHubPage() {
 
   const handleLogout = () => {
     logout();
-    navigate({ to: '/admin/login' });
+    navigate({ to: '/login' });
   };
   const [stations, setStations] = useState<Station[]>([]);
   const [creating, setCreating] = useState(false);

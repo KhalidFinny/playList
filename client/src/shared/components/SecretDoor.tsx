@@ -9,7 +9,7 @@ export function SecretDoor({ size = 'md' }: { size?: 'md' | 'lg' | 'xl' }) {
     if (token) {
       navigate({ to: '/admin' });
     } else {
-      navigate({ to: '/admin/login' });
+      navigate({ to: '/login' });
     }
   };
 

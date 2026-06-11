@@ -37,7 +37,7 @@ export function AdminDashboardPage() {
 
   const handleLogout = useCallback(() => {
     logout();
-    navigate({ to: '/admin/login' });
+    navigate({ to: '/login' });
   }, [logout, navigate]);
 
   if (loading || !token) return <LoadingOverlay isLoading={true} />;
