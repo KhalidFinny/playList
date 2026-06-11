@@ -30,6 +30,7 @@ const roomKeys = (roomId: string) => [
   `room:${roomId}:nowPlaying`,
   `room:${roomId}:version`,
   `room:${roomId}:transition:socket-ended`,
+  `room:${roomId}:transition:latency-ended`,
 ];
 
 const connectSocket = () =>
@@ -166,6 +167,52 @@ describe("socket live queue e2e", () => {
       expect(duplicateTransition).toEqual(firstTransition);
       expect(yield* Effect.promise(() => redis.get(`room:${roomId}:nowPlaying`))).toBe(songId);
       expect(yield* Effect.promise(() => redis.lrange(`room:${roomId}:queue:approved`, 0, -1))).toEqual([]);
+    }),
+  );
+
+  it.effect("next and previous callbacks stay on Redis/socket fast path", () =>
+    Effect.gen(function* () {
+      const roomId = `socket-${crypto.randomUUID()}`;
+      touchedRooms.add(roomId);
+      const currentId = `song-${crypto.randomUUID()}`;
+      const previousId = `song-${crypto.randomUUID()}`;
+      const nextId = `song-${crypto.randomUUID()}`;
+      touchedSongs.add(currentId);
+      touchedSongs.add(previousId);
+      touchedSongs.add(nextId);
+
+      yield* Effect.promise(() =>
+        redis.mset(
+          `room:key:12345`, roomId,
+          `room:id:${roomId}`, "12345",
+          `room:${roomId}:version`, "1",
+          `room:${roomId}:nowPlaying`, currentId,
+          `song:${currentId}`, JSON.stringify({ id: currentId, youtubeId: "yt-current", title: "Current", author: "Artist", status: "playing" }),
+          `song:${previousId}`, JSON.stringify({ id: previousId, youtubeId: "yt-previous", title: "Previous", author: "Artist", status: "done" }),
+          `song:${nextId}`, JSON.stringify({ id: nextId, youtubeId: "yt-next", title: "Next", author: "Artist", status: "approved" }),
+        ),
+      );
+      yield* Effect.promise(() => redis.lpush(`room:${roomId}:queue:done`, previousId));
+      yield* Effect.promise(() => redis.rpush(`room:${roomId}:queue:approved`, nextId));
+
+      const eo = yield* connectSocket();
+      expect(yield* emitAck(eo, "join_room", { roomId, role: "eo" })).toMatchObject({ success: true });
+
+      const previousStarted = performance.now();
+      const previousResponse = yield* emitAck<{ success: boolean; previousTrack?: { id: string } }>(eo, "previous_track", { roomId });
+      const previousMs = performance.now() - previousStarted;
+
+      const nextStarted = performance.now();
+      const nextResponse = yield* emitAck<{ success: boolean; nextTrack: { id: string } | null }>(eo, "eo_track_ended", {
+        roomId,
+        idempotencyKey: "latency-ended",
+      });
+      const nextMs = performance.now() - nextStarted;
+
+      expect(previousResponse.previousTrack?.id).toBe(previousId);
+      expect(nextResponse.nextTrack?.id).toBe(nextId);
+      expect(previousMs).toBeLessThan(100);
+      expect(nextMs).toBeLessThan(100);
     }),
   );
 
