@@ -1,5 +1,7 @@
 # High 03 — Refactor Public Music Room to Room Store
 
+> **Status:** Done in implementation commits `62e70f5` and `adba914`; cleanup continued after.
+
 ## Severity
 
 High

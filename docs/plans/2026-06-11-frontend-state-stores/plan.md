@@ -1,6 +1,6 @@
 # Frontend Zustand + XState Migration Plan
 
-> **Status:** Planned on 2026-06-11.
+> **Status:** Partially implemented on 2026-06-11. Core stores/machines wired; remaining cleanup is optional admin room-state consolidation.
 
 > **IMPORTANT**: Use plan-execute skill to implement this plan task-by-task.
 
@@ -92,16 +92,16 @@ client/src/state/shared/queueReducers.ts
 
 ## Acceptance Criteria
 
-- [ ] `zustand`, `xstate`, and `@xstate/react` installed.
-- [ ] Room queue/playback data uses `roomStore`.
-- [ ] Admin moderation queue data uses `adminQueueStore`.
-- [ ] Participant join/search/submit workflow uses `participantFlowMachine`.
-- [ ] EO playback lifecycle uses `playbackMachine`.
-- [ ] Socket listener cleanup remains explicit.
-- [ ] Store tests cover simple reducers.
-- [ ] Machine tests cover workflow transitions and stale guards.
-- [ ] Client build passes.
-- [ ] Existing repo tests pass.
+- [x] `zustand`, `xstate`, and `@xstate/react` installed.
+- [x] Room queue/playback data uses `roomStore` in public/participant views.
+- [x] Admin moderation queue data uses `adminQueueStore`.
+- [x] Participant join/search/submit workflow uses `participantFlowMachine`.
+- [x] EO playback lifecycle uses `playbackMachine`.
+- [x] Socket listener cleanup remains explicit.
+- [x] Store tests cover simple reducers.
+- [x] Machine tests cover workflow transitions and stale guards.
+- [x] Client build passes.
+- [x] Existing repo tests pass.
 
 ## Non-Goals
 

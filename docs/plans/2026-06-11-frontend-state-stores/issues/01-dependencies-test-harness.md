@@ -1,5 +1,7 @@
 # High 01 — Add Zustand + XState Dependencies and Test Harness
 
+> **Status:** Done in implementation commits `62e70f5` and `adba914`; cleanup continued after.
+
 ## Severity
 
 High

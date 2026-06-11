@@ -1,5 +1,7 @@
 # Low 11 — Remove Dead State and Document Final Map
 
+> **Status:** Done in implementation commits `62e70f5` and `adba914`; cleanup continued after.
+
 ## Severity
 
 Low

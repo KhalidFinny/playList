@@ -1,5 +1,7 @@
 # Low 10 — Normalize Socket Binding and Cleanup
 
+> **Status:** Done in implementation commits `62e70f5` and `adba914`; cleanup continued after.
+
 ## Severity
 
 Low

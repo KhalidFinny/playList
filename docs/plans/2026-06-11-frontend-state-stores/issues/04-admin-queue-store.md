@@ -1,5 +1,7 @@
 # High 04 — Extract Admin Queue Zustand Store
 
+> **Status:** Done in implementation commits `62e70f5` and `adba914`; cleanup continued after.
+
 ## Severity
 
 High

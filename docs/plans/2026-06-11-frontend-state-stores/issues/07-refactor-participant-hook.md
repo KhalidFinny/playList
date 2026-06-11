@@ -1,5 +1,7 @@
 # Medium 07 — Refactor Participant Hook to Store + Machine
 
+> **Status:** Done in implementation commits `62e70f5` and `adba914`; cleanup continued after.
+
 ## Severity
 
 Medium

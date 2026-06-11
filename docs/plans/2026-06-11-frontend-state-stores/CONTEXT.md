@@ -1,5 +1,7 @@
 # Frontend Zustand + XState Migration — Context
 
+> **Status:** Partially implemented. Zustand stores and XState machines exist; public room, participant flow, admin queue deltas, and playback controller are wired. Remaining work is deeper admin room-state cleanup if desired.
+
 ## Problem
 
 Frontend state is scattered across large React hooks. Some state is simple shared data, some is real workflow state.
@@ -99,7 +101,7 @@ adminModerationMachine.ts
 
 - `client/src/shared/lib/socket.ts`
 
-## Target Structure
+## Implemented Structure
 
 ```txt
 client/src/stores/
@@ -109,10 +111,12 @@ client/src/stores/
 client/src/machines/
   participantFlowMachine.ts
   playbackMachine.ts
+```
 
-client/src/state/shared/
-  queueReducers.ts
-  types.ts
+Tests:
+
+```txt
+tests/frontendState.unit.test.ts
 ```
 
 ## Zustand Store Responsibilities
