@@ -2,7 +2,7 @@ import { Server, Socket } from "socket.io";
 import { sql } from "../db/client";
 import { roomManager } from "../state/roomManager";
 import { redisCache } from "../lib/redis";
-import { addApprovedSong, approveSong, deleteSong, updateSongTitle } from "../services/liveQueue/index";
+import { addApprovedSong, approveSong, clearQueue, deleteSong, getQueueWindow, updateSongTitle } from "../services/liveQueue/index";
 
 export function handleAdminEvents(io: Server, socket: Socket) {
   
@@ -83,7 +83,36 @@ export function handleAdminEvents(io: Server, socket: Socket) {
       if (callback) callback({ success: false, error: "Database error" });
     }
   });
-  
+
+  // Clear all pending and approved songs from the queue
+  socket.on("clear_queue", async (data: { roomId: string; adminToken: string }, callback) => {
+    const { roomId, adminToken } = data;
+    if (!roomId || !adminToken) return callback?.({ success: false, error: "Missing fields" });
+
+    try {
+      const adminId = await redisCache.client.get(`admin_session:${adminToken}`);
+      if (!adminId) return callback?.({ success: false, error: "Unauthorized" });
+
+      const result = await clearQueue(roomId);
+      if (!result.ok) {
+        if (callback) callback({ success: false, error: "Failed to clear queue" });
+        return;
+      }
+
+      console.log(`[ADMIN] Queue cleared for room ${roomId}: ${result.clearedCount} songs removed`);
+
+      io.to(roomId).emit("queue_cleared", { roomId });
+      io.to(roomId).emit("now_playing_updated", null);
+
+      const queueSnapshotAfterClear = await getQueueWindow(roomId, "admin");
+      io.to(roomId).emit("queue_updated", queueSnapshotAfterClear);
+
+      if (callback) callback({ success: true, clearedCount: result.clearedCount });
+    } catch (err) {
+      console.error(err);
+      if (callback) callback({ success: false, error: "Internal server error" });
+    }
+  });
 
 
   // Admin adds song directly to queue (no approval needed)
@@ -117,6 +146,10 @@ export function handleAdminEvents(io: Server, socket: Socket) {
       io.to(`${roomId}:admin`).emit("song_approved", newSong);
       io.to(`${roomId}:participant`).emit("song_approved", newSong);
       io.to(`${roomId}:eo`).emit("song_approved", newSong);
+
+      // Send authoritative queue snapshot
+      const queueSnapshotAfterAdd = await getQueueWindow(roomId, "admin");
+      io.to(roomId).emit("queue_updated", queueSnapshotAfterAdd);
 
       if (callback) callback({ success: true, song: newSong });
     } catch (err) {

@@ -37,7 +37,7 @@ export function RequestFlow({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className={`max-w-4xl mx-auto w-full relative z-20 flex flex-col items-center px-6 transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-        query ? 'pt-32' : 'justify-center min-h-screen'
+        query ? 'pt-32 min-h-[60vh]' : 'justify-center min-h-screen'
       }`}
     >
       <motion.div 
@@ -125,7 +125,7 @@ export function RequestFlow({
                   key="results"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className={`w-full space-y-3 pb-32 max-h-[55vh] overflow-y-auto pr-2 no-scrollbar transition-opacity duration-300 ${loading && results.length > 0 ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}
+                  className={`w-full space-y-3 pb-32 max-h-[60vh] overflow-y-auto pr-2 no-scrollbar transition-opacity duration-300 ${loading && results.length > 0 ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}
                 >
                   {loading && results.length === 0 ? (
                     Array.from({ length: 6 }).map((_, i) => (

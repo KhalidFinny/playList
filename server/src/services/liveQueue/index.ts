@@ -8,6 +8,7 @@ const deleteSongScript = await readFile(new URL("./scripts/delete.lua", import.m
 const previousTrackScript = await readFile(new URL("./scripts/previous.lua", import.meta.url), "utf8");
 const transitionNextScript = await readFile(new URL("./scripts/transition.lua", import.meta.url), "utf8");
 const updateSongScript = await readFile(new URL("./scripts/update.lua", import.meta.url), "utf8");
+const clearQueueScript = await readFile(new URL("./scripts/clear_queue.lua", import.meta.url), "utf8");
 
 export type QueueSong = {
   id: string;
@@ -262,6 +263,28 @@ export async function transitionToNextTrack(roomId: string, idempotencyKey: stri
     upNext: QueueSong | null;
     queueVersion: number;
   };
+}
+
+export async function clearQueue(roomId: string) {
+  if ((await redis.exists(key.version(roomId))) === 0) await rebuildRoomQueue(roomId);
+
+  const event = makeDbEvent({ type: "queue_cleared", roomId, payload: {}, eventId: `queue_cleared:${roomId}:${crypto.randomUUID()}` });
+  const raw = await redis.eval(
+    clearQueueScript,
+    5,
+    key.pending(roomId),
+    key.approved(roomId),
+    key.nowPlaying(roomId),
+    key.version(roomId),
+    key.eventStream(),
+    roomId,
+    event.eventId,
+    event.createdAt,
+  );
+
+  return JSON.parse(String(raw)) as
+    | { ok: true; clearedCount: number; queueVersion: number }
+    | { ok: false; error: string };
 }
 
 export async function previousTrack(roomId: string) {

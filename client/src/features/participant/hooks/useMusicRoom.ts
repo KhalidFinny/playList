@@ -56,9 +56,12 @@ export function useMusicRoom(roomId: string) {
     socket.on('room_key_info', handleRoomKeyInfo);
     socket.on('now_playing_updated', handleNowPlayingUpdated);
     socket.on('playback_updated', handlePlaybackUpdated);
+    const handleQueueCleared = () => useRoomStore.getState().clearRoomQueue();
+
     socket.on('playback_sync', handlePlaybackSync);
     socket.on('queue_updated', handleQueueUpdated);
     socket.on('song_approved', handleSongApproved);
+    socket.on('queue_cleared', handleQueueCleared);
     socket.on('song_removed_from_queue', handleSongRemoved);
 
     return () => {
@@ -70,6 +73,7 @@ export function useMusicRoom(roomId: string) {
       socket.off('playback_sync', handlePlaybackSync);
       socket.off('queue_updated', handleQueueUpdated);
       socket.off('song_approved', handleSongApproved);
+      socket.off('queue_cleared', handleQueueCleared);
       socket.off('song_removed_from_queue', handleSongRemoved);
     };
   }, [roomId]);

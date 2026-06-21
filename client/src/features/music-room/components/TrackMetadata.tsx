@@ -21,7 +21,7 @@ export const TrackMetadata = ({ track, currentTime = 0, duration = 0 }: TrackMet
 
     return (
         <header className="mb-12">
-            <h1 className="text-6xl xl:text-7xl font-bebas tracking-tight text-neutral-800 leading-none uppercase mb-4 transition-all">
+            <h1 className="text-6xl xl:text-7xl font-bebas tracking-tight text-neutral-800 leading-none uppercase mb-4 transition-all line-clamp-2">
                 {track.title}
             </h1>
             <div className="space-y-1">

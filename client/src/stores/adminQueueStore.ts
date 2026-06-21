@@ -14,6 +14,7 @@ type AdminQueueState = {
   applySongApproved: (song: Track) => void;
   applySongDeleted: (songId: string) => void;
   applySongUpdated: (payload: SongUpdatedPayload) => void;
+  clearEntireQueue: () => void;
   setProcessingId: (id: string | null) => void;
   startEditing: (song: Pick<Track, 'id' | 'title'>) => void;
   stopEditing: () => void;
@@ -53,6 +54,7 @@ export const useAdminQueueStore = create<AdminQueueState>((set) => ({
       pendingQueue: state.pendingQueue.map((song) => (song.id === id ? { ...song, title } : song)),
       fullQueue: state.fullQueue.map((song) => (song.id === id ? { ...song, title } : song)),
     })),
+  clearEntireQueue: () => set({ pendingQueue: [], fullQueue: [] }),
   setProcessingId: (processingId) => set({ processingId }),
   startEditing: (song) => set({ editingId: song.id, editValue: song.title }),
   stopEditing: () => set({ editingId: null, editValue: '' }),

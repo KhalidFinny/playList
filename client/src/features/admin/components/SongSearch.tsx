@@ -76,7 +76,7 @@ export function SongSearch({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className={`max-w-4xl mx-auto w-full relative z-20 flex flex-col items-center px-6 transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-        searchQuery ? 'pt-32' : 'justify-center min-h-[calc(100vh-14rem)]'
+        searchQuery ? 'pt-32 min-h-[60vh]' : 'justify-center min-h-[calc(100vh-14rem)]'
       }`}
     >
       <motion.div 
@@ -155,7 +155,7 @@ export function SongSearch({
                   key="results"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className={`w-full space-y-3 pb-32 max-h-[55vh] overflow-y-auto pr-2 no-scrollbar transition-opacity duration-300 ${searchLoading && searchResults.length > 0 ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}
+                  className={`w-full space-y-3 pb-32 max-h-[60vh] overflow-y-auto pr-2 no-scrollbar transition-opacity duration-300 ${searchLoading && searchResults.length > 0 ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}
                 >
                   {searchLoading && searchResults.length === 0 ? (
                     Array.from({ length: 6 }).map((_, i) => (

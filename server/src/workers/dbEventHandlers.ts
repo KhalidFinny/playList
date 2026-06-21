@@ -98,6 +98,14 @@ const persistByType = async (event: DbEvent) => {
       }
       return;
 
+    case "queue_cleared":
+      await sql`
+        UPDATE songs
+        SET status = 'done', done_at = NOW()
+        WHERE room_id = ${event.roomId} AND status IN ('pending', 'approved')
+      `;
+      return;
+
     case "playback_synced_optional":
       return;
   }

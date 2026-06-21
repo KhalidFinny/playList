@@ -23,7 +23,7 @@ export function NowPlayingBar({
           exit={{ y: 100 }}
           className="fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-xl border-t border-black/10 p-6 md:px-12 flex items-center justify-between"
         >
-          <div className="flex items-center gap-5 overflow-hidden">
+          <div className="flex items-center gap-5 overflow-hidden min-w-0">
             <div className="relative w-14 h-14 bg-black rounded-xl overflow-hidden shrink-0">
               {nowPlaying.thumbnail ? (
                 <img
@@ -37,14 +37,14 @@ export function NowPlayingBar({
                 </div>
               )}
             </div>
-            <div className="overflow-hidden">
+            <div className="overflow-hidden min-w-0 flex-1">
               <p className="text-[10px] font-bold text-orange-500 uppercase tracking-[0.2em] mb-1">
                 Live Broadcast
               </p>
-              <h3 className="text-lg font-bold text-black line-clamp-1 leading-tight">
+              <h3 className="text-lg font-bold text-black line-clamp-1 leading-tight whitespace-nowrap overflow-hidden text-ellipsis">
                 {nowPlaying.title}
               </h3>
-              <p className="text-[10px] font-bold text-black/30 uppercase tracking-widest">
+              <p className="text-[10px] font-bold text-black/30 uppercase tracking-widest line-clamp-1">
                 {nowPlaying.author}
               </p>
             </div>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ListMusic, X, Check, Loader2, Play, Headphones } from 'lucide-react';
+import { ListMusic, X, Check, Loader2, Play, Headphones, Trash2 } from 'lucide-react';
 import { Button } from '@/shared/components/button';
 import { Card } from '@/shared/components/card';
 import { Input } from '@/shared/components/input';
@@ -19,6 +19,8 @@ export function ModerationQueue({
   handleDelete,
   handleSaveEdit,
   onPreviewChange,
+  onClearQueue,
+  pendingCount,
 }: ModerationQueueProps) {
   const [previewId, setPreviewId] = useState<string | null>(null);
   const { devices, selectedDeviceId, selectDevice, supportsSetSinkId, isCustomDevice } = useAudioOutput();
@@ -60,6 +62,15 @@ export function ModerationQueue({
                 <Headphones size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-black/30 pointer-events-none" />
               </div>
             )}
+            {onClearQueue && pendingCount !== undefined && pendingCount > 0 ? (
+              <button
+                onClick={onClearQueue}
+                className="bg-red-50 hover:bg-red-100 text-red-600 px-3 sm:px-4 py-2 rounded-full font-bold text-[10px] sm:text-[11px] tracking-widest border border-red-200 hover:border-red-300 transition-all shrink-0 flex items-center gap-2"
+                title="Clear all songs from queue"
+              >
+                <Trash2 size={14} /> Clear All
+              </button>
+            ) : null}
             <div className="bg-black/5 text-black/50 px-3 sm:px-5 py-2 rounded-full font-bold text-[10px] sm:text-[12px] tracking-widest border border-black/5 shrink-0">
               {pendingQueue.length.toString().padStart(2, '0')} WAITING
             </div>

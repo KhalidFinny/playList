@@ -69,6 +69,7 @@ export function useAdminDashboard(roomId: string) {
   const applySongApproved = useAdminQueueStore((state) => state.applySongApproved);
   const applySongDeleted = useAdminQueueStore((state) => state.applySongDeleted);
   const applySongUpdated = useAdminQueueStore((state) => state.applySongUpdated);
+  const clearEntireQueue = useAdminQueueStore((state) => state.clearEntireQueue);
   const setProcessingId = useAdminQueueStore((state) => state.setProcessingId);
   const startAdminEditing = useAdminQueueStore((state) => state.startEditing);
   const stopAdminEditing = useAdminQueueStore((state) => state.stopEditing);
@@ -287,7 +288,12 @@ export function useAdminDashboard(roomId: string) {
     socket.on('song_deleted', handleSongDeleted);
     socket.on('song_removed_from_queue', handleSongDeleted);
     socket.on('song_approved', handleSongApproved);
+    const handleQueueCleared = () => {
+      clearEntireQueue();
+    };
+
     socket.on('song_updated', handleSongUpdated);
+    socket.on('queue_cleared', handleQueueCleared);
     socket.on('disconnect', handleDisconnect);
 
     return () => {
@@ -301,6 +307,7 @@ export function useAdminDashboard(roomId: string) {
       socket.off('song_removed_from_queue', handleSongDeleted);
       socket.off('song_approved', handleSongApproved);
       socket.off('song_updated', handleSongUpdated);
+      socket.off('queue_cleared', handleQueueCleared);
       socket.off('disconnect', handleDisconnect);
     };
   }, [applyInitialQueues, applyNewPendingSong, applyNowPlaying, applySongApproved, applySongDeleted, applySongUpdated, fetchNext, roomId]);
@@ -395,6 +402,18 @@ export function useAdminDashboard(roomId: string) {
     });
   };
 
+  const handleClearQueue = useCallback(() => {
+    const adminToken = localStorage.getItem('adminToken');
+    if (!adminToken || !roomId) return;
+    socket.emit('clear_queue', { roomId, adminToken }, (res: { success: boolean; clearedCount?: number; error?: string }) => {
+      if (res.success) {
+        console.log(`[ADMIN] Queue cleared: ${res.clearedCount} songs removed`);
+      } else {
+        console.warn('[ADMIN] Failed to clear queue:', res.error);
+      }
+    });
+  }, [roomId]);
+
   const handleAddSong = (song: SearchResult) => {
     setSubmittingId(song.youtubeId);
     const adminToken = localStorage.getItem('adminToken');
@@ -453,6 +472,7 @@ export function useAdminDashboard(roomId: string) {
     startEditing,
     handleSaveEdit,
     handleAddSong,
+    handleClearQueue,
     setEditingId: (id: string | null) => (id ? startAdminEditing({ id, title: editValue }) : stopAdminEditing()),
   };
 }

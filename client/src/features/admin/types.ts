@@ -66,6 +66,8 @@ export interface ModerationQueueProps {
   handleSaveEdit: (id: string) => void;
   setEditingId: (id: string | null) => void;
   onPreviewChange: (previewId: string | null) => void;
+  onClearQueue?: () => void;
+  pendingCount?: number;
 }
 
 export interface DashboardHeaderProps {

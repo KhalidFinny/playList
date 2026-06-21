@@ -58,16 +58,28 @@ export function AdminHubPage() {
     }
   }, [token, user, activeHubTab]);
 
+  const [createError, setCreateError] = useState<string | null>(null);
+
   const handleCreateStation = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newStationId.trim() || !token) return;
     const roomId = newStationId.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-');
     setCreating(true);
+    setCreateError(null);
+    if (!socket.connected) {
+      setCreateError('Not connected to server. Please wait...');
+      setCreating(false);
+      return;
+    }
     socket.emit('create_station', { roomId, adminToken: token }, (res: CreateStationResponse) => {
       setCreating(false);
       if (res.success && res.roomId) {
+        setCreateError(null);
         setIsCreateModalOpen(false);
+        setNewStationId('');
         navigate({ to: '/admin/$roomId', params: { roomId: res.roomId } });
+      } else {
+        setCreateError(res.error || 'Failed to create station. Please try again.');
       }
     });
   };
@@ -182,11 +194,14 @@ export function AdminHubPage() {
                     <Input
                       required
                       value={newStationId}
-                      onChange={(e) => setNewStationId(e.target.value)}
+                      onChange={(e) => { setNewStationId(e.target.value); setCreateError(null); }}
                       placeholder="e.g. nocturnal-vibes"
                       variant="premium-hero"
                     />
                   </div>
+                  {createError && (
+                    <p className="text-[11px] font-bold text-red-500 text-center px-4">{createError}</p>
+                  )}
                   <Button
                     type="submit"
                     disabled={creating || !newStationId.trim()}

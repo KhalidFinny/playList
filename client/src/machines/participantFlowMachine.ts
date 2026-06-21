@@ -66,7 +66,6 @@ export const participantFlowMachine = setup({
       const trimmed = event.value.trim();
       return {
         query: event.value,
-        isConfirmed: context.isConfirmed ? false : context.isConfirmed,
         suggestions: trimmed.length < 2 ? [] : context.suggestions,
         results: trimmed.length === 0 ? [] : context.results,
       };

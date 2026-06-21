@@ -8,7 +8,7 @@
   ],
   "packageManager": "bun@1.3.14",
   "scripts": {
-    "infra": "docker start postgres && docker compose up -d redis",
+    "infra": "docker start playmusic_db && docker start playmusic_redis",
     "dev": "vp run infra && vp run --filter client --filter server --parallel dev",
     "dev:client": "vp run --filter client dev",
     "dev:server": "vp run --filter server dev",

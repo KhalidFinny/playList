@@ -7,6 +7,7 @@ export type DbEventType =
   | "song_updated"
   | "track_transitioned"
   | "track_previous"
+  | "queue_cleared"
   | "playback_synced_optional";
 
 export type DbEvent = {

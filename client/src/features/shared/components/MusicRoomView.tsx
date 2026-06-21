@@ -41,13 +41,13 @@ export function MusicRoomView({
   const hasNextTrack = queue.length > 0;
 
   return (
-    <div className="w-full h-full min-h-0 flex flex-col lg:flex-row items-center justify-center gap-4 lg:gap-8 px-2 lg:px-6 overflow-hidden">
+    <div className="w-full h-full min-h-0 flex flex-col lg:flex-row items-stretch justify-center gap-4 lg:gap-8 px-2 lg:px-6 overflow-hidden">
       
       {/* LEFT SECTION: Metadata — tablet/desktop only (lg+) */}
       <motion.section 
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="hidden lg:flex flex-col justify-center w-[240px] lg:w-[280px] xl:w-[350px] shrink-0 h-full"
+          className="hidden lg:flex flex-col justify-center w-[240px] lg:w-[280px] xl:w-[350px] shrink-0 min-h-0"
       >
           <div className="flex flex-col justify-center space-y-8 h-full">
             <TrackMetadata track={nowPlaying} currentTime={currentTime} duration={duration} />
@@ -68,7 +68,7 @@ export function MusicRoomView({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.8 }}
-          className="flex-1 w-full lg:w-auto h-auto lg:h-full flex flex-col items-center justify-center min-w-0 max-w-[860px]"
+          className="flex-1 w-full lg:w-auto min-h-0 flex flex-col items-center justify-center min-w-0 max-w-[860px]"
       >
           {/* Mobile: MiniVinyl — compact record, no clipped needle */}
           <div className="lg:hidden w-full flex flex-col items-center gap-4 py-4">

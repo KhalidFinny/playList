@@ -22,7 +22,7 @@ export function AdminDashboardPage() {
     upNext, fullQueue, activePlayer, hasPreviousTrack, pendingQueue, processingId, editingId, editValue, setEditValue,
     searchQuery, setSearchQuery, searchResults, searchLoading, submittingId, suggestions,
     onSelectSuggestion, onPlayerReady, onPlayerEnd, onPrevious, togglePlayback, handleApprove,
-    handleDelete, startEditing, handleSaveEdit, handleAddSong, setEditingId,
+    handleDelete, startEditing, handleSaveEdit, handleAddSong, handleClearQueue, setEditingId,
     setPreviewActive
   } = useAdminDashboardPage();
 
@@ -43,7 +43,7 @@ export function AdminDashboardPage() {
   if (loading || !token) return <LoadingOverlay isLoading={true} />;
 
   return (
-    <div className="min-h-screen bg-[#fdfdfd] text-[#39283f] font-poppins mobile-content-area">
+    <div className="h-screen bg-[#fdfdfd] text-[#39283f] font-poppins mobile-content-area overflow-hidden">
       <AdminHeader 
         connected={connected}
         tabs={tabs}
@@ -87,7 +87,7 @@ export function AdminDashboardPage() {
         </div>
       </nav>
 
-      <main className="w-full h-full px-2 xl:px-6 pt-28 pb-4">
+      <main className="w-full h-full px-2 xl:px-6 pt-28 pb-4 overflow-hidden">
         {/* Music room — always mounted, display:none when not active so YouTube keeps playing across tab switches */}
         <div className={activeTab === 'music' ? 'block h-[calc(100vh-10rem)]' : 'hidden'}>
           <PlaybackController roomId={roomId} nowPlaying={nowPlaying} upNext={upNext} fullQueue={fullQueue} activePlayer={activePlayer} hasPreviousTrack={hasPreviousTrack} onPlayerReady={onPlayerReady} onPlayerEnd={onPlayerEnd} onPrevious={onPrevious} togglePlayback={togglePlayback} onGoToSearch={() => setActiveTab('search')} />
@@ -101,7 +101,7 @@ export function AdminDashboardPage() {
           )}
           {activeTab === 'review' && (
              <motion.div key="review" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="w-full flex justify-center pt-6">
-                <div className="w-full max-w-5xl h-[calc(100vh-8rem)] flex flex-col"><ModerationQueue pendingQueue={pendingQueue} processingId={processingId} editingId={editingId} editValue={editValue} setEditValue={setEditValue} handleApprove={handleApprove} handleDelete={handleDelete} startEditing={startEditing} handleSaveEdit={handleSaveEdit} setEditingId={setEditingId} onPreviewChange={handlePreviewChange} /></div>
+                <div className="w-full max-w-5xl h-[calc(100vh-8rem)] flex flex-col"><ModerationQueue pendingQueue={pendingQueue} processingId={processingId} editingId={editingId} editValue={editValue} setEditValue={setEditValue} handleApprove={handleApprove} handleDelete={handleDelete} startEditing={startEditing} handleSaveEdit={handleSaveEdit} setEditingId={setEditingId} onPreviewChange={handlePreviewChange} onClearQueue={handleClearQueue} pendingCount={pendingQueue.length} /></div>
              </motion.div>
           )}
           {activeTab === 'search' && (
