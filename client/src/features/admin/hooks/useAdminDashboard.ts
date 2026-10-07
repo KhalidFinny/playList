@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { socket } from '../../../shared/lib/socket';
-import { useDebounce } from '../../../shared/hooks/useDebounce';
-import type { YouTubeProps } from 'react-youtube';
+import { useState, useEffect, useRef, useCallback } from "react";
+import { socket } from "../../../shared/lib/socket";
+import { useDebounce } from "../../../shared/hooks/useDebounce";
+import type { YouTubeProps } from "react-youtube";
 import type {
   BasicResponse,
   EoTrackEndedResponse,
@@ -14,8 +14,8 @@ import type {
   SearchSuggestionsResponse,
   SongUpdatedPayload,
   Track,
-} from '../types';
-import { useAdminQueueStore } from '../../../stores/adminQueueStore';
+} from "../types";
+import { useAdminQueueStore } from "../../../stores/adminQueueStore";
 
 const normalize = (value: string) => value.toLowerCase().trim();
 
@@ -51,7 +51,7 @@ export function useAdminDashboard(roomId: string) {
   const [nowPlaying, setNowPlaying] = useState<Track | null>(null);
   const [upNext, setUpNext] = useState<Track | null>(null);
   const [hasPreviousTrack, setHasPreviousTrack] = useState(false);
-  const [activePlayer, setActivePlayer] = useState<'A' | 'B'>('A');
+  const [activePlayer, setActivePlayer] = useState<"A" | "B">("A");
   const playerARef = useRef<PlayerRef | null>(null);
   const playerBRef = useRef<PlayerRef | null>(null);
   const nowPlayingRef = useRef<Track | null>(null);
@@ -76,7 +76,7 @@ export function useAdminDashboard(roomId: string) {
   const setEditValue = useAdminQueueStore((state) => state.setEditValue);
 
   // --- STATE: SEARCH (Add Music) ---
-  const [searchQuery, setSearchQueryValue] = useState('');
+  const [searchQuery, setSearchQueryValue] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -84,7 +84,7 @@ export function useAdminDashboard(roomId: string) {
 
   const debouncedSearch = useDebounce(searchQuery, 150);
 
-  const latestSearchQueryRef = useRef('');
+  const latestSearchQueryRef = useRef("");
   const suggestionRequestIdRef = useRef(0);
   const searchResultsRequestIdRef = useRef(0);
 
@@ -107,58 +107,82 @@ export function useAdminDashboard(roomId: string) {
   }, []);
 
   // --- LOGIC: PLAYER (EO) ---
-  const activePlayerRef = useRef<'A' | 'B'>('A');
+  const activePlayerRef = useRef<"A" | "B">("A");
 
-  useEffect(() => { activePlayerRef.current = activePlayer; }, [activePlayer]);
+  useEffect(() => {
+    activePlayerRef.current = activePlayer;
+  }, [activePlayer]);
 
-  const applyNowPlaying = useCallback((track: Track | null) => {
-    setNowPlaying(track);
-    if (track) applySongDeleted(track.id);
-  }, [applySongDeleted]);
+  const applyNowPlaying = useCallback(
+    (track: Track | null) => {
+      setNowPlaying(track);
+      if (track) applySongDeleted(track.id);
+    },
+    [applySongDeleted],
+  );
 
   const fetchNext = useCallback(() => {
     if (!roomId || isRequestingNextRef.current) return;
 
     isRequestingNextRef.current = true;
-    socket.emit('eo_track_ended', { roomId, idempotencyKey: crypto.randomUUID() }, (res: EoTrackEndedResponse) => {
-      if (res.success) {
-        applyNowPlaying(res.nextTrack);
-        setUpNext(res.upNext);
-        if (res.oldTrackId) setHasPreviousTrack(true);
-      }
-      isRequestingNextRef.current = false;
-    });
+    socket.emit(
+      "eo_track_ended",
+      { roomId, idempotencyKey: crypto.randomUUID() },
+      (res: EoTrackEndedResponse) => {
+        if (res.success) {
+          applyNowPlaying(res.nextTrack);
+          setUpNext(res.upNext);
+          if (res.oldTrackId) setHasPreviousTrack(true);
+        }
+        isRequestingNextRef.current = false;
+      },
+    );
   }, [applyNowPlaying, roomId]);
 
-  const onPlayerReady: (id: 'A' | 'B') => NonNullable<YouTubeProps['onReady']> = (id) => (event) => {
-    if (id === 'A') playerARef.current = event.target as unknown as PlayerRef;
-    else playerBRef.current = event.target as unknown as PlayerRef;
-  };
+  const onPlayerReady: (id: "A" | "B") => NonNullable<YouTubeProps["onReady"]> =
+    (id) => (event) => {
+      if (id === "A") playerARef.current = event.target as unknown as PlayerRef;
+      else playerBRef.current = event.target as unknown as PlayerRef;
+    };
 
   const onPlayerEnd = useCallback(() => {
     if (!roomId || isRequestingNextRef.current) return Promise.resolve(false);
 
     isRequestingNextRef.current = true;
     return new Promise<boolean>((resolve) => {
-      socket.emit('eo_track_ended', { roomId, idempotencyKey: crypto.randomUUID() }, (res: EoTrackEndedResponse) => {
-        let advanced = false;
-        if (res.success) {
-          applyNowPlaying(res.nextTrack);
-          setUpNext(res.upNext);
-          if (res.oldTrackId) setHasPreviousTrack(true);
+      socket.emit(
+        "eo_track_ended",
+        { roomId, idempotencyKey: crypto.randomUUID() },
+        (res: EoTrackEndedResponse) => {
+          let advanced = false;
+          if (res.success) {
+            applyNowPlaying(res.nextTrack);
+            setUpNext(res.upNext);
+            if (res.oldTrackId) setHasPreviousTrack(true);
 
-          if (res.nextTrack) {
-            const nextPlayer = activePlayerRef.current === 'A' ? 'B' : 'A';
-            setActivePlayer(nextPlayer);
-            socket.emit('sync_playback', { roomId, currentTime: 0, duration: 0, isPlaying: true });
-            advanced = true;
-          } else {
-            socket.emit('sync_playback', { roomId, currentTime: 0, duration: 0, isPlaying: false });
+            if (res.nextTrack) {
+              const nextPlayer = activePlayerRef.current === "A" ? "B" : "A";
+              setActivePlayer(nextPlayer);
+              socket.emit("sync_playback", {
+                roomId,
+                currentTime: 0,
+                duration: 0,
+                isPlaying: true,
+              });
+              advanced = true;
+            } else {
+              socket.emit("sync_playback", {
+                roomId,
+                currentTime: 0,
+                duration: 0,
+                isPlaying: false,
+              });
+            }
           }
-        }
-        isRequestingNextRef.current = false;
-        resolve(advanced);
-      });
+          isRequestingNextRef.current = false;
+          resolve(advanced);
+        },
+      );
     });
   }, [applyNowPlaying, roomId]);
 
@@ -167,18 +191,27 @@ export function useAdminDashboard(roomId: string) {
 
     isRequestingPreviousRef.current = true;
     return new Promise<boolean>((resolve) => {
-      socket.emit('previous_track', { roomId }, (res: { success: boolean; previousTrack?: Track; hasPrevious?: boolean; error?: string }) => {
-        const moved = Boolean(res.success && res.previousTrack);
-        if (res.success && res.previousTrack) {
-          applyNowPlaying(res.previousTrack);
-          setHasPreviousTrack(Boolean(res.hasPrevious));
-          // Server broadcasts now_playing_updated, so other clients pick it up
-        } else {
-          setHasPreviousTrack(false);
-        }
-        isRequestingPreviousRef.current = false;
-        resolve(moved);
-      });
+      socket.emit(
+        "previous_track",
+        { roomId },
+        (res: {
+          success: boolean;
+          previousTrack?: Track;
+          hasPrevious?: boolean;
+          error?: string;
+        }) => {
+          const moved = Boolean(res.success && res.previousTrack);
+          if (res.success && res.previousTrack) {
+            applyNowPlaying(res.previousTrack);
+            setHasPreviousTrack(Boolean(res.hasPrevious));
+            // Server broadcasts now_playing_updated, so other clients pick it up
+          } else {
+            setHasPreviousTrack(false);
+          }
+          isRequestingPreviousRef.current = false;
+          resolve(moved);
+        },
+      );
     });
   }, [applyNowPlaying, roomId]);
 
@@ -195,16 +228,16 @@ export function useAdminDashboard(roomId: string) {
     console.log(`[DASHBOARD] Connecting to room: ${roomId}`);
     socket.connect();
 
-    const adminToken = localStorage.getItem('adminToken');
+    const adminToken = localStorage.getItem("adminToken");
     if (!adminToken) {
-      console.warn('Unauthorized. Missing admin token.');
+      console.warn("Unauthorized. Missing admin token.");
       return;
     }
 
     const doJoinRoom = () => {
-      socket.emit('join_room', { roomId, role: 'admin', adminToken }, (res: BasicResponse) => {
+      socket.emit("join_room", { roomId, role: "admin", adminToken }, (res: BasicResponse) => {
         if (res && !res.success) {
-          console.warn(res.error || 'Failed to join room');
+          console.warn(res.error || "Failed to join room");
         }
       });
     };
@@ -212,17 +245,21 @@ export function useAdminDashboard(roomId: string) {
     joinRoomRef.current = roomId;
 
     const handleConnect = () => {
-      console.log('[DASHBOARD] Socket connected');
+      console.log("[DASHBOARD] Socket connected");
       setConnected(true);
       // Re-join the room on reconnect (socket.io reconnects automatically but doesn't re-emit our events)
-      const token = localStorage.getItem('adminToken');
+      const token = localStorage.getItem("adminToken");
       if (token && joinRoomRef.current) {
-        console.log('[DASHBOARD] Reconnecting - rejoining room');
-        socket.emit('join_room', { roomId: joinRoomRef.current, role: 'admin', adminToken: token }, (res: BasicResponse) => {
-          if (res && !res.success) {
-            console.warn(res.error || 'Failed to rejoin room');
-          }
-        });
+        console.log("[DASHBOARD] Reconnecting - rejoining room");
+        socket.emit(
+          "join_room",
+          { roomId: joinRoomRef.current, role: "admin", adminToken: token },
+          (res: BasicResponse) => {
+            if (res && !res.success) {
+              console.warn(res.error || "Failed to rejoin room");
+            }
+          },
+        );
       }
     };
 
@@ -234,7 +271,7 @@ export function useAdminDashboard(roomId: string) {
     }
 
     const handleEoRegistered = () => {
-      console.log('[DASHBOARD] EO Registered successfully');
+      console.log("[DASHBOARD] EO Registered successfully");
     };
 
     const handleRoomKeyInfo = ({ passkey }: RoomKeyInfo) => {
@@ -247,8 +284,8 @@ export function useAdminDashboard(roomId: string) {
     };
 
     const handleQueueUpdated = (queue: QueueSong[]) => {
-      const pending = queue.filter((q) => q.status === 'pending');
-      const approved = queue.filter((q) => q.status === 'approved') as Track[];
+      const pending = queue.filter((q) => q.status === "pending");
+      const approved = queue.filter((q) => q.status === "approved") as Track[];
 
       applyInitialQueues(pending, approved);
 
@@ -259,7 +296,7 @@ export function useAdminDashboard(roomId: string) {
     };
 
     const handleNewPendingSong = (song: PendingSong) => {
-      console.log('[DASHBOARD] New pending song received:', song);
+      console.log("[DASHBOARD] New pending song received:", song);
       applyNewPendingSong(song);
     };
 
@@ -279,38 +316,47 @@ export function useAdminDashboard(roomId: string) {
       setConnected(false);
     };
 
-    socket.on('connect', handleConnect);
-    socket.on('eo_registered', handleEoRegistered);
-    socket.on('room_key_info', handleRoomKeyInfo);
-    socket.on('now_playing_updated', handleNowPlayingUpdated);
-    socket.on('queue_updated', handleQueueUpdated);
-    socket.on('new_pending_song', handleNewPendingSong);
-    socket.on('song_deleted', handleSongDeleted);
-    socket.on('song_removed_from_queue', handleSongDeleted);
-    socket.on('song_approved', handleSongApproved);
+    socket.on("connect", handleConnect);
+    socket.on("eo_registered", handleEoRegistered);
+    socket.on("room_key_info", handleRoomKeyInfo);
+    socket.on("now_playing_updated", handleNowPlayingUpdated);
+    socket.on("queue_updated", handleQueueUpdated);
+    socket.on("new_pending_song", handleNewPendingSong);
+    socket.on("song_deleted", handleSongDeleted);
+    socket.on("song_removed_from_queue", handleSongDeleted);
+    socket.on("song_approved", handleSongApproved);
     const handleQueueCleared = () => {
       clearEntireQueue();
     };
 
-    socket.on('song_updated', handleSongUpdated);
-    socket.on('queue_cleared', handleQueueCleared);
-    socket.on('disconnect', handleDisconnect);
+    socket.on("song_updated", handleSongUpdated);
+    socket.on("queue_cleared", handleQueueCleared);
+    socket.on("disconnect", handleDisconnect);
 
     return () => {
-      socket.off('connect', handleConnect);
-      socket.off('eo_registered', handleEoRegistered);
-      socket.off('room_key_info', handleRoomKeyInfo);
-      socket.off('now_playing_updated', handleNowPlayingUpdated);
-      socket.off('queue_updated', handleQueueUpdated);
-      socket.off('new_pending_song', handleNewPendingSong);
-      socket.off('song_deleted', handleSongDeleted);
-      socket.off('song_removed_from_queue', handleSongDeleted);
-      socket.off('song_approved', handleSongApproved);
-      socket.off('song_updated', handleSongUpdated);
-      socket.off('queue_cleared', handleQueueCleared);
-      socket.off('disconnect', handleDisconnect);
+      socket.off("connect", handleConnect);
+      socket.off("eo_registered", handleEoRegistered);
+      socket.off("room_key_info", handleRoomKeyInfo);
+      socket.off("now_playing_updated", handleNowPlayingUpdated);
+      socket.off("queue_updated", handleQueueUpdated);
+      socket.off("new_pending_song", handleNewPendingSong);
+      socket.off("song_deleted", handleSongDeleted);
+      socket.off("song_removed_from_queue", handleSongDeleted);
+      socket.off("song_approved", handleSongApproved);
+      socket.off("song_updated", handleSongUpdated);
+      socket.off("queue_cleared", handleQueueCleared);
+      socket.off("disconnect", handleDisconnect);
     };
-  }, [applyInitialQueues, applyNewPendingSong, applyNowPlaying, applySongApproved, applySongDeleted, applySongUpdated, fetchNext, roomId]);
+  }, [
+    applyInitialQueues,
+    applyNewPendingSong,
+    applyNowPlaying,
+    applySongApproved,
+    applySongDeleted,
+    applySongUpdated,
+    fetchNext,
+    roomId,
+  ]);
 
   useEffect(() => {
     if (connected && !nowPlaying && fullQueue.length > 0 && !isRequestingNextRef.current) {
@@ -324,7 +370,7 @@ export function useAdminDashboard(roomId: string) {
     const originalFull = [...fullQueue];
     applySongDeleted(songId);
     setProcessingId(songId);
-    socket.emit('approve_song', { roomId, songId }, (res: BasicResponse) => {
+    socket.emit("approve_song", { roomId, songId }, (res: BasicResponse) => {
       setProcessingId(null);
       if (!res.success) {
         applyInitialQueues(originalPending, originalFull);
@@ -337,7 +383,7 @@ export function useAdminDashboard(roomId: string) {
     const originalFull = [...fullQueue];
     applySongDeleted(songId);
     setProcessingId(songId);
-    socket.emit('delete_song', { roomId, songId }, (res: BasicResponse) => {
+    socket.emit("delete_song", { roomId, songId }, (res: BasicResponse) => {
       setProcessingId(null);
       if (!res.success) {
         applyInitialQueues(originalPending, originalFull);
@@ -350,7 +396,7 @@ export function useAdminDashboard(roomId: string) {
   };
 
   const handleSaveEdit = (songId: string) => {
-    socket.emit('edit_song', { roomId, songId, newTitle: editValue }, (res: BasicResponse) => {
+    socket.emit("edit_song", { roomId, songId, newTitle: editValue }, (res: BasicResponse) => {
       if (res.success) stopAdminEditing();
     });
   };
@@ -366,7 +412,7 @@ export function useAdminDashboard(roomId: string) {
     const requestedQuery = trimmed.toLowerCase();
 
     // As user types, get fast suggestions
-    socket.emit('get_search_suggestions', { query: trimmed }, (res: SearchSuggestionsResponse) => {
+    socket.emit("get_search_suggestions", { query: trimmed }, (res: SearchSuggestionsResponse) => {
       const latestQuery = latestSearchQueryRef.current.trim().toLowerCase();
       const isLatestRequest = requestId === suggestionRequestIdRef.current;
       const isForCurrentQuery = requestedQuery === latestQuery;
@@ -387,7 +433,7 @@ export function useAdminDashboard(roomId: string) {
     const requestedQuery = suggestion.trim().toLowerCase();
 
     // When a suggestion is picked, fetch the HIGH FIDELITY video result
-    socket.emit('search_songs', { query: suggestion }, (res: SearchSongsResponse) => {
+    socket.emit("search_songs", { query: suggestion }, (res: SearchSongsResponse) => {
       const latestQuery = latestSearchQueryRef.current.trim().toLowerCase();
       const isLatestRequest = requestId === searchResultsRequestIdRef.current;
       const isForCurrentQuery = requestedQuery === latestQuery;
@@ -403,22 +449,26 @@ export function useAdminDashboard(roomId: string) {
   };
 
   const handleClearQueue = useCallback(() => {
-    const adminToken = localStorage.getItem('adminToken');
+    const adminToken = localStorage.getItem("adminToken");
     if (!adminToken || !roomId) return;
-    socket.emit('clear_queue', { roomId, adminToken }, (res: { success: boolean; clearedCount?: number; error?: string }) => {
-      if (res.success) {
-        console.log(`[ADMIN] Queue cleared: ${res.clearedCount} songs removed`);
-      } else {
-        console.warn('[ADMIN] Failed to clear queue:', res.error);
-      }
-    });
+    socket.emit(
+      "clear_queue",
+      { roomId, adminToken },
+      (res: { success: boolean; clearedCount?: number; error?: string }) => {
+        if (res.success) {
+          console.log(`[ADMIN] Queue cleared: ${res.clearedCount} songs removed`);
+        } else {
+          console.warn("[ADMIN] Failed to clear queue:", res.error);
+        }
+      },
+    );
   }, [roomId]);
 
   const handleAddSong = (song: SearchResult) => {
     setSubmittingId(song.youtubeId);
-    const adminToken = localStorage.getItem('adminToken');
+    const adminToken = localStorage.getItem("adminToken");
     socket.emit(
-      'admin_add_song',
+      "admin_add_song",
       {
         roomId,
         youtubeId: song.youtubeId,
@@ -429,15 +479,18 @@ export function useAdminDashboard(roomId: string) {
       (res: { success: boolean; error?: string }) => {
         setSubmittingId(null);
         if (!res.success) {
-          console.warn('[ADMIN] Failed to add song:', res.error);
+          console.warn("[ADMIN] Failed to add song:", res.error);
         }
       },
     );
   };
 
-  const togglePlayback = useCallback((playing: boolean) => {
-    socket.emit('toggle_playback', { roomId, isPlaying: playing });
-  }, [roomId]);
+  const togglePlayback = useCallback(
+    (playing: boolean) => {
+      socket.emit("toggle_playback", { roomId, isPlaying: playing });
+    },
+    [roomId],
+  );
 
   const visibleSuggestions = debouncedSearch.trim().length < 2 ? [] : suggestions;
 
@@ -473,6 +526,7 @@ export function useAdminDashboard(roomId: string) {
     handleSaveEdit,
     handleAddSong,
     handleClearQueue,
-    setEditingId: (id: string | null) => (id ? startAdminEditing({ id, title: editValue }) : stopAdminEditing()),
+    setEditingId: (id: string | null) =>
+      id ? startAdminEditing({ id, title: editValue }) : stopAdminEditing(),
   };
 }

@@ -31,13 +31,27 @@ const key = {
   transitionId: (roomId: string, idempotencyKey: string) => `room:${roomId}:transition:${idempotencyKey}`,
 };
 
+// Only a short window of finished tracks is kept in Redis; previous-track needs
+// the last few and the list would otherwise grow for the life of the room.
+const DONE_HISTORY_MAX = 50;
+
 export async function rebuildRoomQueue(roomId: string) {
-  const rows = await sql`
-    SELECT id, youtube_id as "youtubeId", title, author, status, submitted_by as "submittedBy", created_at as "createdAt"
-    FROM songs
-    WHERE room_id = ${roomId} AND status IN ('pending', 'approved', 'playing', 'done')
-    ORDER BY CASE WHEN status = 'done' THEN done_at END DESC NULLS LAST, approved_at ASC NULLS LAST, created_at ASC
-  `;
+  const [activeRows, doneRows] = await Promise.all([
+    sql`
+      SELECT id, youtube_id as "youtubeId", title, author, status, submitted_by as "submittedBy", created_at as "createdAt"
+      FROM songs
+      WHERE room_id = ${roomId} AND status IN ('pending', 'approved', 'playing')
+      ORDER BY approved_at ASC NULLS LAST, created_at ASC
+    `,
+    sql`
+      SELECT id, youtube_id as "youtubeId", title, author, status, submitted_by as "submittedBy", created_at as "createdAt"
+      FROM songs
+      WHERE room_id = ${roomId} AND status = 'done'
+      ORDER BY done_at DESC NULLS LAST
+      LIMIT ${DONE_HISTORY_MAX}
+    `,
+  ]);
+  const rows = [...activeRows, ...doneRows] as unknown as QueueSong[];
 
   const pending: string[] = [];
   const approved: string[] = [];

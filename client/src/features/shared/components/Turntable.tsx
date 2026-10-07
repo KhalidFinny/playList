@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
-import playIcon from "@/assets/PLay.svg";
-import pauseIcon from "@/assets/Pause.svg";
+import { Pause, Play } from "lucide-react";
+import { WavyCircularProgress } from "@/shared/components/wavy-circular-progress";
+import { cn } from "@/shared/lib/utils";
 
 interface TurntableProps {
   isPlaying: boolean;
@@ -9,83 +10,55 @@ interface TurntableProps {
   thumbnail?: string | null;
 }
 
-export const Turntable = ({
-  isPlaying,
-  onToggle,
-  progress,
-  thumbnail,
-}: TurntableProps) => {
-  const accentColor = isPlaying ? "rgba(249,115,22,1)" : "rgba(0,0,0,0.4)";
-  const glowColor = isPlaying ? "rgba(249,115,22,0.1)" : "rgba(0,0,0,0.08)";
-
+/**
+ * The vinyl. This is the app's identity, so the record and tonearm stay — but
+ * every color now comes from the token layer rather than a hardcoded orange.
+ *
+ * The tonearm swings on the M3 expressive spatial spring, so it settles with the
+ * slight overshoot the motion system specifies.
+ *
+ * Layer order matters here. The squiggle ring sits **behind** the tonearm: the arm
+ * is opaque, so the wave is genuinely hidden where the arm crosses it rather than
+ * showing through a translucent arm.
+ *
+ * No elevation on the disc — the groove rings and the gradient edge carry it, and
+ * a drop shadow under a record reads as a floating card.
+ */
+export const Turntable = ({ isPlaying, onToggle, progress, thumbnail }: TurntableProps) => {
   return (
-    <figure className="relative w-full aspect-square max-w-[1200px] flex items-center justify-center p-0">
-      {/* ATMOSPHERIC RADIANCE */}
-      <div
-        className="absolute inset-0 transition-colors duration-1000 blur-[100px]"
-        style={{
-          background: `radial-gradient(circle, ${glowColor} 0%, transparent 75%)`,
-        }}
-      />
-
-      {/* PROGRESS RING (OUTER) */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <svg className="w-full h-full -rotate-90">
-          <circle
-            cx="50%"
-            cy="50%"
-            r="49%"
-            fill="none"
-            stroke="rgba(0,0,0,0.02)"
-            strokeWidth="1"
-          />
-          <motion.circle
-            cx="50%"
-            cy="50%"
-            r="49%"
-            fill="none"
-            stroke={accentColor}
-            strokeWidth="3"
-            strokeLinecap="round"
-            initial={{ pathLength: 0 }}
-            animate={{ pathLength: progress }}
-            transition={{ duration: 1, ease: "easeOut" }}
-          />
-        </svg>
+    <figure className="relative flex aspect-square w-full max-w-[1200px] items-center justify-center">
+      {/* Progress — the M3 wavy indicator, riding the disc edge. The wave travels
+          while audio plays, so the ring reads as alive rather than frozen. */}
+      <div className="pointer-events-none absolute inset-0 z-0">
+        <WavyCircularProgress
+          value={progress}
+          thickness={5}
+          amplitudeRatio={0.014}
+          waves={20}
+          animated={isPlaying}
+          className={isPlaying ? "text-primary" : "text-on-surface-variant"}
+        />
       </div>
 
-      {/* MINIMAL SKETCH OUTLINES */}
-      <div className="absolute inset-0 flex items-center justify-center">
-        {[0, 15, 30].map((inset) => (
-          <div
-            key={inset}
-            className={`absolute rounded-full border transition-all duration-1000 ${isPlaying ? "scale-105 border-orange-500/20" : "scale-100 border-black/5"}`}
-            style={{ inset: `${inset}%` }}
-          />
-        ))}
-      </div>
-
-      {/* THE SCHEMATIC VINYL DISC (SPINNING LAYER) */}
+      {/* The disc. 90% leaves the ring's trough clear of the disc edge. */}
       <motion.div
         animate={{ rotate: isPlaying ? 360 : 0 }}
-        transition={{
-          duration: 4,
-          repeat: isPlaying ? Infinity : 0,
-          ease: "linear",
-        }}
-        className={`relative w-[98%] h-[98%] rounded-full flex items-center justify-center bg-white border transition-colors duration-1000 ${isPlaying ? "border-orange-500/30 shadow-orange-500/10" : "border-black/10 shadow-black/5"} overflow-hidden shadow-2xl will-change-transform`}
+        transition={{ duration: 4, repeat: isPlaying ? Infinity : 0, ease: "linear" }}
+        className="relative flex size-[90%] items-center justify-center overflow-hidden rounded-m3-full bg-surface-container-lowest transition-colors duration-700 will-change-transform"
       >
-        {/* THUMBNAIL INTEGRATION */}
         {thumbnail && (
           <img
             src={thumbnail}
-            alt="Disc Art"
-            className={`absolute inset-0 w-full h-full object-cover opacity-10 transition-opacity duration-1000 ${isPlaying ? "opacity-20" : "opacity-5 grayscale"}`}
+            alt=""
+            className={cn(
+              "absolute inset-0 size-full object-cover transition-opacity duration-700",
+              isPlaying ? "opacity-20" : "opacity-5 grayscale",
+            )}
           />
         )}
 
-        {/* GROOVE TEXTURES */}
-        <svg className="absolute inset-0 w-full h-full opacity-60">
+        {/* Grooves */}
+        <svg className="absolute inset-0 size-full opacity-60">
           {Array.from({ length: 45 }).map((_, i) => (
             <circle
               key={i}
@@ -93,56 +66,73 @@ export const Turntable = ({
               cy="50%"
               r={`${4 + i * 1.05}%`}
               fill="none"
-              stroke={isPlaying ? "rgba(249,115,22,0.3)" : "rgba(0,0,0,0.12)"}
+              stroke="currentColor"
+              className={isPlaying ? "text-primary/30" : "text-outline-variant"}
               strokeWidth="1"
             />
           ))}
         </svg>
-
-        {/* TECHNICAL REFRACTION */}
-        <div
-          className={`absolute inset-0 transition-colors duration-1000 ${isPlaying ? "bg-[conic-gradient(from_0deg,transparent_0%,rgba(249,115,22,0.05)_25%,transparent_50%,rgba(249,115,22,0.05)_75%,transparent_100%)]" : "bg-[conic-gradient(from_0deg,transparent_0%,rgba(0,0,0,0.02)_25%,transparent_50%,rgba(0,0,0,0.02)_75%,transparent_100%)]"}`}
-        />
       </motion.div>
 
-      {/* CENTER LABEL HUB (STATIONARY) - clickable for play/pause */}
-      <button
-        onClick={onToggle}
-        disabled={!onToggle}
-        className={`absolute z-20 w-[28%] h-[28%] rounded-full flex items-center justify-center bg-white border transition-colors duration-1000 ${isPlaying ? "border-orange-500/30" : "border-black/10"} shadow-xl shadow-black/5 ${onToggle ? "cursor-pointer hover:scale-105 active:scale-95" : "cursor-default"} transition-transform`}
-      >
-        <div className="w-[30%] h-[30%] flex items-center justify-center">
-          {isPlaying ? (
-            <img
-              src={pauseIcon}
-              alt="Pause"
-              className="relative w-full h-full opacity-90 transition-all duration-300"
-            />
-          ) : (
-            <img
-              src={playIcon}
-              alt="Play"
-              className="relative w-full h-full opacity-90 translate-x-[2px] grayscale-0 transition-all duration-300"
-            />
+      {/* The disc's edge. Sits at the disc's bounds (the disc is 90%, centred, so
+          its bounds are inset 5%) and stays put while the record spins. */}
+      <div
+        aria-hidden="true"
+        className={cn("disc-ring inset-[5%] z-10", !isPlaying && "opacity-45")}
+      />
+
+      {/* Stationary centre label. It is the transport control only when the role
+          actually has one: participants get no control, so the label stays a plain
+          disc rather than a disabled play button that implies an action. */}
+      {onToggle ? (
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={isPlaying ? "Pause" : "Play"}
+          className={cn(
+            "state-layer absolute z-20 flex size-[28%] items-center justify-center rounded-m3-full",
+            "border bg-surface-container-lowest transition-transform outline-none",
+            "focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary",
+            isPlaying ? "border-primary/40" : "border-outline-variant",
+            "cursor-pointer hover:scale-105 active:scale-95",
           )}
-        </div>
+        >
+          {isPlaying ? (
+            <Pause size={48} className="text-on-surface" />
+          ) : (
+            <Play size={48} className="ml-1 text-on-surface" fill="currentColor" />
+          )}
+        </button>
+      ) : (
+        <div
+          aria-hidden="true"
+          className={cn(
+            "absolute z-20 size-[28%] rounded-m3-full border bg-surface-container-lowest",
+            isPlaying ? "border-primary/40" : "border-outline-variant",
+          )}
+        />
+      )}
 
-      </button>
-
-      {/* NEEDLE ASSEMBLY */}
-      {/* Re-anchored so the stylus lands on vinyl grooves instead of floating off-axis */}
-      <div className="absolute inset-0 pointer-events-none z-30">
-        <div className="absolute left-[117%] top-[-3%]">
-          {/* Pivot base (beefier) */}
+      {/* Tonearm */}
+      <div className="pointer-events-none absolute inset-0 z-30">
+        <div className="absolute -top-[3%] left-[117%]">
+          {/* Pivot */}
           <div
-            className={`relative w-[clamp(18px,1.9vw,30px)] h-[clamp(18px,1.9vw,30px)] rounded-full border-[2px] bg-white flex items-center justify-center shadow-md transition-colors duration-700 ${isPlaying ? "border-orange-500/65 shadow-orange-500/20" : "border-black/15"}`}
+            className={cn(
+              "relative flex size-[clamp(18px,1.9vw,30px)] items-center justify-center rounded-m3-full border-2",
+              "bg-surface-container-lowest transition-colors duration-700",
+              isPlaying ? "border-primary/60" : "border-outline",
+            )}
           >
             <div
-              className={`w-[4px] h-[4px] rounded-full transition-colors duration-700 ${isPlaying ? "bg-orange-500" : "bg-black/35"}`}
+              className={cn(
+                "size-1 rounded-m3-full transition-colors duration-700",
+                isPlaying ? "bg-primary" : "bg-on-surface-variant",
+              )}
             />
           </div>
 
-          {/* Tonearm */}
+          {/* Arm */}
           <motion.div
             initial={false}
             animate={{ rotate: isPlaying ? 168 : 180 }}
@@ -151,18 +141,29 @@ export const Turntable = ({
             style={{ transformOrigin: "0 50%" }}
           >
             <div
-              className={`relative w-[clamp(190px,34vw,340px)] h-[clamp(5px,0.6vw,8px)] rounded-full transition-all duration-700 ${isPlaying ? "bg-orange-500/75 shadow-[0_0_18px_rgba(249,115,22,0.45)]" : "bg-black/28"}`}
+              className={cn(
+                "relative h-[clamp(5px,0.6vw,8px)] w-[clamp(190px,34vw,340px)] rounded-m3-full transition-colors duration-700",
+                // Opaque, so the squiggle ring is genuinely hidden behind the arm
+                // rather than showing through it.
+                isPlaying ? "bg-primary" : "bg-on-surface-variant",
+              )}
             >
               {/* Counterweight */}
-              <div className="absolute -left-[8px] top-1/2 -translate-y-1/2 w-[clamp(12px,1.2vw,18px)] h-[clamp(12px,1.2vw,18px)] rounded-full border-2 border-black/20 bg-white" />
+              <div className="absolute -left-2 top-1/2 size-[clamp(12px,1.2vw,18px)] -translate-y-1/2 rounded-m3-full border-2 border-outline bg-surface-container-lowest" />
 
-              {/* Headshell + cartridge */}
+              {/* Headshell */}
               <div
-                className={`absolute -right-[3px] top-1/2 -translate-y-1/2 w-[clamp(16px,1.9vw,26px)] h-[clamp(13px,1.5vw,20px)] rounded-[3px] border-2 bg-white transition-colors duration-700 ${isPlaying ? "border-orange-500/60" : "border-black/18"}`}
+                className={cn(
+                  "absolute -right-1 top-1/2 h-[clamp(13px,1.5vw,20px)] w-[clamp(16px,1.9vw,26px)] -translate-y-1/2 rounded-m3-xs border-2",
+                  "bg-surface-container-lowest transition-colors duration-700",
+                  isPlaying ? "border-primary/60" : "border-outline",
+                )}
               >
-                {/* Stylus */}
                 <div
-                  className={`absolute left-1/2 top-full -translate-x-1/2 w-[2px] h-[clamp(8px,0.9vw,12px)] transition-colors duration-700 ${isPlaying ? "bg-orange-500" : "bg-black/35"}`}
+                  className={cn(
+                    "absolute left-1/2 top-full h-[clamp(8px,0.9vw,12px)] w-0.5 -translate-x-1/2 transition-colors duration-700",
+                    isPlaying ? "bg-primary" : "bg-on-surface-variant/40",
+                  )}
                 />
               </div>
             </div>

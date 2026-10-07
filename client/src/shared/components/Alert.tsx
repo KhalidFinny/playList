@@ -1,7 +1,10 @@
-import { motion, AnimatePresence } from 'framer-motion';
-import { AlertCircle, CheckCircle, Info, XCircle, X } from 'lucide-react';
+import { motion, AnimatePresence } from "framer-motion";
+import { AlertCircle, CheckCircle, Info, XCircle, X } from "lucide-react";
 
-export type AlertType = 'error' | 'success' | 'info' | 'warning';
+import { cn } from "@/shared/lib/utils";
+import { transitions } from "@/shared/motion/springs";
+
+export type AlertType = "error" | "success" | "info" | "warning";
 
 interface AlertProps {
   type?: AlertType;
@@ -11,61 +14,61 @@ interface AlertProps {
   isVisible?: boolean;
 }
 
-const alertStyles = {
+/**
+ * Inline M3 status message. Uses M3 container roles rather than raw
+ * red/green/amber, so it inherits the token layer and the dark scheme.
+ *
+ * `success` maps to the tertiary role (this palette's tertiary is a plum), which
+ * keeps semantic feedback inside the color system.
+ */
+const alertStyles: Record<AlertType, { container: string; icon: React.ReactNode }> = {
   error: {
-    bg: 'bg-red-50/80',
-    text: 'text-red-600',
-    icon: <XCircle className="text-red-500" size={16} strokeWidth={3} />
+    container: "bg-error-container text-on-error-container",
+    icon: <XCircle className="size-5 shrink-0" />,
   },
   success: {
-    bg: 'bg-green-50/80',
-    text: 'text-green-600',
-    icon: <CheckCircle className="text-green-500" size={16} strokeWidth={3} />
+    container: "bg-tertiary-container text-on-tertiary-container",
+    icon: <CheckCircle className="size-5 shrink-0" />,
   },
   info: {
-    bg: 'bg-white/80',
-    text: 'text-black',
-    icon: <Info className="text-black" size={16} strokeWidth={3} />
+    container: "bg-surface-container-high text-on-surface",
+    icon: <Info className="size-5 shrink-0" />,
   },
   warning: {
-    bg: 'bg-amber-50/80',
-    text: 'text-amber-600',
-    icon: <AlertCircle className="text-amber-500" size={16} strokeWidth={3} />
-  }
+    container: "bg-secondary-container text-on-secondary-container",
+    icon: <AlertCircle className="size-5 shrink-0" />,
+  },
 };
 
-export function Alert({ type = 'info', title, message, onClose, isVisible = true }: AlertProps) {
+export function Alert({ type = "info", title, message, onClose, isVisible = true }: AlertProps) {
   const styles = alertStyles[type];
 
   return (
     <AnimatePresence>
       {isVisible && (
         <motion.div
-          initial={{ opacity: 0, y: -10, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          className={`relative w-full rounded-2xl ${styles.bg} p-4 backdrop-blur-xl flex items-center justify-between gap-4`}
+          role="status"
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={transitions.fast}
+          className={cn(
+            "flex w-full items-start gap-3 rounded-m3-md px-4 py-3 text-body-medium",
+            styles.container,
+          )}
         >
-          <div className="flex items-center gap-3">
-            <div className="shrink-0">{styles.icon}</div>
-            <div className="flex flex-col">
-              {title && (
-                <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-black/30 leading-none mb-1">
-                  {title}
-                </span>
-              )}
-              <span className={`text-sm font-bold tracking-tight uppercase leading-none ${styles.text}`}>
-                {message}
-              </span>
-            </div>
+          {styles.icon}
+          <div className="flex-1">
+            {title && <p className="text-title-small">{title}</p>}
+            <p>{message}</p>
           </div>
-
           {onClose && (
-            <button 
+            <button
               onClick={onClose}
-              className="p-1 rounded-full hover:bg-black/5 transition-all text-black/10 hover:text-black"
+              aria-label="Dismiss"
+              className="state-layer -mr-1 flex size-8 shrink-0 items-center justify-center rounded-m3-full outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
-              <X size={14} strokeWidth={3} />
+              <X size={16} />
             </button>
           )}
         </motion.div>

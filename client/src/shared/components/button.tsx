@@ -1,63 +1,63 @@
-import * as React from "react"
-import { Slot } from "@radix-ui/react-slot"
-import { cva, type VariantProps } from "class-variance-authority"
+import * as React from "react";
+import { Slot } from "@radix-ui/react-slot";
+import { cva, type VariantProps } from "class-variance-authority";
 
-import { cn } from "@/shared/lib/utils"
+import { cn } from "@/shared/lib/utils";
 
+/**
+ * M3 common button.
+ *
+ * Shape: `full` radius at every size — buttons are the one role M3 pills.
+ * State: an inset-shadow state layer (`state-layer`) so hover/press keep the
+ * label's contrast relationship instead of shifting the background.
+ *
+ * Sizes follow the M3 Expressive scale: xs 32, sm 40, md 56, lg 96, xl 136.
+ * `md` is the M3 default; use `sm` in dense surfaces (tables, list rows).
+ */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "state-layer inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-m3-full font-medium transition-colors outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:pointer-events-none disabled:bg-on-surface/12 disabled:text-on-surface/38 [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        default:
-          "bg-primary text-primary-foreground hover:bg-primary/90",
-        destructive:
-          "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-        outline:
-          "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-        secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
-        premium: "bg-black hover:bg-orange-500 text-white rounded-2xl text-xs font-bold uppercase tracking-widest transition-all active:scale-95",
-        "premium-outline": "bg-transparent border-2 border-black hover:bg-black hover:text-white text-black rounded-lg font-bebas tracking-widest uppercase transition-all",
-        "premium-success": "bg-emerald-100/80 hover:bg-emerald-200 text-emerald-700 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all active:scale-95",
-        "premium-danger": "bg-rose-100/80 hover:bg-rose-200 text-rose-700 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all active:scale-95",
+        filled: "bg-primary text-on-primary",
+        tonal: "bg-secondary-container text-on-secondary-container",
+        elevated: "bg-surface-container-low text-primary elevation-1",
+        outlined: "border border-outline bg-transparent text-primary",
+        text: "bg-transparent text-primary",
+        danger: "bg-error text-on-error",
+        success: "bg-tertiary text-on-tertiary",
       },
       size: {
-        default: "h-9 px-4 py-2",
-        sm: "h-8 rounded-md px-3 text-xs",
-        lg: "h-10 rounded-md px-8",
-        icon: "h-9 w-9",
-        "premium-lg": "h-14 px-8",
-        "premium-xl": "h-20 px-12 text-3xl",
+        xs: "h-8 px-4 text-label-large [&_svg]:size-5",
+        sm: "h-10 px-6 text-label-large [&_svg]:size-5",
+        md: "h-14 px-6 text-title-medium [&_svg]:size-6",
+        lg: "h-24 px-8 text-title-large [&_svg]:size-8",
+        xl: "h-34 px-12 text-headline-small [&_svg]:size-10",
+        icon: "size-10 rounded-m3-full p-0 [&_svg]:size-6",
+        "icon-sm": "size-8 rounded-m3-full p-0 [&_svg]:size-5",
+        "icon-lg": "size-14 rounded-m3-full p-0 [&_svg]:size-8",
       },
     },
     defaultVariants: {
-      variant: "default",
-      size: "default",
+      variant: "filled",
+      size: "sm",
     },
-  }
-)
+  },
+);
 
 export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
-  asChild?: boolean
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
+  asChild?: boolean;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button"
+    const Comp = asChild ? Slot : "button";
     return (
-      <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
-        ref={ref}
-        {...props}
-      />
-    )
-  }
-)
-Button.displayName = "Button"
+      <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
+    );
+  },
+);
+Button.displayName = "Button";
 
-export { Button, buttonVariants }
+export { Button, buttonVariants };

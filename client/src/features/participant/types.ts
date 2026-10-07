@@ -1,4 +1,4 @@
-import type { SearchResult, Track } from '../../shared/types';
+import type { SearchResult, Track } from "../../shared/types";
 
 export type ParticipantTrack = Track;
 

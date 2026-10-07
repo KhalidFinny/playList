@@ -1,18 +1,17 @@
 import { useEffect } from "react";
 import { Link } from "@tanstack/react-router";
-import { motion, AnimatePresence } from "framer-motion";
-import { Home, CheckCircle2, AlertCircle } from "lucide-react";
+import { AnimatePresence } from "framer-motion";
+import { Home } from "lucide-react";
 
-// Shared Components
 import { Badge } from "@/shared/components/badge";
 import { SecretDoor } from "@/shared/components/SecretDoor";
+import { Snackbar } from "@/shared/components/snackbar";
+import { ThemeToggle } from "@/shared/components/theme-toggle";
 
-// Feature Components
 import { JoinFlow } from "../features/participant/components/JoinFlow";
 import { RequestFlow } from "../features/participant/components/RequestFlow";
 import { NowPlayingBar } from "../features/participant/components/NowPlayingBar";
 
-// Page Logic
 import { useParticipantPage } from "../hooks/pages/useParticipantPage";
 
 export function ParticipantPage() {
@@ -30,6 +29,7 @@ export function ParticipantPage() {
     loading,
     submitting,
     nowPlaying,
+    isPlaying,
     statusMsg,
     suggestions,
     handleSelect,
@@ -38,7 +38,6 @@ export function ParticipantPage() {
     cooldownSeconds,
   } = useParticipantPage();
 
-  // SEO
   useEffect(() => {
     document.title = isJoined
       ? `Station ${roomId.toUpperCase()} | PLAY LIST`
@@ -46,49 +45,36 @@ export function ParticipantPage() {
   }, [isJoined, roomId]);
 
   return (
-    <div className="min-h-screen bg-[#fdfdfc] text-[#1a101c] font-poppins overflow-x-hidden relative selection:bg-orange-500 selection:text-white">
-      {/* BACKGROUND DECOR */}
-      <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center opacity-[0.03]">
-        <div className="w-[400px] h-[400px] border border-black rounded-full" />
-        <div className="absolute w-[600px] h-[600px] border border-black rounded-full" />
-        <div className="absolute w-[800px] h-[800px] border border-black rounded-full" />
-      </div>
-
-      {/* HEADER */}
-      <header className="fixed top-0 left-0 right-0 z-40 px-6 py-6 md:px-12 flex justify-between items-center bg-white/10 backdrop-blur-sm">
-        <div className="flex items-center gap-5">
+    <div className="relative min-h-screen overflow-x-hidden bg-surface text-on-surface">
+      {/* Top app bar */}
+      <header className="sticky top-0 z-40 flex h-16 items-center justify-between gap-4 bg-surface px-4 sm:px-6">
+        <div className="flex min-w-0 items-center gap-3">
           <SecretDoor size="xl" />
-          <div className="flex flex-col">
-            <span className="font-bebas text-4xl tracking-tighter text-black leading-none uppercase">
-              PLAY LIST
-            </span>
-            <span className="text-[9px] text-black/20 font-bold uppercase tracking-[0.2em] leading-none mt-1">
-              Room // {roomId?.toUpperCase() || "Music Room"}
-            </span>
-          </div>
-
+          <span className="truncate text-title-large">
+            Room · {roomId?.toUpperCase() || "Music Room"}
+          </span>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex shrink-0 items-center gap-3">
           {isJoined && (
-            <Badge
-              variant="outline"
-              className="hidden md:flex items-center gap-2 bg-white border-black/10 rounded-full px-6 py-3 h-auto text-sm font-bold tracking-widest text-black/40 uppercase"
-            >
-              <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
-              Room: {roomId.toUpperCase()}
-            </Badge>
+            <span className="hidden items-center gap-2 rounded-m3-full bg-surface-container-high px-3 py-1.5 md:flex">
+              <Badge variant="status" className="animate-pulse bg-primary" />
+              <span className="text-label-medium text-on-surface-variant">Live</span>
+            </span>
           )}
+
+          <ThemeToggle />
+
           <Link
             to="/"
-            className="w-10 h-10 rounded-full bg-white border border-black/10 flex items-center justify-center text-black/40 hover:text-black transition-colors"
+            aria-label="Home"
+            className="state-layer flex size-10 items-center justify-center rounded-m3-full text-on-surface-variant outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
-            <Home size={18} />
+            <Home size={20} />
           </Link>
         </div>
       </header>
 
-      {/* MAIN CONTENT AREA */}
       <AnimatePresence mode="wait">
         {!isJoined ? (
           <JoinFlow
@@ -118,44 +104,14 @@ export function ParticipantPage() {
         nowPlaying={nowPlaying}
         roomId={roomId}
         isVisible={isJoined && !!nowPlaying}
+        isPlaying={isPlaying}
       />
 
-      <AnimatePresence>
-        {statusMsg && (
-          <motion.div
-            initial={{ opacity: 0, y: -16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="fixed top-24 left-0 right-0 flex justify-center pointer-events-none z-100"
-          >
-            <div className="pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-2xl bg-white border border-black/10 shadow-lg shadow-black/5">
-              <div
-                className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                  statusMsg?.type === "success"
-                    ? "bg-orange-500 text-white"
-                    : "bg-red-500 text-white"
-                }`}
-              >
-                {statusMsg?.type === "success" ? (
-                  <CheckCircle2 size={16} />
-                ) : (
-                  <AlertCircle size={16} />
-                )}
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-black/30 mb-0.5">
-                  {statusMsg?.type === "success" ? "Confirmed" : "Error"}
-                </p>
-                <p className="text-sm font-bold text-black/80 leading-tight tracking-tight truncate max-w-[320px]">
-                  {statusMsg?.text}
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-
+      <Snackbar
+        message={statusMsg?.text ?? ""}
+        type={statusMsg?.type === "success" ? "success" : "error"}
+        isOpen={statusMsg !== null}
+      />
     </div>
   );
 }

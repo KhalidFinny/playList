@@ -1,0 +1,8 @@
+# Files the formatter must skip.
+#
+# routeTree.gen.ts is emitted by the TanStack router plugin on every build. The
+# plugin exposes no print-width option and wraps differently from oxfmt, so the
+# generated tree is rewritten on each build and `vp check` could never pass after
+# one. The file stays committed (tsc needs it on a fresh clone) and is skipped
+# here instead.
+src/routeTree.gen.ts

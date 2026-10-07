@@ -1,0 +1,157 @@
+/* ============================================================================
+   M3 TYPE SCALE
+   ============================================================================
+   Compound role utilities carrying size + line-height + weight + tracking, as
+   M3 defines them. Use the role, not a raw size: `text-title-large`, not
+   `text-[22px]`.
+
+   ONE DEVIATION: `label-small` is 12px, not the M3 baseline 11px. The project has
+   a hard 12px floor. This is the only scale deviation.
+   ============================================================================ */
+
+@utility text-display-large {
+  font-size: 57px;
+  line-height: 64px;
+  font-weight: 400;
+  letter-spacing: -0.25px;
+}
+@utility text-display-medium {
+  font-size: 45px;
+  line-height: 52px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+@utility text-display-small {
+  font-size: 36px;
+  line-height: 44px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+@utility text-headline-large {
+  font-size: 32px;
+  line-height: 40px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+@utility text-headline-medium {
+  font-size: 28px;
+  line-height: 36px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+@utility text-headline-small {
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+@utility text-title-large {
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+@utility text-title-medium {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+  letter-spacing: 0.15px;
+}
+@utility text-title-small {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+}
+
+@utility text-body-large {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 400;
+  letter-spacing: 0.5px;
+}
+@utility text-body-medium {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+  letter-spacing: 0.25px;
+}
+@utility text-body-small {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  letter-spacing: 0.4px;
+}
+
+@utility text-label-large {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+}
+@utility text-label-medium {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+/* 12px, raised from the M3 baseline 11px to honour the project's 12px floor. */
+@utility text-label-small {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+/* --- M3 Expressive emphasized variants: same size, heavier weight --- */
+
+@utility text-display-large-emphasized {
+  font-size: 57px;
+  line-height: 64px;
+  font-weight: 600;
+  letter-spacing: -0.25px;
+}
+@utility text-display-medium-emphasized {
+  font-size: 45px;
+  line-height: 52px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+@utility text-display-small-emphasized {
+  font-size: 36px;
+  line-height: 44px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+@utility text-headline-large-emphasized {
+  font-size: 32px;
+  line-height: 40px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+@utility text-headline-medium-emphasized {
+  font-size: 28px;
+  line-height: 36px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+@utility text-headline-small-emphasized {
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+@utility text-title-large-emphasized {
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+@utility text-title-medium-emphasized {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+  letter-spacing: 0.15px;
+}

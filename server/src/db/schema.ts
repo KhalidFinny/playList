@@ -85,6 +85,17 @@ export async function setupDatabase() {
       CREATE INDEX IF NOT EXISTS songs_queue_idx ON songs(room_id, status, approved_at);
     `;
 
+    // Bounded history lookup: rebuildRoomQueue reads the most recent done tracks.
+    await sql`
+      CREATE INDEX IF NOT EXISTS songs_done_idx ON songs(room_id, status, done_at DESC);
+    `;
+
+    // Backs the global "top this week" chart, which filters across all rooms and
+    // so cannot use songs_done_idx (room_id leads that one).
+    await sql`
+      CREATE INDEX IF NOT EXISTS songs_charted_idx ON songs(status, created_at DESC);
+    `;
+
     // Durable DB event idempotency log
     console.log("  - Ensuring 'db_event_log' table exists...");
     await sql`
@@ -112,6 +123,13 @@ export async function setupDatabase() {
           ALTER TABLE rooms ADD COLUMN passkey VARCHAR(5);
         END IF;
       END $$;
+    `;
+
+    // The passkey is the participant's only credential, so it must be unique.
+    // Postgres allows multiple NULLs, so un-keyed rooms are unaffected.
+    console.log("  - Ensuring 'rooms_passkey_idx' exists...");
+    await sql`
+      CREATE UNIQUE INDEX IF NOT EXISTS rooms_passkey_idx ON rooms(passkey);
     `;
 
     // Migration: Add owner_id to rooms if it doesn't exist

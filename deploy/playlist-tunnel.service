@@ -1,0 +1,16 @@
+[Unit]
+Description=Cloudflare tunnel for playList (playlist.fiinnyy.my.id)
+After=network-online.target playlist-app.service
+Wants=network-online.target playlist-app.service
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.cloudflared/playlist-tunnel.env
+ExecStart=%h/.local/bin/cloudflared --no-autoupdate --loglevel info tunnel run
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

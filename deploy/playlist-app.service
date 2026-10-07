@@ -1,0 +1,19 @@
+[Unit]
+Description=playList app (Bun server serving the built client + Socket.IO)
+After=network-online.target playlist-redis.service
+Wants=network-online.target playlist-redis.service
+
+[Service]
+Type=simple
+WorkingDirectory=%h/projects/playList
+Environment=HOME=%h
+Environment=PATH=%h/.bun/bin:%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+EnvironmentFile=%h/projects/playList/.env
+ExecStart=%h/.bun/bin/bun server/index.ts
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

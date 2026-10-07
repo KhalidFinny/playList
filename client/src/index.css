@@ -1,70 +1,138 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&family=Syne:wght@700;800&family=Bebas+Neue&display=swap');
 @import "tailwindcss";
+@import "@fontsource-variable/google-sans-flex/full.css";
 
-@theme {
-  --color-groovy-primary: #f97316;
-  --color-groovy-secondary: #64303B;
-  --color-groovy-accent: #f97316;
-  --color-groovy-deep: #1a1a1a;
-  --color-groovy-bg: #f8f8f6;
-  --color-groovy-text: #1a1a1a;
-  --color-groovy-border: rgba(0, 0, 0, 0.05);
+@import "./styles/tokens.css";
+@import "./styles/shape.css";
+@import "./styles/motion.css";
+@import "./styles/state.css";
+@import "./styles/typography.css";
+@import "./styles/disc.css";
 
-  /* Dashboard specific */
-  --color-playlist-bg: #f8f8f6;
-  --color-playlist-sidebar: #ffffff;
-  --color-playlist-accent: #f97316;
-  --color-playlist-card: #ffffff;
-  --color-playlist-text: #1a1a1a;
+/* ============================================================================
+   TAILWIND BRIDGE
+   ============================================================================
+   `@theme inline` — not plain `@theme` — so Tailwind emits
+   `var(--md-sys-color-*)` into utilities instead of inlining the resolved hex.
+   That is what makes `.dark` a class swap on <html> rather than a rewrite.
 
-  --font-syne: "Syne", sans-serif;
-  --font-bebas: "Bebas Neue", sans-serif;
-  --font-poppins: "Poppins", sans-serif;
-  --font-inter: "Poppins", sans-serif; /* Fallback for existing inter classes */
-}
+   Components read the SYSTEM roles through these utilities and never touch a
+   --md-ref-palette-* value directly.
+   ============================================================================ */
 
-@layer base {
-  :root {
-    --background: #FCFBF7;
-    --foreground: #39283F;
-    --card: #ffffff;
-    --card-foreground: #39283F;
-    --popover: #ffffff;
-    --popover-foreground: #39283F;
-    --primary: #FDB017;
-    --primary-foreground: #ffffff;
-    --secondary: #39283f;
-    --secondary-foreground: #ffffff;
-    --muted: #f1f5f9;
-    --muted-foreground: #64748b;
-    --accent: #FF4D00;
-    --accent-vibrant: #F57923;
-    --accent-glow: #FDB017;
-    --accent-foreground: #ffffff;
-    --destructive: #ef4444;
-    --destructive-foreground: #f8fafc;
-    --border: rgba(57, 40, 63, 0.1);
-    --input: #e2e8f0;
-    --ring: #FDB017;
-    --radius: 0.5rem;
-  }
+@theme inline {
+  /* --- primary --- */
+  --color-primary: var(--md-sys-color-primary);
+  --color-on-primary: var(--md-sys-color-on-primary);
+  --color-primary-container: var(--md-sys-color-primary-container);
+  --color-on-primary-container: var(--md-sys-color-on-primary-container);
+  --color-primary-fixed: var(--md-sys-color-primary-fixed);
+  --color-on-primary-fixed: var(--md-sys-color-on-primary-fixed);
+
+  /* --- secondary --- */
+  --color-secondary: var(--md-sys-color-secondary);
+  --color-on-secondary: var(--md-sys-color-on-secondary);
+  --color-secondary-container: var(--md-sys-color-secondary-container);
+  --color-on-secondary-container: var(--md-sys-color-on-secondary-container);
+
+  /* --- tertiary --- */
+  --color-tertiary: var(--md-sys-color-tertiary);
+  --color-on-tertiary: var(--md-sys-color-on-tertiary);
+  --color-tertiary-container: var(--md-sys-color-tertiary-container);
+  --color-on-tertiary-container: var(--md-sys-color-on-tertiary-container);
+
+  /* --- warm accent ---
+     Not an M3 role. M3 has no name for a light chromatic mid-tone, and the
+     palette needs one. See tokens.css. */
+  --color-accent-warm: var(--md-sys-color-accent-warm);
+
+  /* --- error --- */
+  --color-error: var(--md-sys-color-error);
+  --color-on-error: var(--md-sys-color-on-error);
+  --color-error-container: var(--md-sys-color-error-container);
+  --color-on-error-container: var(--md-sys-color-on-error-container);
+
+  /* --- surface + containers (layering is tonal, not bordered) --- */
+  --color-surface: var(--md-sys-color-surface);
+  --color-surface-dim: var(--md-sys-color-surface-dim);
+  --color-surface-bright: var(--md-sys-color-surface-bright);
+  --color-surface-container-lowest: var(--md-sys-color-surface-container-lowest);
+  --color-surface-container-low: var(--md-sys-color-surface-container-low);
+  --color-surface-container: var(--md-sys-color-surface-container);
+  --color-surface-container-high: var(--md-sys-color-surface-container-high);
+  --color-surface-container-highest: var(--md-sys-color-surface-container-highest);
+  --color-on-surface: var(--md-sys-color-on-surface);
+  --color-on-surface-variant: var(--md-sys-color-on-surface-variant);
+  --color-outline: var(--md-sys-color-outline);
+  --color-outline-variant: var(--md-sys-color-outline-variant);
+
+  /* --- inverse (dark surfaces inside the light scheme) --- */
+  --color-inverse-surface: var(--md-sys-color-inverse-surface);
+  --color-inverse-on-surface: var(--md-sys-color-inverse-on-surface);
+  --color-inverse-primary: var(--md-sys-color-inverse-primary);
+  --color-scrim: var(--md-sys-color-scrim);
+
+  /* --- M3 shape scale ---
+     Deliberately NOT mapped onto Tailwind's own --radius-xs|sm|md|lg|xl|2xl
+     names: that would resize 46 existing elements in one step. Components opt
+     in per role as they are migrated. */
+  --radius-m3-xs: var(--md-sys-shape-corner-extra-small);
+  --radius-m3-sm: var(--md-sys-shape-corner-small);
+  --radius-m3-md: var(--md-sys-shape-corner-medium);
+  --radius-m3-lg: var(--md-sys-shape-corner-large);
+  --radius-m3-lg-plus: var(--md-sys-shape-corner-large-increased);
+  --radius-m3-xl: var(--md-sys-shape-corner-extra-large);
+  --radius-m3-xl-plus: var(--md-sys-shape-corner-extra-large-increased);
+  --radius-m3-2xl: var(--md-sys-shape-corner-extra-extra-large);
+  --radius-m3-full: var(--md-sys-shape-corner-full);
+
+  /* --- type ---
+     Google Sans Flex, self-hosted. `full.css` carries all six axes
+     (wght, wdth, slnt, opsz, GRAD, ROND). Fallback chain follows Google's
+     documented order: Google Sans Flex -> Roboto -> Noto Sans. */
+  --font-sans: "Google Sans Flex Variable", "Roboto", "Noto Sans", system-ui, sans-serif;
 }
 
 @layer base {
   * {
-    border-color: var(--border);
+    border-color: var(--md-sys-color-outline-variant);
   }
+
+  html {
+    /* `opsz` is applied automatically by the browser when the font exposes the
+       axis. ROND is dialled up so the letterforms echo the M3 shape system —
+       Google's own shape docs note M3 shapes and Google Sans Flex share their
+       roundness attributes. */
+    font-optical-sizing: auto;
+  }
+
   body {
-    background-color: var(--background);
-    color: var(--foreground);
+    background-color: var(--md-sys-color-surface);
+    color: var(--md-sys-color-on-surface);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    font-family: var(--font-poppins);
+    font-family: var(--font-sans);
+    font-variation-settings: "ROND" 20;
+    font-size: 14px;
+    line-height: 20px;
+    letter-spacing: 0.25px;
+  }
+
+  /* M3 type roles are explicit, so headings reset to inherit and take their role
+     from the utility applied to them rather than from a browser default. */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-size: inherit;
+    font-weight: inherit;
   }
 
   .font-editorial {
-    font-family: var(--font-bebas);
-    letter-spacing: 0.02em;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    letter-spacing: -0.02em;
   }
 
   .animate-spin-slow {

@@ -12,10 +12,13 @@
   },
   "aliases": {
     "components": "@/components",
-    "utils": "@/lib/utils",
-    "ui": "@/components/ui",
+    "utils": "@/shared/lib/utils",
+    "ui": "@/shared/components",
     "lib": "@/lib",
     "hooks": "@/hooks"
   },
-  "iconLibrary": "lucide"
+  "iconLibrary": "lucide",
+  "registries": {
+    "@m3e": "https://shadcn-m3e.crystaworld.dev/r/{name}.json"
+  }
 }

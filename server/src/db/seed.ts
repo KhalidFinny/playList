@@ -1,18 +1,21 @@
 import { sql } from "./client";
 
+// Bootstrap admins. Password is the digits 1 through 8.
+const BOOTSTRAP_PASSWORD = "12345678";
+const BOOTSTRAP_ADMINS = [
+  { username: "admin1", email: "admin1@playit.com", role: "super_admin", status: "active" },
+  { username: "admin2", email: "admin2@playit.com", role: "admin", status: "active" },
+  { username: "admin3", email: "admin3@playit.com", role: "admin", status: "active" }
+];
+// Accounts created by an older seed that are no longer part of the bootstrap set.
+const RETIRED_BOOTSTRAP_ADMINS = ["admin4", "admin5"];
+
 export async function seedAdmins() {
   console.log("🌱 Seeding admin accounts...");
   
-  const password = "12345678";
-  const passwordHash = await Bun.password.hash(password);
+  const passwordHash = await Bun.password.hash(BOOTSTRAP_PASSWORD);
   
-  const admins = [
-    { username: "admin1", email: "admin1@playit.com", role: "super_admin", status: "active" },
-    { username: "admin2", email: "admin2@playit.com", role: "admin", status: "active" },
-    { username: "admin3", email: "admin3@playit.com", role: "admin", status: "active" },
-    { username: "admin4", email: "admin4@playit.com", role: "admin", status: "active" },
-    { username: "admin5", email: "admin5@playit.com", role: "admin", status: "active" }
-  ];
+  const admins = BOOTSTRAP_ADMINS;
 
   for (const admin of admins) {
     try {
@@ -29,6 +32,23 @@ export async function seedAdmins() {
     } catch (err) {
       console.error(`  - Failed to seed ${admin.username}:`, err);
     }
+  }
+
+  // Reset: drop the extra bootstrap accounts created by the previous seed so the
+  // admin set is exactly admin1..admin3. Registered admins are left untouched.
+  try {
+    const retiredEmails = RETIRED_BOOTSTRAP_ADMINS.map((username) => `${username}@playit.com`);
+    const removed = await sql`
+      DELETE FROM admins
+      WHERE username = ANY(${RETIRED_BOOTSTRAP_ADMINS})
+        AND email = ANY(${retiredEmails})
+      RETURNING username
+    `;
+    for (const row of removed) {
+      console.log(`  - Removed retired bootstrap admin ${row.username}.`);
+    }
+  } catch (err) {
+    console.error("  - Failed to remove retired bootstrap admins:", err);
   }
   
   console.log("✅ Seeding complete.");

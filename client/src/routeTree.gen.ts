@@ -8,219 +8,219 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as AdminRouteRouteImport } from './routes/admin/route'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as AdminIndexRouteImport } from './routes/admin/index'
-import { Route as AdminRoomIdRouteImport } from './routes/admin/$roomId'
-import { Route as RRoomIdRouteRouteImport } from './routes/r/$roomId/route'
-import { Route as RRoomIdIndexRouteImport } from './routes/r/$roomId/index'
-import { Route as RRoomIdRequestRouteImport } from './routes/r/$roomId/request'
+import { Route as rootRouteImport } from "./routes/__root";
+import { Route as LoginRouteImport } from "./routes/login";
+import { Route as AdminRouteRouteImport } from "./routes/admin/route";
+import { Route as IndexRouteImport } from "./routes/index";
+import { Route as AdminIndexRouteImport } from "./routes/admin/index";
+import { Route as AdminRoomIdRouteImport } from "./routes/admin/$roomId";
+import { Route as RRoomIdRouteRouteImport } from "./routes/r/$roomId/route";
+import { Route as RRoomIdIndexRouteImport } from "./routes/r/$roomId/index";
+import { Route as RRoomIdRequestRouteImport } from "./routes/r/$roomId/request";
 
 const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
+  id: "/login",
+  path: "/login",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const AdminRouteRoute = AdminRouteRouteImport.update({
-  id: '/admin',
-  path: '/admin',
+  id: "/admin",
+  path: "/admin",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+  id: "/",
+  path: "/",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const AdminIndexRoute = AdminIndexRouteImport.update({
-  id: '/',
-  path: '/',
+  id: "/",
+  path: "/",
   getParentRoute: () => AdminRouteRoute,
-} as any)
+} as any);
 const AdminRoomIdRoute = AdminRoomIdRouteImport.update({
-  id: '/$roomId',
-  path: '/$roomId',
+  id: "/$roomId",
+  path: "/$roomId",
   getParentRoute: () => AdminRouteRoute,
-} as any)
+} as any);
 const RRoomIdRouteRoute = RRoomIdRouteRouteImport.update({
-  id: '/r/$roomId',
-  path: '/r/$roomId',
+  id: "/r/$roomId",
+  path: "/r/$roomId",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const RRoomIdIndexRoute = RRoomIdIndexRouteImport.update({
-  id: '/',
-  path: '/',
+  id: "/",
+  path: "/",
   getParentRoute: () => RRoomIdRouteRoute,
-} as any)
+} as any);
 const RRoomIdRequestRoute = RRoomIdRequestRouteImport.update({
-  id: '/request',
-  path: '/request',
+  id: "/request",
+  path: "/request",
   getParentRoute: () => RRoomIdRouteRoute,
-} as any)
+} as any);
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/admin': typeof AdminRouteRouteWithChildren
-  '/login': typeof LoginRoute
-  '/r/$roomId': typeof RRoomIdRouteRouteWithChildren
-  '/admin/$roomId': typeof AdminRoomIdRoute
-  '/admin/': typeof AdminIndexRoute
-  '/r/$roomId/request': typeof RRoomIdRequestRoute
-  '/r/$roomId/': typeof RRoomIdIndexRoute
+  "/": typeof IndexRoute;
+  "/admin": typeof AdminRouteRouteWithChildren;
+  "/login": typeof LoginRoute;
+  "/r/$roomId": typeof RRoomIdRouteRouteWithChildren;
+  "/admin/$roomId": typeof AdminRoomIdRoute;
+  "/admin/": typeof AdminIndexRoute;
+  "/r/$roomId/request": typeof RRoomIdRequestRoute;
+  "/r/$roomId/": typeof RRoomIdIndexRoute;
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/login': typeof LoginRoute
-  '/admin/$roomId': typeof AdminRoomIdRoute
-  '/admin': typeof AdminIndexRoute
-  '/r/$roomId/request': typeof RRoomIdRequestRoute
-  '/r/$roomId': typeof RRoomIdIndexRoute
+  "/": typeof IndexRoute;
+  "/login": typeof LoginRoute;
+  "/admin/$roomId": typeof AdminRoomIdRoute;
+  "/admin": typeof AdminIndexRoute;
+  "/r/$roomId/request": typeof RRoomIdRequestRoute;
+  "/r/$roomId": typeof RRoomIdIndexRoute;
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/admin': typeof AdminRouteRouteWithChildren
-  '/login': typeof LoginRoute
-  '/r/$roomId': typeof RRoomIdRouteRouteWithChildren
-  '/admin/$roomId': typeof AdminRoomIdRoute
-  '/admin/': typeof AdminIndexRoute
-  '/r/$roomId/request': typeof RRoomIdRequestRoute
-  '/r/$roomId/': typeof RRoomIdIndexRoute
+  __root__: typeof rootRouteImport;
+  "/": typeof IndexRoute;
+  "/admin": typeof AdminRouteRouteWithChildren;
+  "/login": typeof LoginRoute;
+  "/r/$roomId": typeof RRoomIdRouteRouteWithChildren;
+  "/admin/$roomId": typeof AdminRoomIdRoute;
+  "/admin/": typeof AdminIndexRoute;
+  "/r/$roomId/request": typeof RRoomIdRequestRoute;
+  "/r/$roomId/": typeof RRoomIdIndexRoute;
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath
+  fileRoutesByFullPath: FileRoutesByFullPath;
   fullPaths:
-    | '/'
-    | '/admin'
-    | '/login'
-    | '/r/$roomId'
-    | '/admin/$roomId'
-    | '/admin/'
-    | '/r/$roomId/request'
-    | '/r/$roomId/'
-  fileRoutesByTo: FileRoutesByTo
+    | "/"
+    | "/admin"
+    | "/login"
+    | "/r/$roomId"
+    | "/admin/$roomId"
+    | "/admin/"
+    | "/r/$roomId/request"
+    | "/r/$roomId/";
+  fileRoutesByTo: FileRoutesByTo;
   to:
-    | '/'
-    | '/login'
-    | '/admin/$roomId'
-    | '/admin'
-    | '/r/$roomId/request'
-    | '/r/$roomId'
+    | "/"
+    | "/login"
+    | "/admin/$roomId"
+    | "/admin"
+    | "/r/$roomId/request"
+    | "/r/$roomId";
   id:
-    | '__root__'
-    | '/'
-    | '/admin'
-    | '/login'
-    | '/r/$roomId'
-    | '/admin/$roomId'
-    | '/admin/'
-    | '/r/$roomId/request'
-    | '/r/$roomId/'
-  fileRoutesById: FileRoutesById
+    | "__root__"
+    | "/"
+    | "/admin"
+    | "/login"
+    | "/r/$roomId"
+    | "/admin/$roomId"
+    | "/admin/"
+    | "/r/$roomId/request"
+    | "/r/$roomId/";
+  fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  AdminRouteRoute: typeof AdminRouteRouteWithChildren
-  LoginRoute: typeof LoginRoute
-  RRoomIdRouteRoute: typeof RRoomIdRouteRouteWithChildren
+  IndexRoute: typeof IndexRoute;
+  AdminRouteRoute: typeof AdminRouteRouteWithChildren;
+  LoginRoute: typeof LoginRoute;
+  RRoomIdRouteRoute: typeof RRoomIdRouteRouteWithChildren;
 }
 
-declare module '@tanstack/react-router' {
+declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/': {
-      id: '/admin/'
-      path: '/'
-      fullPath: '/admin/'
-      preLoaderRoute: typeof AdminIndexRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/admin/$roomId': {
-      id: '/admin/$roomId'
-      path: '/$roomId'
-      fullPath: '/admin/$roomId'
-      preLoaderRoute: typeof AdminRoomIdRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
-    '/r/$roomId': {
-      id: '/r/$roomId'
-      path: '/r/$roomId'
-      fullPath: '/r/$roomId'
-      preLoaderRoute: typeof RRoomIdRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/r/$roomId/': {
-      id: '/r/$roomId/'
-      path: '/'
-      fullPath: '/r/$roomId/'
-      preLoaderRoute: typeof RRoomIdIndexRouteImport
-      parentRoute: typeof RRoomIdRouteRoute
-    }
-    '/r/$roomId/request': {
-      id: '/r/$roomId/request'
-      path: '/request'
-      fullPath: '/r/$roomId/request'
-      preLoaderRoute: typeof RRoomIdRequestRouteImport
-      parentRoute: typeof RRoomIdRouteRoute
-    }
+    "/login": {
+      id: "/login";
+      path: "/login";
+      fullPath: "/login";
+      preLoaderRoute: typeof LoginRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/admin": {
+      id: "/admin";
+      path: "/admin";
+      fullPath: "/admin";
+      preLoaderRoute: typeof AdminRouteRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/": {
+      id: "/";
+      path: "/";
+      fullPath: "/";
+      preLoaderRoute: typeof IndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/admin/": {
+      id: "/admin/";
+      path: "/";
+      fullPath: "/admin/";
+      preLoaderRoute: typeof AdminIndexRouteImport;
+      parentRoute: typeof AdminRouteRoute;
+    };
+    "/admin/$roomId": {
+      id: "/admin/$roomId";
+      path: "/$roomId";
+      fullPath: "/admin/$roomId";
+      preLoaderRoute: typeof AdminRoomIdRouteImport;
+      parentRoute: typeof AdminRouteRoute;
+    };
+    "/r/$roomId": {
+      id: "/r/$roomId";
+      path: "/r/$roomId";
+      fullPath: "/r/$roomId";
+      preLoaderRoute: typeof RRoomIdRouteRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/r/$roomId/": {
+      id: "/r/$roomId/";
+      path: "/";
+      fullPath: "/r/$roomId/";
+      preLoaderRoute: typeof RRoomIdIndexRouteImport;
+      parentRoute: typeof RRoomIdRouteRoute;
+    };
+    "/r/$roomId/request": {
+      id: "/r/$roomId/request";
+      path: "/request";
+      fullPath: "/r/$roomId/request";
+      preLoaderRoute: typeof RRoomIdRequestRouteImport;
+      parentRoute: typeof RRoomIdRouteRoute;
+    };
   }
 }
 
 interface AdminRouteRouteChildren {
-  AdminRoomIdRoute: typeof AdminRoomIdRoute
-  AdminIndexRoute: typeof AdminIndexRoute
+  AdminRoomIdRoute: typeof AdminRoomIdRoute;
+  AdminIndexRoute: typeof AdminIndexRoute;
 }
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminRoomIdRoute: AdminRoomIdRoute,
   AdminIndexRoute: AdminIndexRoute,
-}
+};
 
 const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
   AdminRouteRouteChildren,
-)
+);
 
 interface RRoomIdRouteRouteChildren {
-  RRoomIdRequestRoute: typeof RRoomIdRequestRoute
-  RRoomIdIndexRoute: typeof RRoomIdIndexRoute
+  RRoomIdRequestRoute: typeof RRoomIdRequestRoute;
+  RRoomIdIndexRoute: typeof RRoomIdIndexRoute;
 }
 
 const RRoomIdRouteRouteChildren: RRoomIdRouteRouteChildren = {
   RRoomIdRequestRoute: RRoomIdRequestRoute,
   RRoomIdIndexRoute: RRoomIdIndexRoute,
-}
+};
 
 const RRoomIdRouteRouteWithChildren = RRoomIdRouteRoute._addFileChildren(
   RRoomIdRouteRouteChildren,
-)
+);
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRouteRoute: AdminRouteRouteWithChildren,
   LoginRoute: LoginRoute,
   RRoomIdRouteRoute: RRoomIdRouteRouteWithChildren,
-}
+};
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>()
+  ._addFileTypes<FileRouteTypes>();

@@ -1,6 +1,8 @@
-import { motion } from 'framer-motion';
-import { ArrowRight } from 'lucide-react';
-import { Card } from '@/shared/components/card';
+import { motion } from "framer-motion";
+import { ChevronRight } from "lucide-react";
+import { Card } from "@/shared/components/card";
+import { Badge } from "@/shared/components/badge";
+import { Shape } from "@/shared/shapes/shape";
 
 interface Station {
   id: string;
@@ -12,28 +14,42 @@ interface StationCardProps {
   onClick: () => void;
 }
 
+/**
+ * M3 card for a station. The `cookie12` shape stands in for the vinyl record —
+ * it is the app's primary repeated unit, so the shape earns its keep here.
+ */
 export function StationCard({ station, onClick }: StationCardProps) {
   return (
-    <motion.div 
-      initial={{ opacity: 0, scale: 0.98 }}
-      animate={{ opacity: 1, scale: 1 }}
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
       key={station.id}
       onClick={onClick}
-      className="cursor-pointer"
     >
-      <Card variant="premium" className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-6 group hover:border-orange-500/30 transition-all duration-500 p-4 sm:p-8">
-        <div className="w-full sm:w-auto">
-          <div className="flex items-center gap-3 sm:gap-6 mb-3 sm:mb-4">
-            <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-green-500 animate-pulse shadow-[0_0_20px_rgba(34,197,94,0.6)] shrink-0" />
-            <h3 className="font-bebas text-3xl sm:text-6xl tracking-widest leading-none">{station.id.toUpperCase()}</h3>
+      <Card
+        variant="filled"
+        interactive
+        className="flex items-center justify-between gap-4 p-4 sm:p-5"
+      >
+        <div className="flex min-w-0 items-center gap-4">
+          <Shape name="cookie12" size={48} className="shrink-0 text-primary" />
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="truncate text-title-large">{station.id.toUpperCase()}</h3>
+              <Badge variant="status" className="shrink-0 bg-tertiary" />
+            </div>
+            <p className="mt-0.5 flex items-center gap-2 text-label-medium text-on-surface-variant">
+              Access code
+              <span className="rounded-m3-xs bg-surface-container-highest px-2 py-0.5 text-title-small text-on-surface">
+                {station.passkey}
+              </span>
+            </p>
           </div>
-          <p className="text-[10px] sm:text-sm font-bold uppercase tracking-widest text-black/30">
-            Secure Access Channel: <span className="text-black font-mono ml-2 sm:ml-4 text-sm sm:text-xl tracking-tighter">{station.passkey}</span>
-          </p>
         </div>
-        <div className="w-12 h-12 sm:w-20 sm:h-20 rounded-full bg-[#f8f8f6] flex items-center justify-center group-hover:bg-orange-500 group-hover:text-white group-hover:rotate-45 transition-all duration-500 shrink-0 self-end sm:self-center">
-          <ArrowRight size={24} />
-        </div>
+
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-m3-full text-on-surface-variant">
+          <ChevronRight size={22} />
+        </span>
       </Card>
     </motion.div>
   );

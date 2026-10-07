@@ -1,6 +1,6 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import logo from '../../../assets/logo.svg';
+import React from "react";
+import { motion } from "framer-motion";
+import logo from "../../../assets/logo.svg";
 
 export const VinylSVG: React.FC<{ isSpinning: boolean }> = ({ isSpinning }) => {
   return (
@@ -36,18 +36,19 @@ export const VinylSVG: React.FC<{ isSpinning: boolean }> = ({ isSpinning }) => {
 
       {/* Main Disc */}
       <circle cx="250" cy="250" r="240" fill="url(#vinylBody)" stroke="#39283F" strokeWidth="2" />
-      
+
       {/* Grooves (The "Realism" layer) */}
       <g opacity="0.3">
         {[...Array(20)].map((_, i) => (
-          <circle 
+          <circle
             key={i}
-            cx="250" cy="250" 
-            r={80 + i * 8} 
-            fill="none" 
-            stroke="white" 
-            strokeWidth="0.5" 
-            opacity={0.1 + (i % 3) * 0.05} 
+            cx="250"
+            cy="250"
+            r={80 + i * 8}
+            fill="none"
+            stroke="white"
+            strokeWidth="0.5"
+            opacity={0.1 + (i % 3) * 0.05}
           />
         ))}
       </g>
@@ -55,16 +56,28 @@ export const VinylSVG: React.FC<{ isSpinning: boolean }> = ({ isSpinning }) => {
       {/* Rotating Content Group (Strictly the record surface details) */}
       <motion.g
         animate={{ rotate: isSpinning ? 360 : 0 }}
-        transition={{ 
-          repeat: Infinity, 
-          duration: 4, 
-          ease: "linear" 
+        transition={{
+          repeat: Infinity,
+          duration: 4,
+          ease: "linear",
         }}
-        style={{ originX: '250px', originY: '250px' }}
+        style={{ originX: "250px", originY: "250px" }}
       >
         <g opacity="0.4">
-          <path d="M250 10 L250 90" stroke="white" strokeWidth="1" strokeLinecap="round" opacity="0.2" />
-          <path d="M10 250 L90 250" stroke="white" strokeWidth="1" strokeLinecap="round" opacity="0.2" />
+          <path
+            d="M250 10 L250 90"
+            stroke="white"
+            strokeWidth="1"
+            strokeLinecap="round"
+            opacity="0.2"
+          />
+          <path
+            d="M10 250 L90 250"
+            stroke="white"
+            strokeWidth="1"
+            strokeLinecap="round"
+            opacity="0.2"
+          />
         </g>
       </motion.g>
 
@@ -73,22 +86,32 @@ export const VinylSVG: React.FC<{ isSpinning: boolean }> = ({ isSpinning }) => {
         {/* Outer label rings */}
         <circle cx="250" cy="250" r="85" fill="rgba(57,40,63,0.05)" />
         <circle cx="250" cy="250" r="75" fill="url(#labelGradient)" />
-        
+
         {/* Fine rings on label */}
         {[65, 60, 55, 50, 45].map((r, i) => (
-          <circle key={i} cx="250" cy="250" r={r} fill="none" stroke="rgba(0,0,0,0.1)" strokeWidth="0.5" />
+          <circle
+            key={i}
+            cx="250"
+            cy="250"
+            r={r}
+            fill="none"
+            stroke="rgba(0,0,0,0.1)"
+            strokeWidth="0.5"
+          />
         ))}
-        
+
         {/* Small Hole Detail */}
         <circle cx="250" cy="250" r="4" fill="#000" opacity="0.8" />
 
         {/* The Logo Button - Static center */}
-        <image 
-          href={logo} 
-          x="200" y="200" 
-          width="100" height="100" 
+        <image
+          href={logo}
+          x="200"
+          y="200"
+          width="100"
+          height="100"
           className="group-hover/label:scale-105 transition-transform duration-300"
-          style={{ transformOrigin: '250px 250px' }}
+          style={{ transformOrigin: "250px 250px" }}
         />
       </g>
 

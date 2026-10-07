@@ -1,9 +1,8 @@
-import { useEffect } from 'react';
-import { Outlet } from '@tanstack/react-router';
-import { socket } from '../../shared/lib/socket';
+import { useEffect } from "react";
+import { Outlet } from "@tanstack/react-router";
+import { socket } from "../../shared/lib/socket";
 
 export function ParticipantLayout() {
-
   useEffect(() => {
     socket.connect();
 
@@ -13,9 +12,9 @@ export function ParticipantLayout() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#fcfcfc] flex flex-col">
+    <div className="flex min-h-screen flex-col bg-surface text-on-surface">
       <main className="flex-1">
-         <Outlet />
+        <Outlet />
       </main>
     </div>
   );

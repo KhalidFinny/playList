@@ -1,13 +1,13 @@
-import { useParams } from '@tanstack/react-router';
-import { useMusicRoom } from '../../features/participant/hooks/useMusicRoom';
+import { useParams } from "@tanstack/react-router";
+import { useMusicRoom } from "../../features/participant/hooks/useMusicRoom";
 
 export function useMusicRoomPage() {
-  const { roomId } = useParams({ from: '/r/$roomId' }) as { roomId: string };
+  const { roomId } = useParams({ from: "/r/$roomId" }) as { roomId: string };
   const { isConnecting, ...musicRoom } = useMusicRoom(roomId);
 
   return {
     roomId,
     isConnecting,
-    ...musicRoom
+    ...musicRoom,
   };
 }

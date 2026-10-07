@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
-import { socket } from '../../../shared/lib/socket';
-import type { AdminAuthenticateResponse, AdminUser } from '../../../shared/types';
+import { useState, useEffect, useRef } from "react";
+import { socket } from "../../../shared/lib/socket";
+import type { AdminAuthenticateResponse, AdminUser } from "../../../shared/types";
 
 export function useAdminAuth() {
-  const [token, setToken] = useState<string | null>(localStorage.getItem('adminToken'));
+  const [token, setToken] = useState<string | null>(localStorage.getItem("adminToken"));
   const [user, setUser] = useState<AdminUser | null>(null);
-  const [loading, setLoading] = useState(Boolean(localStorage.getItem('adminToken')));
+  const [loading, setLoading] = useState(Boolean(localStorage.getItem("adminToken")));
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -20,7 +20,7 @@ export function useAdminAuth() {
       setLoading(false);
     }, 3000);
 
-    socket.emit('admin_authenticate', { token }, (res: AdminAuthenticateResponse) => {
+    socket.emit("admin_authenticate", { token }, (res: AdminAuthenticateResponse) => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       if (res.success) {
         setUser(res.user);
@@ -28,7 +28,7 @@ export function useAdminAuth() {
         // Token invalid or expired
         setToken(null);
         setUser(null);
-        localStorage.removeItem('adminToken');
+        localStorage.removeItem("adminToken");
       }
       setLoading(false);
     });
@@ -39,7 +39,7 @@ export function useAdminAuth() {
   }, [token]);
 
   const login = (newToken: string, newUser: AdminUser) => {
-    localStorage.setItem('adminToken', newToken);
+    localStorage.setItem("adminToken", newToken);
     setToken(newToken);
     setUser(newUser);
     setLoading(false);
@@ -47,12 +47,12 @@ export function useAdminAuth() {
 
   const logout = () => {
     // Invalidate server-side session
-    const currentToken = localStorage.getItem('adminToken');
+    const currentToken = localStorage.getItem("adminToken");
     if (currentToken) {
-      socket.emit('admin_logout', { token: currentToken });
+      socket.emit("admin_logout", { token: currentToken });
       socket.disconnect();
     }
-    localStorage.removeItem('adminToken');
+    localStorage.removeItem("adminToken");
     setToken(null);
     setUser(null);
     setLoading(false);

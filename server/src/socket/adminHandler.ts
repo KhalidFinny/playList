@@ -3,6 +3,8 @@ import { sql } from "../db/client";
 import { roomManager } from "../state/roomManager";
 import { redisCache } from "../lib/redis";
 import { addApprovedSong, approveSong, clearQueue, deleteSong, getQueueWindow, updateSongTitle } from "../services/liveQueue/index";
+import { isAdminForRoom } from "./adminSession";
+import { generateUniquePasskey } from "../lib/passkey";
 
 export function handleAdminEvents(io: Server, socket: Socket) {
   
@@ -12,6 +14,11 @@ export function handleAdminEvents(io: Server, socket: Socket) {
 
     if (!roomId || !songId) {
       if (callback) callback({ success: false, error: "Missing fields" });
+      return;
+    }
+
+    if (!isAdminForRoom(socket, roomId)) {
+      if (callback) callback({ success: false, error: "Unauthorized" });
       return;
     }
 
@@ -42,6 +49,11 @@ export function handleAdminEvents(io: Server, socket: Socket) {
       return;
     }
 
+    if (!isAdminForRoom(socket, roomId)) {
+      if (callback) callback({ success: false, error: "Unauthorized" });
+      return;
+    }
+
     try {
       const result = await deleteSong(roomId, songId);
       if (!result.ok) {
@@ -50,7 +62,12 @@ export function handleAdminEvents(io: Server, socket: Socket) {
       }
 
       io.to(roomId).emit("song_deleted", { songId });
-      if (result.song.status === "playing") io.to(roomId).emit("now_playing_updated", null);
+      if (result.song.status === "playing") {
+        // Clear the in-memory copy too, or get_now_playing keeps returning a
+        // song that no longer exists until the process restarts.
+        roomManager.setNowPlaying(roomId, null);
+        io.to(roomId).emit("now_playing_updated", null);
+      }
 
       if (callback) callback({ success: true, message: "Song deleted" });
     } catch (err) {
@@ -65,6 +82,11 @@ export function handleAdminEvents(io: Server, socket: Socket) {
 
     if (!roomId || !songId || !newTitle) {
       if (callback) callback({ success: false, error: "Missing fields" });
+      return;
+    }
+
+    if (!isAdminForRoom(socket, roomId)) {
+      if (callback) callback({ success: false, error: "Unauthorized" });
       return;
     }
 
@@ -171,7 +193,7 @@ export function handleAdminEvents(io: Server, socket: Socket) {
       const existing = await sql`SELECT id FROM rooms WHERE id = ${roomId}`;
       if (existing.length > 0) return callback?.({ success: false, error: "Station ID already in use" });
 
-      const generatedKey = Math.floor(10000 + Math.random() * 90000).toString();
+      const generatedKey = await generateUniquePasskey();
       
       await sql`
         INSERT INTO rooms (id, passkey, owner_id) 

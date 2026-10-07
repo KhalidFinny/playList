@@ -1,5 +1,5 @@
-import { create } from 'zustand';
-import type { PendingSong, Track } from '../shared/types';
+import { create } from "zustand";
+import type { PendingSong, Track } from "../shared/types";
 
 type PlaybackSync = { currentTime: number; duration: number; isPlaying: boolean };
 
@@ -47,14 +47,18 @@ export const useRoomStore = create<RoomState>((set) => ({
       queue: track ? state.queue.filter((song) => song.id !== track.id) : state.queue,
     })),
   applyQueueSnapshot: (queue) =>
-    set({ queue: queue.filter((song) => !('status' in song) || song.status === 'approved') as Track[] }),
+    set({
+      queue: queue.filter((song) => !("status" in song) || song.status === "approved") as Track[],
+    }),
   applySongApproved: (song) =>
     set((state) => ({
       queue: state.queue.some((item) => item.id === song.id) ? state.queue : [...state.queue, song],
     })),
-  applySongRemoved: (songId) => set((state) => ({ queue: state.queue.filter((song) => song.id !== songId) })),
+  applySongRemoved: (songId) =>
+    set((state) => ({ queue: state.queue.filter((song) => song.id !== songId) })),
   applyPlaybackUpdated: (isPlaying) => set({ isPlaying }),
-  applyPlaybackSync: ({ currentTime, duration, isPlaying }) => set({ currentTime, duration, isPlaying }),
+  applyPlaybackSync: ({ currentTime, duration, isPlaying }) =>
+    set({ currentTime, duration, isPlaying }),
   clearRoomQueue: () => set({ queue: [] }),
   setIsConnecting: (isConnecting) => set({ isConnecting }),
   resetRoom: () => set(initialRoomState),

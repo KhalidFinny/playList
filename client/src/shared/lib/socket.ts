@@ -1,5 +1,5 @@
 import { io, type Socket } from "socket.io-client";
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from "uuid";
 
 // Singleton socket instance
 export const socket: Socket = io(import.meta.env.VITE_SOCKET_URL || "", {
@@ -8,10 +8,10 @@ export const socket: Socket = io(import.meta.env.VITE_SOCKET_URL || "", {
 
 // User Identity Persistence
 export const getUserId = () => {
-  let userId = localStorage.getItem('music_queue_user_id');
+  let userId = localStorage.getItem("music_queue_user_id");
   if (!userId) {
     userId = uuidv4();
-    localStorage.setItem('music_queue_user_id', userId);
+    localStorage.setItem("music_queue_user_id", userId);
   }
   return userId;
 };

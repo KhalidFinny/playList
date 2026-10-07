@@ -1,7 +1,6 @@
-import { Music, Plus, Loader2 } from 'lucide-react';
-import { Button } from '@/shared/components/button';
-import { Card } from '@/shared/components/card';
-import type { SearchResult } from '@/shared/types';
+import { Music, Plus, Loader2 } from "lucide-react";
+import { Button } from "@/shared/components/button";
+import type { SearchResult } from "@/shared/types";
 
 interface ResultCardProps {
   song: SearchResult;
@@ -10,42 +9,51 @@ interface ResultCardProps {
   cooldownSeconds?: number;
 }
 
+/**
+ * A search result row, shared by the participant and admin search rooms.
+ *
+ * A flat row rather than a card: a list of these is scanned, not browsed, so the
+ * artwork thumbnail and the type carry it and the container would only add noise.
+ * Hover tints the row. The trailing action is a `filled` icon button; cooldown
+ * state uses the secondary-container role rather than a shifted orange.
+ */
 export function ResultCard({ song, onSelect, isSubmitting, cooldownSeconds = 0 }: ResultCardProps) {
   const isOnCooldown = cooldownSeconds > 0;
+  const disabled = isSubmitting || isOnCooldown;
 
   return (
-    <Card variant="premium-list" className="p-4 flex items-center justify-between group rounded-2xl border">
-      <div className="flex items-center gap-4">
-        <div className="w-12 h-12 bg-black/5 rounded-xl flex items-center justify-center overflow-hidden">
-          {song.thumbnail ? (
-            <img src={song.thumbnail} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <Music size={20} className="text-black/20" />
-          )}
-        </div>
-        <div className="overflow-hidden">
-          <h4 className="font-bold text-sm text-black line-clamp-1">{song.title}</h4>
-          <p className="text-[10px] font-bold text-black/30 uppercase tracking-wider">{song.author}</p>
-        </div>
+    <div className="group flex items-center gap-3 rounded-m3-md px-3 py-2.5 transition-colors hover:bg-surface-container">
+      <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-m3-sm bg-surface-container-highest">
+        {song.thumbnail ? (
+          <img src={song.thumbnail} alt="" className="size-full object-cover" />
+        ) : (
+          <Music size={18} className="text-on-surface-variant" />
+        )}
       </div>
-      <Button 
+
+      <div className="min-w-0 flex-1">
+        <h4 className="truncate text-title-small">{song.title}</h4>
+        <p className="mt-0.5 truncate text-body-small text-on-surface-variant">
+          {song.author}
+          {song.duration ? ` · ${song.duration}` : ""}
+        </p>
+      </div>
+
+      <Button
         onClick={() => onSelect(song)}
-        disabled={isSubmitting || isOnCooldown}
-        variant="outline"
-        className={`rounded-full h-10 w-10 p-0 border-black/10 transition-colors ${
-          isOnCooldown
-            ? 'bg-orange-500/10 border-orange-500/20 text-orange-500 cursor-not-allowed'
-            : 'hover:bg-black hover:text-white'
-        }`}
+        disabled={disabled}
+        variant={isOnCooldown ? "tonal" : "filled"}
+        size="icon"
+        aria-label={isOnCooldown ? `Wait ${cooldownSeconds}s` : `Add ${song.title}`}
       >
         {isSubmitting ? (
-          <Loader2 size={16} className="animate-spin" />
+          <Loader2 size={20} className="animate-spin" />
         ) : isOnCooldown ? (
-          <span className="text-[11px] font-bold tabular-nums">{cooldownSeconds}</span>
+          <span className="text-label-large tabular-nums">{cooldownSeconds}</span>
         ) : (
-          <Plus size={18} />
+          <Plus size={20} />
         )}
       </Button>
-    </Card>
+    </div>
   );
 }

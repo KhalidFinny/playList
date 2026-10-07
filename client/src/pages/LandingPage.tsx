@@ -1,8 +1,8 @@
-import React from 'react';
-import { Hero } from '../features/landing/components/Hero';
-import { LoadingOverlay } from '../shared/components/LoadingOverlay';
-import logo from '../assets/logo.svg';
-import { useLandingPage } from '../hooks/pages/useLandingPage';
+import React from "react";
+import { Hero } from "../features/landing/components/Hero";
+import { LoadingOverlay } from "../shared/components/LoadingOverlay";
+import logo from "../assets/logo.svg";
+import { useLandingPage } from "../hooks/pages/useLandingPage";
 
 export const LandingPage: React.FC = () => {
   const { isLoading } = useLandingPage();
@@ -12,14 +12,14 @@ export const LandingPage: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-groovy-bg selection:bg-groovy-primary selection:text-groovy-deep">
+    <div className="min-h-screen bg-surface selection:bg-primary selection:text-on-primary">
       <LoadingOverlay isLoading={isLoading} />
-      
-      {/* Absolute Header for Logo Only — white text for dark hero bg */}
-      <header className="absolute top-0 left-0 w-full z-50 px-4 sm:px-8 py-4 sm:py-6 flex justify-end">
-        <div className="flex items-center gap-2 sm:gap-3">
-          <img src={logo} alt="Play Logo" className="h-8 w-8 sm:h-10 sm:w-10 brightness-[1.1]" />
-          <span className="font-bebas text-2xl sm:text-4xl tracking-tighter text-white/70">PLAY</span>
+
+      {/* Absolute Header for Logo Only — light text, sits over the dark hero */}
+      <header className="absolute left-0 top-0 z-50 flex w-full justify-end px-4 py-4 sm:px-8 sm:py-6">
+        <div className="flex items-center gap-3">
+          <img src={logo} alt="Play Logo" className="size-8 sm:size-10" />
+          <span className="text-headline-medium text-inverse-on-surface/70">PLAY</span>
         </div>
       </header>
 
@@ -29,5 +29,3 @@ export const LandingPage: React.FC = () => {
     </div>
   );
 };
-
-

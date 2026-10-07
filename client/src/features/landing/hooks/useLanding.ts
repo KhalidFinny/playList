@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
-import { useNavigate } from '@tanstack/react-router';
-import type { HeroState } from '../types';
+import { useState, useCallback } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import type { HeroState } from "../types";
 
 export const useLanding = () => {
   const navigate = useNavigate();
@@ -10,19 +10,19 @@ export const useLanding = () => {
   });
 
   const handleVinylClick = useCallback(() => {
-    localStorage.setItem('has_visited_play_music', 'true');
+    localStorage.setItem("has_visited_play_music", "true");
     navigate({
-      to: '/r/$roomId/request',
-      params: { roomId: 'join' }
+      to: "/r/$roomId/request",
+      params: { roomId: "join" },
     });
   }, [navigate]);
 
   const setHovered = useCallback((hovered: boolean) => {
-    setHeroState(prev => ({ ...prev, isHovered: hovered }));
+    setHeroState((prev) => ({ ...prev, isHovered: hovered }));
   }, []);
 
   const toggleSpin = useCallback(() => {
-    setHeroState(prev => ({ ...prev, isSpinning: !prev.isSpinning }));
+    setHeroState((prev) => ({ ...prev, isSpinning: !prev.isSpinning }));
   }, []);
 
   return {

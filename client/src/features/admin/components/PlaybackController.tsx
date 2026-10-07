@@ -1,10 +1,10 @@
-import { useRef, useEffect, useCallback } from 'react';
-import { useMachine } from '@xstate/react';
-import YouTube from 'react-youtube';
-import { socket } from '@/shared/lib/socket';
-import { playbackMachine } from '@/machines/playbackMachine';
-import { MusicRoomView } from '../../shared/components/MusicRoomView';
-import type { PlaybackControllerProps } from '../types';
+import { useRef, useEffect, useCallback } from "react";
+import { useMachine } from "@xstate/react";
+import YouTube from "react-youtube";
+import { socket } from "@/shared/lib/socket";
+import { playbackMachine } from "@/machines/playbackMachine";
+import { MusicRoomView } from "../../shared/components/MusicRoomView";
+import type { PlaybackControllerProps } from "../types";
 
 interface PlayerRef {
   playVideo: () => void;
@@ -30,7 +30,7 @@ export function PlaybackController({
   togglePlayback,
 }: PlaybackControllerProps) {
   const [playback, sendPlayback] = useMachine(playbackMachine);
-  const isPlaying = playback.matches('playing');
+  const isPlaying = playback.matches("playing");
   const currentTime = playback.context.currentTime;
   const duration = playback.context.duration;
   const progress = duration > 0 ? currentTime / duration : 0;
@@ -45,40 +45,48 @@ export function PlaybackController({
   }, [isPlaying]);
 
   useEffect(() => {
-    if (nowPlaying) sendPlayback({ type: 'TRACK_LOADED' });
+    if (nowPlaying) sendPlayback({ type: "TRACK_LOADED" });
   }, [nowPlaying, sendPlayback]);
 
-  const emitPlaybackSync = useCallback((ref: PlayerRef, isImmediate = false, forcedPlaying?: boolean) => {
-    const ct = ref.getCurrentTime();
-    const dur = ref.getDuration();
-    if (dur <= 0) return;
+  const emitPlaybackSync = useCallback(
+    (ref: PlayerRef, isImmediate = false, forcedPlaying?: boolean) => {
+      const ct = ref.getCurrentTime();
+      const dur = ref.getDuration();
+      if (dur <= 0) return;
 
-    const playing = forcedPlaying ?? isPlayingRef.current;
-    const last = lastPlaybackSyncRef.current;
-    const shouldSync =
-      isImmediate ||
-      last.isPlaying !== playing ||
-      Math.abs(last.currentTime - ct) >= 3 ||
-      Math.abs(last.duration - dur) >= 1;
+      const playing = forcedPlaying ?? isPlayingRef.current;
+      const last = lastPlaybackSyncRef.current;
+      const shouldSync =
+        isImmediate ||
+        last.isPlaying !== playing ||
+        Math.abs(last.currentTime - ct) >= 3 ||
+        Math.abs(last.duration - dur) >= 1;
 
-    if (!shouldSync) return;
+      if (!shouldSync) return;
 
-    lastPlaybackSyncRef.current = { currentTime: ct, duration: dur, isPlaying: playing };
-    socket.emit('sync_playback', { roomId, currentTime: ct, duration: dur, isPlaying: playing });
-  }, [roomId]);
+      lastPlaybackSyncRef.current = { currentTime: ct, duration: dur, isPlaying: playing };
+      socket.emit("sync_playback", { roomId, currentTime: ct, duration: dur, isPlaying: playing });
+    },
+    [roomId],
+  );
 
   // Poll timing for local UI every 1s, but broadcast only on coarse drift/state changes.
   useEffect(() => {
     if (!roomId) return;
 
     const syncInterval = setInterval(() => {
-      const ref = activePlayer === 'A' ? playerRefA.current : playerRefB.current;
+      const ref = activePlayer === "A" ? playerRefA.current : playerRefB.current;
       if (!ref) return;
       try {
         const ct = ref.getCurrentTime();
         const dur = ref.getDuration();
         if (dur > 0) {
-          sendPlayback({ type: 'SYNC_TICK', currentTime: ct, duration: dur, isPlaying: isPlayingRef.current });
+          sendPlayback({
+            type: "SYNC_TICK",
+            currentTime: ct,
+            duration: dur,
+            isPlaying: isPlayingRef.current,
+          });
           emitPlaybackSync(ref);
         }
       } catch {
@@ -90,17 +98,17 @@ export function PlaybackController({
   }, [roomId, activePlayer, emitPlaybackSync, sendPlayback]);
 
   const handleTogglePlay = useCallback(() => {
-    const ref = activePlayer === 'A' ? playerRefA : playerRefB;
+    const ref = activePlayer === "A" ? playerRefA : playerRefB;
 
     if (isPlaying) {
-      sendPlayback({ type: 'PAUSE' });
+      sendPlayback({ type: "PAUSE" });
       togglePlayback(false);
       if (ref.current) {
         ref.current.pauseVideo();
         emitPlaybackSync(ref.current, true, false);
       }
     } else {
-      sendPlayback({ type: 'PLAY' });
+      sendPlayback({ type: "PLAY" });
       togglePlayback(true);
       if (ref.current) {
         ref.current.playVideo();
@@ -109,46 +117,60 @@ export function PlaybackController({
     }
   }, [isPlaying, activePlayer, sendPlayback, togglePlayback, emitPlaybackSync]);
 
-  const handlePlayerPlay = useCallback((ref: React.MutableRefObject<PlayerRef | null>) => {
-    sendPlayback({ type: 'PLAY' });
-    togglePlayback(true);
-    if (ref.current) {
-      emitPlaybackSync(ref.current, true, true);
-    }
-  }, [sendPlayback, togglePlayback, emitPlaybackSync]);
+  const handlePlayerPlay = useCallback(
+    (ref: React.MutableRefObject<PlayerRef | null>) => {
+      sendPlayback({ type: "PLAY" });
+      togglePlayback(true);
+      if (ref.current) {
+        emitPlaybackSync(ref.current, true, true);
+      }
+    },
+    [sendPlayback, togglePlayback, emitPlaybackSync],
+  );
 
-  const handlePlayerPause = useCallback((ref: React.MutableRefObject<PlayerRef | null>) => {
-    sendPlayback({ type: 'PAUSE' });
-    togglePlayback(false);
-    if (ref.current) {
-      emitPlaybackSync(ref.current, true, false);
-    }
-  }, [sendPlayback, togglePlayback, emitPlaybackSync]);
+  const handlePlayerPause = useCallback(
+    (ref: React.MutableRefObject<PlayerRef | null>) => {
+      sendPlayback({ type: "PAUSE" });
+      togglePlayback(false);
+      if (ref.current) {
+        emitPlaybackSync(ref.current, true, false);
+      }
+    },
+    [sendPlayback, togglePlayback, emitPlaybackSync],
+  );
 
   const handleTrackEnd = useCallback(() => {
-    if (playback.matches('transitioning')) return;
-    sendPlayback({ type: 'TRACK_ENDED' });
+    if (playback.matches("transitioning")) return;
+    sendPlayback({ type: "TRACK_ENDED" });
     onPlayerEnd()
       .then((advanced) => {
-        sendPlayback(advanced ? { type: 'NEXT_RESOLVED' } : { type: 'NEXT_FAILED', error: 'No next track' });
+        sendPlayback(
+          advanced ? { type: "NEXT_RESOLVED" } : { type: "NEXT_FAILED", error: "No next track" },
+        );
       })
       .catch((error: unknown) => {
-        sendPlayback({ type: 'NEXT_FAILED', error: error instanceof Error ? error.message : 'Failed to skip track' });
+        sendPlayback({
+          type: "NEXT_FAILED",
+          error: error instanceof Error ? error.message : "Failed to skip track",
+        });
       });
   }, [onPlayerEnd, playback, sendPlayback]);
 
   return (
     <section className="w-full h-full">
       {/* THE HIDDEN ACTUAL PLAYERS — off-screen with real dimensions so YouTube initializes */}
-      <div className="absolute pointer-events-none" style={{ left: '-9999px', width: '640px', height: '390px' }}>
-        <div key="A" className={activePlayer === 'A' ? 'block' : 'hidden'}>
-          {nowPlaying && activePlayer === 'A' ? (
+      <div
+        className="absolute pointer-events-none"
+        style={{ left: "-9999px", width: "640px", height: "390px" }}
+      >
+        <div key="A" className={activePlayer === "A" ? "block" : "hidden"}>
+          {nowPlaying && activePlayer === "A" ? (
             <YouTube
               videoId={nowPlaying.youtubeId}
               opts={{ playerVars: { autoplay: 1, controls: 0, origin: window.location.origin } }}
               onReady={(e) => {
                 playerRefA.current = e.target as unknown as PlayerRef;
-                onPlayerReady('A')(e);
+                onPlayerReady("A")(e);
               }}
               onEnd={handleTrackEnd}
               onPlay={() => handlePlayerPlay(playerRefA)}
@@ -156,14 +178,14 @@ export function PlaybackController({
             />
           ) : null}
         </div>
-        <div key="B" className={activePlayer === 'B' ? 'block' : 'hidden'}>
-          {nowPlaying && activePlayer === 'B' ? (
+        <div key="B" className={activePlayer === "B" ? "block" : "hidden"}>
+          {nowPlaying && activePlayer === "B" ? (
             <YouTube
               videoId={nowPlaying.youtubeId}
               opts={{ playerVars: { autoplay: 1, controls: 0, origin: window.location.origin } }}
               onReady={(e) => {
                 playerRefB.current = e.target as unknown as PlayerRef;
-                onPlayerReady('B')(e);
+                onPlayerReady("B")(e);
               }}
               onEnd={handleTrackEnd}
               onPlay={() => handlePlayerPlay(playerRefB)}
@@ -175,7 +197,7 @@ export function PlaybackController({
           <YouTube
             videoId={upNext.youtubeId}
             opts={{ playerVars: { autoplay: 0, origin: window.location.origin } }}
-            onReady={onPlayerReady(activePlayer === 'A' ? 'B' : 'A')}
+            onReady={onPlayerReady(activePlayer === "A" ? "B" : "A")}
           />
         ) : null}
       </div>
@@ -192,14 +214,21 @@ export function PlaybackController({
         onSkip={handleTrackEnd}
         hasPreviousTrack={hasPreviousTrack}
         onPrevious={() => {
-          if (!hasPreviousTrack || playback.matches('previousLoading')) return;
-          sendPlayback({ type: 'PREVIOUS_REQUESTED' });
+          if (!hasPreviousTrack || playback.matches("previousLoading")) return;
+          sendPlayback({ type: "PREVIOUS_REQUESTED" });
           onPrevious()
             .then((moved) => {
-              sendPlayback(moved ? { type: 'PREVIOUS_RESOLVED' } : { type: 'PREVIOUS_FAILED', error: 'No previous track' });
+              sendPlayback(
+                moved
+                  ? { type: "PREVIOUS_RESOLVED" }
+                  : { type: "PREVIOUS_FAILED", error: "No previous track" },
+              );
             })
             .catch((error: unknown) => {
-              sendPlayback({ type: 'PREVIOUS_FAILED', error: error instanceof Error ? error.message : 'Failed to load previous track' });
+              sendPlayback({
+                type: "PREVIOUS_FAILED",
+                error: error instanceof Error ? error.message : "Failed to load previous track",
+              });
             });
         }}
         onTogglePlay={handleTogglePlay}

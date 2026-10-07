@@ -1,0 +1,85 @@
+/* ============================================================================
+   M3 STATE + ELEVATION
+   ============================================================================
+   State layers are an overlay of `currentColor` at a fixed opacity, not a shifted
+   background color. That keeps a component's contrast relationship intact across
+   hover, focus and press.
+
+   Elevation: M3 expresses it as surface TINT plus level, not heavy shadow. Prefer
+   the surface-container-* roles for layering; reach for .elevation-* only when
+   something genuinely floats (overlay, focus, drag).
+   ============================================================================ */
+
+:root {
+  --md-sys-state-hover-opacity: 0.08;
+  --md-sys-state-focus-opacity: 0.1;
+  --md-sys-state-pressed-opacity: 0.1;
+  --md-sys-state-dragged-opacity: 0.16;
+  --md-sys-state-disabled-content-opacity: 0.38;
+  --md-sys-state-disabled-container-opacity: 0.12;
+}
+
+.state-layer {
+  --state-layer-hover: color-mix(in srgb, currentColor 8%, transparent);
+  --state-layer-focus: color-mix(in srgb, currentColor 10%, transparent);
+  --state-layer-pressed: color-mix(in srgb, currentColor 10%, transparent);
+  transition: box-shadow var(--md-sys-motion-duration-expressive-fast-effects)
+    var(--md-sys-motion-easing-expressive-fast-effects);
+}
+
+.state-layer:hover {
+  box-shadow: inset 0 0 0 999px var(--state-layer-hover);
+}
+
+.state-layer:focus-visible {
+  box-shadow: inset 0 0 0 999px var(--state-layer-focus);
+}
+
+.state-layer:active {
+  box-shadow: inset 0 0 0 999px var(--state-layer-pressed);
+}
+
+.state-layer:disabled,
+.state-layer[aria-disabled="true"] {
+  box-shadow: none;
+}
+
+.elevation-0 {
+  box-shadow: none;
+}
+
+.elevation-1 {
+  box-shadow:
+    0 1px 2px 0 rgb(0 0 0 / 0.3),
+    0 1px 3px 1px rgb(0 0 0 / 0.15);
+}
+
+.elevation-3 {
+  box-shadow:
+    0 1px 3px 0 rgb(0 0 0 / 0.3),
+    0 4px 8px 3px rgb(0 0 0 / 0.15);
+}
+
+.elevation-6 {
+  box-shadow:
+    0 2px 3px 0 rgb(0 0 0 / 0.3),
+    0 6px 10px 4px rgb(0 0 0 / 0.15);
+}
+
+.elevation-8 {
+  box-shadow:
+    0 4px 4px 0 rgb(0 0 0 / 0.3),
+    0 8px 12px 6px rgb(0 0 0 / 0.15);
+}
+
+.elevation-12 {
+  box-shadow:
+    0 6px 6px 0 rgb(0 0 0 / 0.3),
+    0 10px 14px 6px rgb(0 0 0 / 0.15);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .state-layer {
+    transition: none;
+  }
+}

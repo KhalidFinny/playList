@@ -1,35 +1,74 @@
-import { useEffect, useCallback } from 'react';
-import { useNavigate } from '@tanstack/react-router';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ListMusic, Music, Search, KeyRound } from 'lucide-react';
-import { AdminHeader } from '../shared/components/AdminHeader';
-import { useAdminAuth } from '../features/admin/hooks/useAdminAuth';
-import { PlaybackController } from '../features/admin/components/PlaybackController';
-import { SongSearch } from '../features/admin/components/SongSearch';
-import { ModerationQueue } from '../features/admin/components/ModerationQueue';
-import { AccessCodeBanner } from '../features/admin/components/AccessCodeBanner';
-import { LoadingOverlay } from '../shared/components/LoadingOverlay';
-import { useAdminDashboardPage } from '../hooks/pages/useAdminDashboardPage';
+import { useEffect, useCallback } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { ListMusic, Music, Search, KeyRound } from "lucide-react";
+import { AdminHeader } from "../shared/components/AdminHeader";
+import { useAdminAuth } from "../features/admin/hooks/useAdminAuth";
+import { PlaybackController } from "../features/admin/components/PlaybackController";
+import { SongSearch } from "../features/admin/components/SongSearch";
+import { ModerationQueue } from "../features/admin/components/ModerationQueue";
+import { AccessCodeBanner } from "../features/admin/components/AccessCodeBanner";
+import { LoadingOverlay } from "../shared/components/LoadingOverlay";
+import { useAdminDashboardPage } from "../hooks/pages/useAdminDashboardPage";
 
-const isAdminTab = (value: string): value is 'review' | 'music' | 'search' | 'room' =>
-  value === 'review' || value === 'music' || value === 'search' || value === 'room';
+const isAdminTab = (value: string): value is "review" | "music" | "search" | "room" =>
+  value === "review" || value === "music" || value === "search" || value === "room";
+
+const TAB_ICONS = {
+  review: ListMusic,
+  music: Music,
+  search: Search,
+  room: KeyRound,
+} as const;
 
 export function AdminDashboardPage() {
   const navigate = useNavigate();
   const { logout, user, token, loading } = useAdminAuth();
   const {
-    roomId, activeTab, setActiveTab, copied, handleCopyKey, tabs, connected, roomKey, nowPlaying,
-    upNext, fullQueue, activePlayer, hasPreviousTrack, pendingQueue, processingId, editingId, editValue, setEditValue,
-    searchQuery, setSearchQuery, searchResults, searchLoading, submittingId, suggestions,
-    onSelectSuggestion, onPlayerReady, onPlayerEnd, onPrevious, togglePlayback, handleApprove,
-    handleDelete, startEditing, handleSaveEdit, handleAddSong, handleClearQueue, setEditingId,
-    setPreviewActive
+    roomId,
+    activeTab,
+    setActiveTab,
+    copied,
+    handleCopyKey,
+    tabs,
+    connected,
+    roomKey,
+    nowPlaying,
+    upNext,
+    fullQueue,
+    activePlayer,
+    hasPreviousTrack,
+    pendingQueue,
+    processingId,
+    editingId,
+    editValue,
+    setEditValue,
+    searchQuery,
+    setSearchQuery,
+    searchResults,
+    searchLoading,
+    submittingId,
+    suggestions,
+    onSelectSuggestion,
+    onPlayerReady,
+    onPlayerEnd,
+    onPrevious,
+    togglePlayback,
+    handleApprove,
+    handleDelete,
+    startEditing,
+    handleSaveEdit,
+    handleAddSong,
+    handleClearQueue,
+    setEditingId,
+    setPreviewActive,
   } = useAdminDashboardPage();
 
-  // Track when preview is active so we can coordinate features
-  const handlePreviewChange = useCallback((youtubeId: string | null) => {
-    setPreviewActive(youtubeId !== null);
-  }, [setPreviewActive]);
+  const handlePreviewChange = useCallback(
+    (youtubeId: string | null) => {
+      setPreviewActive(youtubeId !== null);
+    },
+    [setPreviewActive],
+  );
 
   useEffect(() => {
     document.title = `Station ${roomId.toUpperCase()} | Admin Control`;
@@ -37,14 +76,14 @@ export function AdminDashboardPage() {
 
   const handleLogout = useCallback(() => {
     logout();
-    navigate({ to: '/login' });
+    navigate({ to: "/login" });
   }, [logout, navigate]);
 
   if (loading || !token) return <LoadingOverlay isLoading={true} />;
 
   return (
-    <div className="h-screen bg-[#fdfdfd] text-[#39283f] font-poppins mobile-content-area overflow-hidden">
-      <AdminHeader 
+    <div className="flex h-screen flex-col overflow-hidden bg-surface text-on-surface">
+      <AdminHeader
         connected={connected}
         tabs={tabs}
         activeTab={activeTab}
@@ -57,59 +96,116 @@ export function AdminDashboardPage() {
         title={`Station: ${roomId.toUpperCase()}`}
       />
 
-      {/* Mobile bottom navigation — icon + label, app-style */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-t border-black/5 px-2" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
-        <div className="flex items-center justify-around max-w-lg mx-auto">
-          {tabs.map((tab) => {
-            const isActive = activeTab === tab.id;
-            const IconComponent = tab.id === 'review' ? ListMusic : tab.id === 'music' ? Music : tab.id === 'search' ? Search : KeyRound;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as 'review' | 'music' | 'search' | 'room')}
-                className={`flex flex-col items-center gap-0.5 py-2 px-3 min-w-0 transition-all duration-200 ${
-                  isActive ? 'text-orange-600' : 'text-black/25 hover:text-black/50'
+      {/* Compact widths: M3 navigation bar */}
+      <nav
+        aria-label="Dashboard sections"
+        className="fixed inset-x-0 bottom-0 z-50 flex h-20 items-stretch justify-around bg-surface-container elevation-3 lg:hidden"
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      >
+        {tabs.map((tab) => {
+          const isActive = activeTab === tab.id;
+          const Icon = TAB_ICONS[tab.id as keyof typeof TAB_ICONS] ?? ListMusic;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id as "review" | "music" | "search" | "room")}
+              aria-current={isActive ? "page" : undefined}
+              className="state-layer flex flex-1 flex-col items-center justify-center gap-1 outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+            >
+              <span
+                className={`flex h-8 w-16 items-center justify-center rounded-m3-full transition-colors ${
+                  isActive
+                    ? "bg-secondary-container text-on-secondary-container"
+                    : "text-on-surface-variant"
                 }`}
               >
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 ${
-                  isActive ? 'bg-orange-500/10' : ''
-                }`}>
-                  <IconComponent size={20} strokeWidth={isActive ? 2.5 : 1.5} />
-                </div>
-                <span className={`text-[9px] font-bold uppercase tracking-wider leading-tight ${
-                  isActive ? 'text-orange-600' : 'text-black/30'
-                }`}>
-                  {tab.id === 'review' ? 'Reviews' : tab.id === 'music' ? 'Music' : tab.id === 'search' ? 'Search' : 'Code'}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+                <Icon size={22} />
+              </span>
+              <span
+                className={`text-label-medium ${
+                  isActive ? "text-on-surface" : "text-on-surface-variant"
+                }`}
+              >
+                {tab.label}
+              </span>
+            </button>
+          );
+        })}
       </nav>
 
-      <main className="w-full h-full px-2 xl:px-6 pt-28 pb-4 overflow-hidden">
-        {/* Music room — always mounted, display:none when not active so YouTube keeps playing across tab switches */}
-        <div className={activeTab === 'music' ? 'block h-[calc(100vh-10rem)]' : 'hidden'}>
-          <PlaybackController roomId={roomId} nowPlaying={nowPlaying} upNext={upNext} fullQueue={fullQueue} activePlayer={activePlayer} hasPreviousTrack={hasPreviousTrack} onPlayerReady={onPlayerReady} onPlayerEnd={onPlayerEnd} onPrevious={onPrevious} togglePlayback={togglePlayback} onGoToSearch={() => setActiveTab('search')} />
+      <main className="w-full flex-1 overflow-y-auto px-2 pb-24 pt-4 lg:pb-4 xl:px-6">
+        {/* Kept mounted so the YouTube player keeps playing across tab switches */}
+        <div className={activeTab === "music" ? "block h-full" : "hidden"}>
+          <PlaybackController
+            roomId={roomId}
+            nowPlaying={nowPlaying}
+            upNext={upNext}
+            fullQueue={fullQueue}
+            activePlayer={activePlayer}
+            hasPreviousTrack={hasPreviousTrack}
+            onPlayerReady={onPlayerReady}
+            onPlayerEnd={onPlayerEnd}
+            onPrevious={onPrevious}
+            togglePlayback={togglePlayback}
+            onGoToSearch={() => setActiveTab("search")}
+          />
         </div>
 
-        <AnimatePresence mode="wait">
-          {activeTab === 'room' && (
-            <motion.div key="room" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="w-full flex justify-center pt-6">
-              <div className="w-full max-w-4xl"><AccessCodeBanner roomKey={roomKey} copied={copied} onCopy={handleCopyKey} roomId={roomId} /></div>
-            </motion.div>
-          )}
-          {activeTab === 'review' && (
-             <motion.div key="review" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="w-full flex justify-center pt-6">
-                <div className="w-full max-w-5xl h-[calc(100vh-8rem)] flex flex-col"><ModerationQueue pendingQueue={pendingQueue} processingId={processingId} editingId={editingId} editValue={editValue} setEditValue={setEditValue} handleApprove={handleApprove} handleDelete={handleDelete} startEditing={startEditing} handleSaveEdit={handleSaveEdit} setEditingId={setEditingId} onPreviewChange={handlePreviewChange} onClearQueue={handleClearQueue} pendingCount={pendingQueue.length} /></div>
-             </motion.div>
-          )}
-          {activeTab === 'search' && (
-             <motion.div key="search" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="w-full flex justify-center pt-6">
-                <div className="w-full max-w-4xl"><SongSearch searchQuery={searchQuery} setSearchQuery={setSearchQuery} searchLoading={searchLoading} searchResults={searchResults} suggestions={suggestions} onSelectSuggestion={onSelectSuggestion} handleAddSong={handleAddSong} submittingId={submittingId} /></div>
-             </motion.div>
-          )}
-        </AnimatePresence>
+        {/*
+          Panels render directly: no enter/exit animation. Switching tabs is a
+          state change, not a gesture, so motion here reads as bounce rather than
+          feedback.
+
+          All three panels also share one content width. They previously differed
+          (4xl vs 5xl), which reflowed the centred content sideways on every
+          switch.
+        */}
+        {activeTab === "room" && (
+          <div className="mx-auto w-full max-w-5xl pt-4">
+            <AccessCodeBanner
+              roomKey={roomKey}
+              copied={copied}
+              onCopy={handleCopyKey}
+              roomId={roomId}
+            />
+          </div>
+        )}
+
+        {activeTab === "review" && (
+          <div className="mx-auto flex w-full max-w-5xl flex-col pt-4">
+            <ModerationQueue
+              pendingQueue={pendingQueue}
+              processingId={processingId}
+              editingId={editingId}
+              editValue={editValue}
+              setEditValue={setEditValue}
+              handleApprove={handleApprove}
+              handleDelete={handleDelete}
+              startEditing={startEditing}
+              handleSaveEdit={handleSaveEdit}
+              setEditingId={setEditingId}
+              onPreviewChange={handlePreviewChange}
+              onClearQueue={handleClearQueue}
+              pendingCount={pendingQueue.length}
+            />
+          </div>
+        )}
+
+        {activeTab === "search" && (
+          <div className="mx-auto w-full max-w-5xl pt-4">
+            <SongSearch
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              searchLoading={searchLoading}
+              searchResults={searchResults}
+              suggestions={suggestions}
+              onSelectSuggestion={onSelectSuggestion}
+              handleAddSong={handleAddSong}
+              submittingId={submittingId}
+            />
+          </div>
+        )}
       </main>
     </div>
   );

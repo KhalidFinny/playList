@@ -12,6 +12,10 @@ local createdAt = tonumber(ARGV[4])
 local cached = redis.call('GET', resultKey)
 if cached then return cached end
 
+-- Keep only a short window of finished tracks; previous-track only needs the
+-- last few and the list would otherwise grow for the life of the room.
+local DONE_HISTORY_MAX = 50
+
 local oldTrackId = redis.call('GET', nowPlayingKey)
 local nextTrackId = redis.call('LPOP', approvedKey)
 local oldTrack = nil
@@ -22,6 +26,7 @@ if oldTrackId then
   oldTrack.status = 'done'
   redis.call('SET', songPrefix .. oldTrackId, cjson.encode(oldTrack))
   redis.call('LPUSH', doneKey, oldTrackId)
+  redis.call('LTRIM', doneKey, 0, DONE_HISTORY_MAX - 1)
 end
 
 if nextTrackId then

@@ -1,7 +1,8 @@
-import { motion } from 'framer-motion';
-import { Radio, Loader2 } from 'lucide-react';
-import { Input } from '@/shared/components/input';
-import { Button } from '@/shared/components/button';
+import { motion } from "framer-motion";
+import { Loader2 } from "lucide-react";
+import { Button } from "@/shared/components/button";
+import { Logo } from "@/shared/components/Logo";
+import { transitions } from "@/shared/motion/springs";
 
 interface JoinFlowProps {
   passkey: string;
@@ -10,43 +11,57 @@ interface JoinFlowProps {
   isResolving: boolean;
 }
 
+/**
+ * Room-code entry.
+ *
+ * The code is the whole task, so it takes a display type role — but applied by
+ * the caller, not baked into an input variant. The field itself is a normal M3
+ * text field; the code is rendered large and tracked out.
+ */
 export function JoinFlow({ passkey, onPasskeyChange, onSubmit, isResolving }: JoinFlowProps) {
   return (
-    <motion.div 
+    <motion.div
       key="join-flow"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
-      className="relative z-20 flex flex-col items-center justify-center min-h-screen px-6"
+      transition={transitions.base}
+      className="relative z-20 flex min-h-screen flex-col items-center justify-center px-4"
     >
-      <div className="max-w-md w-full text-center">
-        <div className="mb-10">
-          <div className="w-16 h-16 bg-orange-500 rounded-2xl mx-auto mb-8 flex items-center justify-center shadow-lg shadow-orange-500/10">
-            <Radio size={32} className="text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-black tracking-tight mb-2">Enter Room Code</h1>
-          <p className="text-sm text-black/40 font-bold">Enter the 5-digit number to join the broadcast.</p>
+      <div className="w-full max-w-md text-center">
+        <div className="mb-8 flex flex-col items-center">
+          <Logo size={72} className="mb-5" />
+          <h1 className="text-headline-medium-emphasized">Enter room code</h1>
+          <p className="mt-2 text-body-medium text-on-surface-variant">
+            Enter the 5-digit number to join the broadcast.
+          </p>
         </div>
 
-        <form onSubmit={onSubmit} className="space-y-8">
-          <div className="relative group">
-            <Input 
-              type="text" 
+        <form onSubmit={onSubmit} className="flex flex-col gap-6">
+          <div className="rounded-m3-xl bg-surface-container px-6 py-8">
+            <label htmlFor="room-code" className="sr-only">
+              Room code
+            </label>
+            <input
+              id="room-code"
+              type="text"
+              inputMode="numeric"
               maxLength={5}
               value={passkey}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => onPasskeyChange(e.target.value)}
+              onChange={(e) => onPasskeyChange(e.target.value)}
               placeholder="00000"
-              variant="premium-code"
               autoFocus
+              className="w-full bg-transparent text-center text-display-medium tabular-nums tracking-[0.2em] text-on-surface outline-none placeholder:text-on-surface-variant/30"
             />
           </div>
-          
-          <Button 
+
+          <Button
+            type="submit"
+            size="md"
             disabled={passkey.length !== 5 || isResolving}
-            variant="premium"
-            className="w-full h-20 text-base"
+            className="w-full"
           >
-            {isResolving ? <Loader2 className="animate-spin" /> : "Access Broadcast"}
+            {isResolving ? <Loader2 className="animate-spin" size={20} /> : "Access broadcast"}
           </Button>
         </form>
       </div>

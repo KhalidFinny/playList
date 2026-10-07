@@ -1,8 +1,10 @@
-import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { LogOut, Menu, X } from "lucide-react";
-import { Tabs, type TabItem } from "./Tabs";
+import { LogOut, Home } from "lucide-react";
+
+import type { TabItem } from "./Tabs";
 import { SecretDoor } from "./SecretDoor";
+import { ThemeToggle } from "./theme-toggle";
+import { cn } from "@/shared/lib/utils";
 
 interface AdminHeaderProps {
   user?: {
@@ -18,6 +20,17 @@ interface AdminHeaderProps {
   title?: string;
 }
 
+/**
+ * M3 top app bar — one compact row.
+ *
+ * Everything lives on a single 56px line: the mark and title lead, the
+ * destinations follow inline after a divider, and the trailing cluster is status,
+ * identity and actions. The previous header spent two rows (112px) on this, with
+ * five ungrouped items trailing and no separation between "what state am I in"
+ * and "what can I do".
+ *
+ * The bar is opaque `surface` — M3 app bars are not glass.
+ */
 export function AdminHeader({
   user,
   connected = true,
@@ -28,137 +41,92 @@ export function AdminHeader({
   showBackToHub = false,
   title,
 }: AdminHeaderProps) {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const hasTabs = Boolean(tabs?.length && activeTab && onTabChange);
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 px-4 sm:px-8 py-4 sm:py-6 flex justify-between items-center bg-white/10 backdrop-blur-sm">
-      <div className="max-w-[1600px] w-full mx-auto flex items-center justify-between">
-        {/* Left Section: Branding & Context */}
-        <div className="flex items-center gap-3 sm:gap-5">
-          <SecretDoor size="xl" />
-          <div className="flex flex-col">
-            <span className="text-black font-bebas text-3xl sm:text-5xl tracking-tighter leading-none uppercase">
-              PLAY LIST
-            </span>
-            <span className="text-[10px] sm:text-xs text-black/20 font-bold uppercase tracking-[0.2em] leading-none mt-1">
-              {title || "Archive Admin"}
-            </span>
-          </div>
-
-          <div className="hidden lg:block w-px h-8 bg-black/5" />
-
-          {/* Optional Center Tabs — desktop only */}
-          {tabs && activeTab && onTabChange && (
-            <div className="hidden lg:block ml-4">
-              <Tabs tabs={tabs} activeTab={activeTab} onChange={onTabChange} />
-            </div>
-          )}
+    <header className="sticky top-0 z-50 bg-surface">
+      <div className="flex h-14 items-center gap-3 px-3 sm:px-6">
+        {/* Leading: mark + a single title line */}
+        <div className="flex shrink-0 items-center gap-2.5">
+          <SecretDoor size="lg" />
+          <span className="truncate text-title-medium">{title ?? "Archive Admin"}</span>
         </div>
 
-        {/* Right Section */}
-        <div className="flex items-center gap-3 sm:gap-8">
-          {/* Connection Status — hide on very small screens */}
-          <div className="hidden sm:flex items-center gap-2 sm:gap-4 px-3 sm:px-8 py-2 sm:py-4 bg-black/5 rounded-full">
-            <div
-              className={`w-2 h-2 rounded-full ${connected ? "bg-green-500 animate-pulse" : "bg-red-500"}`}
-            />
-            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-black/40">
-              {connected ? "LIVE" : "OFFLINE"}
-            </span>
-          </div>
+        {hasTabs && (
+          <>
+            <span aria-hidden="true" className="h-6 w-px shrink-0 bg-outline-variant" />
 
-          {/* Connection dot — always visible on very small screens */}
-          <div className="sm:hidden">
-            <div
-              className={`w-2 h-2 rounded-full ${connected ? "bg-green-500 animate-pulse" : "bg-red-500"}`}
-            />
-          </div>
+            <nav
+              className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto"
+              role="tablist"
+              aria-label="Dashboard sections"
+            >
+              {tabs!.map((tab) => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => onTabChange!(tab.id)}
+                    className={cn(
+                      "state-layer flex h-9 shrink-0 items-center gap-2 rounded-m3-full px-3 text-title-small transition-colors",
+                      isActive ? "text-primary" : "text-on-surface-variant hover:text-on-surface",
+                    )}
+                  >
+                    {tab.icon}
+                    <span>{tab.label}</span>
+                    {tab.trailing}
+                  </button>
+                );
+              })}
+            </nav>
+          </>
+        )}
 
-          {/* User Info — desktop only */}
+        {/* Trailing: status, identity, actions */}
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
+          <span className="flex shrink-0 items-center px-1" title={connected ? "Live" : "Offline"}>
+            <span
+              className={cn("size-2.5 rounded-m3-full", connected ? "bg-tertiary" : "bg-error")}
+            />
+            <span className="sr-only">{connected ? "Live" : "Offline"}</span>
+          </span>
+
           {user && (
-            <div className="hidden md:flex flex-col items-end">
-              <span className="text-base font-bold text-black leading-none">
-                {user.username.toUpperCase()}
+            <div className="flex shrink-0 items-center gap-2.5 pl-1">
+              <span className="flex size-9 items-center justify-center rounded-m3-full bg-primary-container text-label-large text-on-primary-container">
+                {user.username.charAt(0).toUpperCase()}
               </span>
-              <span className="text-xs font-bold text-orange-500 uppercase tracking-widest mt-1.5">
-                {user.role === "super_admin" ? "Head Admin" : "Station Admin"}
-              </span>
+              <span className="hidden text-title-small md:inline">{user.username}</span>
             </div>
           )}
 
-          {/* Navigation Links */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            {showBackToHub && (
-              <>
-                {/* Desktop: full button */}
-                <Link
-                  to="/admin"
-                  className="hidden sm:inline-flex px-4 sm:px-10 py-3 sm:py-4 bg-[#f8f8f6] hover:bg-black hover:text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-all"
-                >
-                  Hub
-                </Link>
-                {/* Mobile: compact icon */}
-                <Link
-                  to="/admin"
-                  className="sm:hidden w-9 h-9 rounded-xl bg-black/5 flex items-center justify-center text-black/30 hover:text-black hover:bg-black/10 transition-all"
-                  title="Back to Hub"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                    <polyline points="9 22 9 12 15 12 15 22" />
-                  </svg>
-                </Link>
-              </>
-            )}
-
-            <button
-              onClick={onLogout}
-              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-black/5 flex items-center justify-center text-black/20 hover:text-red-500 hover:bg-red-50 transition-all active:scale-90"
-              title="Logout"
+          {showBackToHub && (
+            <Link
+              to="/admin"
+              aria-label="Back to hub"
+              title="Back to hub"
+              className="state-layer flex size-10 shrink-0 items-center justify-center rounded-m3-full text-on-surface-variant outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
-              <LogOut size={18} />
-            </button>
+              <Home size={20} />
+            </Link>
+          )}
 
-            {/* Mobile menu toggle — only when there are tabs */}
-            {tabs && tabs.length > 0 && (
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="lg:hidden w-9 h-9 rounded-xl bg-black/5 flex items-center justify-center text-black/40 hover:text-black transition-all"
-                title="Menu"
-              >
-                {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
-              </button>
-            )}
-          </div>
+          <ThemeToggle />
+
+          <button
+            type="button"
+            onClick={onLogout}
+            aria-label="Log out"
+            title="Log out"
+            className="state-layer flex size-10 shrink-0 items-center justify-center rounded-m3-full text-on-surface-variant outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            <LogOut size={20} />
+          </button>
         </div>
       </div>
-
-      {/* Mobile tab bar shown below header when menu is open */}
-      {tabs && activeTab && onTabChange && mobileMenuOpen && (
-        <div className="lg:hidden absolute top-full left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-black/5 shadow-lg">
-          <div className="flex flex-col p-4 gap-2">
-            {tabs.map((tab) => {
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => {
-                    onTabChange(tab.id);
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`w-full text-left px-4 py-3 rounded-xl text-sm font-bold uppercase tracking-widest transition-all ${
-                    isActive
-                      ? "bg-orange-500/10 text-orange-600"
-                      : "text-black/40 hover:bg-black/5 hover:text-black/70"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </header>
   );
 }

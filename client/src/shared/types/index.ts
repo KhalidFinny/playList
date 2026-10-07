@@ -42,9 +42,7 @@ export interface Station {
   createdAt: string;
 }
 
-export type AdminAuthenticateResponse =
-  | { success: true; user: AdminUser }
-  | { success: false };
+export type AdminAuthenticateResponse = { success: true; user: AdminUser } | { success: false };
 
 export type GetMyStationsResponse = {
   success: boolean;

@@ -1,10 +1,13 @@
-import { motion } from 'framer-motion';
-import { Heart, Share2 } from 'lucide-react';
-import { Turntable } from './Turntable';
-import { MiniVinyl } from './MiniVinyl';
-import { TrackMetadata } from '@/features/music-room/components/TrackMetadata';
-import { StationSequence } from '@/features/music-room/components/StationSequence';
-import type { Track } from '@/shared/types';
+import { motion } from "framer-motion";
+import { SkipBack, SkipForward } from "lucide-react";
+import { Turntable } from "./Turntable";
+import { MiniVinyl } from "./MiniVinyl";
+import { TrackMetadata } from "@/features/music-room/components/TrackMetadata";
+import { StationSequence } from "@/features/music-room/components/StationSequence";
+import { Shape } from "@/shared/shapes/shape";
+import { transitions } from "@/shared/motion/springs";
+import { cn } from "@/shared/lib/utils";
+import type { Track } from "@/shared/types";
 
 interface MusicRoomViewProps {
   roomId: string;
@@ -14,7 +17,7 @@ interface MusicRoomViewProps {
   progress: number;
   currentTime?: number;
   duration?: number;
-  role: 'admin' | 'participant';
+  role: "admin" | "participant";
   hasPreviousTrack?: boolean;
   onSkip?: () => void;
   onPrevious?: () => void;
@@ -22,6 +25,52 @@ interface MusicRoomViewProps {
   onGoToSearch?: () => void;
 }
 
+/**
+ * One transport button. Admin-only: participants have no controls at all.
+ *
+ * When the action is unavailable the button keeps its space and becomes inert
+ * rather than disappearing, so the disc does not shift sideways between tracks.
+ */
+function TransportButton({
+  kind,
+  enabled,
+  onClick,
+}: {
+  kind: "previous" | "next";
+  enabled: boolean;
+  onClick?: () => void;
+}) {
+  const isPrevious = kind === "previous";
+
+  return (
+    <button
+      type="button"
+      onClick={enabled ? onClick : undefined}
+      disabled={!enabled}
+      aria-label={isPrevious ? "Previous track" : "Next track"}
+      className={cn(
+        "state-layer flex size-12 shrink-0 items-center justify-center rounded-m3-full text-on-surface-variant outline-none",
+        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+        "lg:size-14",
+        !enabled && "pointer-events-none opacity-38",
+      )}
+    >
+      {isPrevious ? <SkipBack size={26} /> : <SkipForward size={26} />}
+    </button>
+  );
+}
+
+/**
+ * The listening room — liner-notes layout.
+ *
+ * Liner notes on the **left** (artwork, now-playing metadata, queue) and the disc
+ * on the **right**. Previously the disc led; the information column now leads,
+ * which reads like a record sleeve with the disc beside it.
+ *
+ * Transport lives **on the vinyl**: play/pause is the disc's centre label and
+ * prev/next flank it. Participants get no transport at all, so their disc carries
+ * no centre control.
+ */
 export function MusicRoomView({
   roomId,
   nowPlaying,
@@ -35,172 +84,69 @@ export function MusicRoomView({
   onSkip,
   onPrevious,
   onTogglePlay,
-  onGoToSearch
+  onGoToSearch,
 }: MusicRoomViewProps) {
-  const isAdmin = role === 'admin';
+  const isAdmin = role === "admin";
   const hasNextTrack = queue.length > 0;
 
   return (
-    <div className="w-full h-full min-h-0 flex flex-col lg:flex-row items-stretch justify-center gap-4 lg:gap-8 px-2 lg:px-6 overflow-hidden">
-      
-      {/* LEFT SECTION: Metadata — tablet/desktop only (lg+) */}
-      <motion.section 
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="hidden lg:flex flex-col justify-center w-[240px] lg:w-[280px] xl:w-[350px] shrink-0 min-h-0"
+    <div className="flex h-full min-h-0 w-full flex-col overflow-y-auto px-4 pb-8 lg:flex-row lg:items-center lg:gap-10 lg:overflow-hidden lg:px-6 lg:pb-6">
+      {/* Liner notes */}
+      <motion.aside
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={transitions.base}
+        className="flex w-full shrink-0 flex-col gap-6 lg:w-[400px] lg:justify-center"
       >
-          <div className="flex flex-col justify-center space-y-8 h-full">
-            <TrackMetadata track={nowPlaying} currentTime={currentTime} duration={duration} />
-            
-            {!nowPlaying && (
-              <div className="space-y-6">
-                <div className="h-6 w-48 bg-black/10 rounded animate-pulse" />
-                <p className="text-2xl font-bold text-black/45 uppercase tracking-tighter">
-                  The queue is empty.
-                </p>
-              </div>
+        <div className="flex items-start gap-5">
+          <div className="hidden size-[104px] shrink-0 items-center justify-center overflow-hidden rounded-m3-lg bg-surface-container-high sm:flex">
+            {nowPlaying?.thumbnail ? (
+              <img src={nowPlaying.thumbnail} alt="" className="size-full object-cover" />
+            ) : (
+              <Shape name="cookie12" size={48} className="text-on-surface-variant" />
             )}
           </div>
-      </motion.section>
 
-      {/* CENTRAL SECTION */}
-      <motion.section 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, duration: 0.8 }}
-          className="flex-1 w-full lg:w-auto min-h-0 flex flex-col items-center justify-center min-w-0 max-w-[860px]"
-      >
-          {/* Mobile: MiniVinyl — compact record, no clipped needle */}
-          <div className="lg:hidden w-full flex flex-col items-center gap-4 py-4">
+          <div className="min-w-0 flex-1">
+            <TrackMetadata
+              track={nowPlaying}
+              currentTime={currentTime}
+              duration={duration}
+              isPlaying={isPlaying}
+            />
+          </div>
+        </div>
+
+        <StationSequence queue={queue} roomId={roomId} onAddToQueue={onGoToSearch} />
+      </motion.aside>
+
+      {/* Disc. Height-capped as well as width-capped: it is square, so a
+          width-only cap overflows the frame on short viewports. */}
+      <section className="flex w-full shrink-0 items-center justify-center gap-3 lg:min-w-0 lg:flex-1 lg:gap-6">
+        {isAdmin && (
+          <TransportButton kind="previous" enabled={hasPreviousTrack} onClick={onPrevious} />
+        )}
+
+        <div className="w-full max-w-[240px] lg:max-w-[min(560px,calc(100vh-15rem))]">
+          <div className="lg:hidden">
             <MiniVinyl
+              isPlaying={isPlaying}
+              thumbnail={nowPlaying?.thumbnail}
+              onToggle={isAdmin ? onTogglePlay : undefined}
+            />
+          </div>
+          <div className="hidden lg:block">
+            <Turntable
               isPlaying={isPlaying}
               progress={progress}
               thumbnail={nowPlaying?.thumbnail}
-              onToggle={onTogglePlay}
+              onToggle={isAdmin ? onTogglePlay : undefined}
             />
-            
-            {/* Track info */}
-            {nowPlaying && (
-              <div className="text-center px-4 w-full">
-                <h2 className="text-lg font-bold text-black tracking-tight truncate">{nowPlaying.title}</h2>
-                <p className="text-xs font-bold text-black/40 uppercase tracking-widest mt-1">{nowPlaying.author || 'Unknown'}</p>
-              </div>
-            )}
-
-            {/* Mobile controls */}
-            <div className="flex items-center gap-8 mt-2">
-              {isAdmin && (
-                <button 
-                  onClick={hasNextTrack ? onSkip : undefined}
-                  disabled={!hasNextTrack}
-                  aria-label={hasNextTrack ? 'Skip to next track' : 'No next track available'}
-                  title={hasNextTrack ? 'Skip to next track' : 'No next track available'}
-                  className={`transition-colors ${hasNextTrack ? 'text-black/30 hover:text-black' : 'text-black/10 cursor-not-allowed'}`}
-                >
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="4" x2="19" y2="20"/>
-                  </svg>
-                </button>
-              )}
-              <span className="text-[10px] font-bold text-black/40 uppercase tracking-[0.3em]">
-                {isPlaying ? 'Live' : 'Paused'}
-              </span>
-              {isAdmin && (
-                <button 
-                  onClick={onTogglePlay}
-                  className="text-black/30 hover:text-black transition-colors"
-                >
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="4" x2="5" y2="20"/>
-                  </svg>
-                </button>
-              )}
-
-              {!isAdmin && (
-                <nav className="flex items-center gap-6">
-                  <button className="text-black/20 hover:text-orange-500 transition-colors">
-                    <Heart size={18} strokeWidth={1.5} />
-                  </button>
-                  <button className="text-black/20 hover:text-orange-500 transition-colors">
-                    <Share2 size={18} strokeWidth={1.5} />
-                  </button>
-                </nav>
-              )}
-            </div>
           </div>
+        </div>
 
-          {/* Desktop/Tablet (lg+): Turntable + controls */}
-          <div className="hidden lg:flex lg:flex-col lg:items-center lg:w-full">
-            <div className="flex items-center justify-center w-full gap-6 lg:gap-8 xl:gap-16">
-              <button
-                onClick={isAdmin && hasPreviousTrack ? onPrevious : undefined}
-                disabled={isAdmin && !hasPreviousTrack}
-                aria-label={hasPreviousTrack ? 'Go to previous track' : 'No previous track available'}
-                title={hasPreviousTrack ? 'Go to previous track' : 'No previous track available'}
-                className={`text-black/35 transition-colors shrink-0 ${isAdmin ? (hasPreviousTrack ? 'hover:text-black cursor-pointer' : 'opacity-0 pointer-events-none') : 'opacity-0 pointer-events-none'}`}
-              >
-                <svg width="28" height="28" className="lg:w-10 lg:h-10 xl:w-12 xl:h-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="4" x2="5" y2="20"/>
-                </svg>
-              </button>
-
-              <figure className="flex items-center justify-center relative w-full max-w-[50vw] lg:max-w-[45vw] xl:max-w-[55vw]">
-                  <Turntable 
-                      isPlaying={isPlaying} 
-                      progress={progress} 
-                      thumbnail={nowPlaying?.thumbnail}
-                      onToggle={onTogglePlay}
-                  />
-              </figure>
-
-              <button 
-                onClick={isAdmin && hasNextTrack ? onSkip : undefined}
-                disabled={isAdmin && !hasNextTrack}
-                aria-label={hasNextTrack ? 'Skip to next track' : 'No next track available'}
-                title={hasNextTrack ? 'Skip to next track' : 'No next track available'}
-                className={`text-black/35 transition-colors shrink-0 ${isAdmin ? (hasNextTrack ? 'hover:text-black cursor-pointer' : 'opacity-25 cursor-not-allowed') : 'opacity-0 pointer-events-none'}`}
-              >
-                <svg width="28" height="28" className="lg:w-10 lg:h-10 xl:w-12 xl:h-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="4" x2="19" y2="20"/>
-                </svg>
-              </button>
-            </div>
-
-            {/* Metadata below turntable — only when left sidebar is hidden (< xl) */}
-            <div className="xl:hidden w-full max-w-[500px] mt-4">
-              <TrackMetadata track={nowPlaying} currentTime={currentTime} duration={duration} />
-            </div>
-
-            <div className="flex items-center gap-8 lg:gap-10 mt-6">
-              {isAdmin ? (
-                <span className="text-[10px] lg:text-xs font-bold text-black/45 uppercase tracking-[0.3em]">Status // {isPlaying ? 'Live' : 'Idle'}</span>
-              ) : (
-                <nav className="flex items-center gap-6 lg:gap-10">
-                    <button className="text-black/20 hover:text-orange-500 transition-colors">
-                        <Heart size={22} strokeWidth={1.5} />
-                    </button>
-                    <div className="h-5 lg:h-6 w-px bg-black/10" />
-                    <span className="text-[10px] lg:text-xs font-bold text-black/20 uppercase tracking-[0.3em]">Status // {isPlaying ? 'Live' : 'Idle'}</span>
-                    <div className="h-5 lg:h-6 w-px bg-black/10" />
-                    <button className="text-black/20 hover:text-orange-500 transition-colors">
-                        <Share2 size={22} strokeWidth={1.5} />
-                    </button>
-                </nav>
-              )}
-            </div>
-          </div>
-      </motion.section>
-
-      {/* RIGHT SECTION: Sequence Queue — lg+ only */}
-      <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.2, duration: 0.6 }}
-          className="hidden lg:flex shrink-0 flex-col justify-center h-full w-[240px] lg:w-[280px] xl:w-[350px]"
-      >
-          <StationSequence queue={queue} roomId={roomId} onAddToQueue={onGoToSearch} />
-      </motion.div>
-
+        {isAdmin && <TransportButton kind="next" enabled={hasNextTrack} onClick={onSkip} />}
+      </section>
     </div>
   );
 }

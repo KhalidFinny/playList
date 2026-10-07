@@ -2,8 +2,10 @@ import { Server, Socket } from "socket.io";
 import ytsort from "yt-search";
 import { countPendingSongs, submitSong } from "../services/liveQueue/index";
 import { normalizeSearchQuery, TtlLruCache } from "./searchCache";
-
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+import { actorIdOf } from "../lib/actor";
+import { clientIpOf } from "../lib/clientIp";
+import { RateLimiter } from "../lib/rateLimit";
+import { registerPrunable } from "../lib/prune";
 
 const SEARCH_MIN_QUERY_LENGTH = 2;
 const SEARCH_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -14,113 +16,93 @@ const SUGGESTION_CACHE_MAX_SIZE = 200;
 const searchCache = new TtlLruCache<any[]>(SEARCH_CACHE_TTL_MS, SEARCH_CACHE_MAX_SIZE);
 const suggestionCache = new TtlLruCache<string[]>(SUGGESTION_CACHE_TTL_MS, SUGGESTION_CACHE_MAX_SIZE);
 
-const cacheCleanupTimer = setInterval(() => {
-  const now = Date.now();
-  searchCache.deleteExpired(now);
-  suggestionCache.deleteExpired(now);
-}, 60_000);
-cacheCleanupTimer.unref?.();
-
 // --- Spam protection ---
+//
+// Every key here is server-derived. `actorId` is assigned per connection and
+// `clientIp` comes from the Cloudflare header; neither can be rotated by the
+// client. The client-supplied `userId` is used for attribution and for the
+// pending-per-user guardrail only, never as the basis of a limit.
+//
+// Everything is a RateLimiter or TtlLruCache so one shared interval can prune
+// it — the previous plain Maps grew forever.
 
-// Per-user rate limit: only one request every N ms
 const USER_COOLDOWN_MS = 3000;
-const lastRequestTime = new Map<string, number>();
+const userCooldown = new RateLimiter(1, USER_COOLDOWN_MS);
 
-// Search rate limit: per-socket; client debounce handles normal typing.
+// Search rate limits: per connection; the client debounce handles normal typing.
 const SEARCH_COOLDOWN_MS = 750;
 const SUGGESTION_COOLDOWN_MS = 350;
-const lastSearchTime = new Map<string, number>();
-const lastSuggestionTime = new Map<string, number>();
+const searchCooldown = new RateLimiter(1, SEARCH_COOLDOWN_MS);
+const suggestionCooldown = new RateLimiter(1, SUGGESTION_COOLDOWN_MS);
 
-// Duplicate detection: same user + same video within 60s
+// Duplicate detection: same connection + same video within 60s.
 const DUPLICATE_WINDOW_MS = 60_000;
-const recentSubmissions = new Map<string, { videoId: string; at: number }[]>();
+const recentSubmissions = new TtlLruCache<{ videoId: string; at: number }[]>(DUPLICATE_WINDOW_MS, 500);
 
-// Max pending requests per user per room
+// Max pending requests per user per room (guardrail; backstopped by the IP limit).
 const MAX_PENDING_PER_USER = 5;
 
-// Max total pending songs per room
+// Max total pending songs per room.
 const MAX_PENDING_PER_ROOM = 200;
 
-// Per-room global flood protection: max 10 requests per 10s
+// Per-room flood protection: max 10 requests per 10s.
 const ROOM_FLOOD_WINDOW_MS = 10_000;
 const ROOM_FLOOD_MAX = 10;
-const roomRequestLog = new Map<string, number[]>();
+const roomFlood = new RateLimiter(ROOM_FLOOD_MAX, ROOM_FLOOD_WINDOW_MS);
 
-// Soft-ban: 5 violations within 60s → blocked for 60s
+// Per-IP submission limit: the durable backstop, unaffected by reconnecting or
+// rotating the client-supplied userId.
+const IP_SUBMIT_WINDOW_MS = 60_000;
+const IP_SUBMIT_MAX = 12;
+const ipSubmissions = new RateLimiter(IP_SUBMIT_MAX, IP_SUBMIT_WINDOW_MS);
+
+// Soft-ban: 5 violations within 60s → blocked for 60s.
 const SOFTBAN_THRESHOLD = 5;
 const SOFTBAN_WINDOW_MS = 60_000;
 const SOFTBAN_DURATION_MS = 60_000;
-const violationLog = new Map<string, { count: number; at: number }>();
-const softbannedUsers = new Map<string, number>();
+const violations = new TtlLruCache<{ count: number; at: number }>(SOFTBAN_WINDOW_MS, 500);
+const softBans = new TtlLruCache<number>(SOFTBAN_DURATION_MS, 500);
 
-function isSoftBanned(userId: string): boolean {
-  const until = softbannedUsers.get(userId);
-  if (until) {
-    if (Date.now() < until) return true;
-    softbannedUsers.delete(userId);
-  }
-  return false;
+registerPrunable(searchCache);
+registerPrunable(suggestionCache);
+registerPrunable(userCooldown);
+registerPrunable(searchCooldown);
+registerPrunable(suggestionCooldown);
+registerPrunable(recentSubmissions);
+registerPrunable(roomFlood);
+registerPrunable(ipSubmissions);
+registerPrunable(violations);
+registerPrunable(softBans);
+
+function isSoftBanned(clientIp: string): boolean {
+  const until = softBans.get(clientIp);
+  return until !== null && Date.now() < until;
 }
 
-function recordViolation(userId: string) {
+function recordViolation(clientIp: string) {
   const now = Date.now();
-  const record = violationLog.get(userId) || { count: 0, at: now };
-  // Reset if window expired
+  const record = violations.get(clientIp) ?? { count: 0, at: now };
   if (now - record.at > SOFTBAN_WINDOW_MS) {
     record.count = 0;
     record.at = now;
   }
   record.count++;
-  violationLog.set(userId, record);
+  violations.set(clientIp, record);
 
   if (record.count >= SOFTBAN_THRESHOLD) {
-    softbannedUsers.set(userId, now + SOFTBAN_DURATION_MS);
-    violationLog.delete(userId);
-    console.log(`[SPAM] User ${userId} soft-banned for ${SOFTBAN_DURATION_MS / 1000}s`);
+    softBans.set(clientIp, now + SOFTBAN_DURATION_MS);
+    violations.set(clientIp, { count: 0, at: now });
+    console.log(`[SPAM] IP ${clientIp} soft-banned for ${SOFTBAN_DURATION_MS / 1000}s`);
   }
 }
 
-function isUserRateLimited(userId: string): boolean {
-  const last = lastRequestTime.get(userId);
-  if (last && Date.now() - last < USER_COOLDOWN_MS) return true;
-  lastRequestTime.set(userId, Date.now());
-  return false;
-}
-
-function isSearchRateLimited(socketId: string): boolean {
-  const last = lastSearchTime.get(socketId);
-  if (last && Date.now() - last < SEARCH_COOLDOWN_MS) return true;
-  lastSearchTime.set(socketId, Date.now());
-  return false;
-}
-
-function isSuggestionRateLimited(socketId: string): boolean {
-  const last = lastSuggestionTime.get(socketId);
-  if (last && Date.now() - last < SUGGESTION_COOLDOWN_MS) return true;
-  lastSuggestionTime.set(socketId, Date.now());
-  return false;
-}
-
-function isDuplicate(userId: string, videoId: string): boolean {
-  const userSubs = recentSubmissions.get(userId) || [];
+function isDuplicate(actorId: string, videoId: string): boolean {
   const now = Date.now();
-  const fresh = userSubs.filter(s => now - s.at < DUPLICATE_WINDOW_MS);
-  const dup = fresh.some(s => s.videoId === videoId);
+  const fresh = (recentSubmissions.get(actorId) ?? []).filter((s) => now - s.at < DUPLICATE_WINDOW_MS);
+  const duplicate = fresh.some((s) => s.videoId === videoId);
   fresh.push({ videoId, at: now });
-  recentSubmissions.set(userId, fresh);
-  return dup;
-}
-
-function isRoomFlooded(roomId: string): boolean {
-  const now = Date.now();
-  const log = roomRequestLog.get(roomId) || [];
-  const fresh = log.filter(t => now - t < ROOM_FLOOD_WINDOW_MS);
-  if (fresh.length >= ROOM_FLOOD_MAX) return true;
-  fresh.push(now);
-  roomRequestLog.set(roomId, fresh);
-  return false;
+  recentSubmissions.set(actorId, fresh);
+  return duplicate;
 }
 
 export function handleParticipantEvents(io: Server, socket: Socket) {
@@ -138,8 +120,8 @@ export function handleParticipantEvents(io: Server, socket: Socket) {
       return callback({ success: true, results: cached });
     }
 
-    // Rate limit searches per socket after cache lookup, so repeated cached queries stay cheap.
-    if (isSearchRateLimited(socket.id)) {
+    // Rate limit searches per connection after cache lookup, so repeated cached queries stay cheap.
+    if (!searchCooldown.take(actorIdOf(socket))) {
       if (callback) callback({ success: false, error: "Please wait before searching again" });
       return;
     }
@@ -195,13 +177,13 @@ export function handleParticipantEvents(io: Server, socket: Socket) {
         return;
       }
 
-      if (isSuggestionRateLimited(socket.id)) {
+      if (!suggestionCooldown.take(actorIdOf(socket))) {
         callback({ success: true, suggestions: [] });
         return;
       }
 
       try {
-        const url = `http://suggestqueries.google.com/complete/search?client=youtube&ds=yt&q=${encodeURIComponent(normalizedQuery)}`;
+        const url = `https://suggestqueries.google.com/complete/search?client=youtube&ds=yt&q=${encodeURIComponent(normalizedQuery)}`;
         const response = await fetch(url);
         const text = await response.text();
 
@@ -242,28 +224,39 @@ export function handleParticipantEvents(io: Server, socket: Socket) {
         return;
       }
 
-      // --- Spam checks ---
+      // --- Spam checks (all keyed on server-derived identity) ---
 
-      // 1. Soft-ban check
-      if (isSoftBanned(userId)) {
+      const actorId = actorIdOf(socket);
+      const clientIp = clientIpOf(socket);
+
+      // 1. Soft-ban check (per IP — survives reconnect)
+      if (isSoftBanned(clientIp)) {
         if (callback) callback({ success: false, error: "You are temporarily blocked. Please try again later." });
         return;
       }
 
-      // 2. Per-user rate limit
-      if (isUserRateLimited(userId)) {
-        recordViolation(userId);
+      // 2. Per-IP submission limit — the durable backstop
+      if (!ipSubmissions.take(clientIp)) {
+        recordViolation(clientIp);
+        if (callback) callback({ success: false, error: "Too many requests. Please slow down." });
+        return;
+      }
+
+      // 3. Per-connection cooldown
+      if (!userCooldown.take(actorId)) {
+        recordViolation(clientIp);
         if (callback) callback({ success: false, error: "Please wait a moment before submitting again" });
         return;
       }
 
-      // 3. Duplicate detection (same user, same video)
-      if (isDuplicate(userId, youtubeId)) {
+      // 4. Duplicate detection (same connection, same video)
+      if (isDuplicate(actorId, youtubeId)) {
         if (callback) callback({ success: false, error: "You already requested this song recently" });
         return;
       }
 
-      // 4. Max pending requests per user
+      // 5. Max pending requests per user (guardrail; the client-supplied id is
+      //    display metadata, so the IP limit above is the real enforcement)
       try {
         const pendingCount = await countPendingSongs(roomId, userId);
         if (pendingCount >= MAX_PENDING_PER_USER) {
@@ -276,7 +269,7 @@ export function handleParticipantEvents(io: Server, socket: Socket) {
         return;
       }
 
-      // 5. Max total pending songs in room
+      // 6. Max total pending songs in room
       try {
         const totalPending = await countPendingSongs(roomId);
         if (totalPending >= MAX_PENDING_PER_ROOM) {
@@ -289,8 +282,8 @@ export function handleParticipantEvents(io: Server, socket: Socket) {
         return;
       }
 
-      // 6. Per-room flood protection
-      if (isRoomFlooded(roomId)) {
+      // 7. Per-room flood protection
+      if (!roomFlood.take(roomId)) {
         if (callback) callback({ success: false, error: "Too many requests in this room, please slow down" });
         return;
       }

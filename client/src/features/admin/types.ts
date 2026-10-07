@@ -1,5 +1,5 @@
-import type { YouTubeProps } from 'react-youtube';
-import type { Track, PendingSong, SearchResult } from '../../shared/types';
+import type { YouTubeProps } from "react-youtube";
+import type { Track, PendingSong, SearchResult } from "../../shared/types";
 
 export type { Track, PendingSong, SearchResult };
 
@@ -45,9 +45,9 @@ export interface PlaybackControllerProps {
   nowPlaying: Track | null;
   upNext: Track | null;
   fullQueue: Track[];
-  activePlayer: 'A' | 'B';
+  activePlayer: "A" | "B";
   hasPreviousTrack: boolean;
-  onPlayerReady: (id: 'A' | 'B') => NonNullable<YouTubeProps['onReady']>;
+  onPlayerReady: (id: "A" | "B") => NonNullable<YouTubeProps["onReady"]>;
   onPlayerEnd: () => Promise<boolean>;
   onPrevious: () => Promise<boolean>;
   onGoToSearch: () => void;
@@ -68,14 +68,6 @@ export interface ModerationQueueProps {
   onPreviewChange: (previewId: string | null) => void;
   onClearQueue?: () => void;
   pendingCount?: number;
-}
-
-export interface DashboardHeaderProps {
-  roomId: string;
-  connected: boolean;
-  tabs: { id: string; label: string; icon: string }[];
-  activeTab: string;
-  setActiveTab: (id: string) => void;
 }
 
 export interface SongSearchProps {

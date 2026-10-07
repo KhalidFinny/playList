@@ -1,0 +1,37 @@
+/* ============================================================================
+   THE DISC EDGE — fading brand ring
+   ============================================================================
+   The record's edge is a conic gradient rather than a flat 1px border: brand
+   orange at the top, fading out around the circumference and returning at the
+   bottom, so the disc reads as catching light from above.
+
+   Painted as a masked gradient instead of `border-image` because `border-image`
+   cannot follow a circular border — it would tile the gradient into the corners.
+   The mask keeps only the 2px rim (`padding` sets the rim width, `mask-clip`
+   splits content-box from border-box, `exclude` subtracts one from the other).
+
+   Stationary, not a child of the spinning record: the fade is a light source, so
+   it must not rotate with the disc.
+   ============================================================================ */
+
+.disc-ring {
+  position: absolute;
+  padding: 2px;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: conic-gradient(
+    from -90deg,
+    var(--md-sys-color-primary) 0deg,
+    color-mix(in srgb, var(--md-sys-color-primary) 30%, transparent) 85deg,
+    transparent 165deg,
+    transparent 195deg,
+    color-mix(in srgb, var(--md-sys-color-primary) 30%, transparent) 275deg,
+    var(--md-sys-color-primary) 360deg
+  );
+  -webkit-mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
+  -webkit-mask-clip: content-box, border-box;
+  -webkit-mask-composite: xor;
+  mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
+  mask-clip: content-box, border-box;
+  mask-composite: exclude;
+  pointer-events: none;
+}

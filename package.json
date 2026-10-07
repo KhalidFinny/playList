@@ -15,6 +15,7 @@
     "dev:legacy": "bun dev.ts",
     "check": "vp run -r check",
     "build": "vp run --filter client build",
+    "start": "cd server && bun --env-file=../.env index.ts",
     "test": "docker compose up -d redis && bun --env-file=.env vitest run tests"
   },
   "devDependencies": {
@@ -26,6 +27,7 @@
     "vitest": "^4.1.8"
   },
   "dependencies": {
+    "@material/material-color-utilities": "^0.4.0",
     "@xstate/react": "^6.1.0",
     "effect": "4.0.0-beta.79",
     "lucide-react": "^1.11.0",

@@ -1,16 +1,18 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from '@tanstack/react-router';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Radio } from 'lucide-react';
-import { useAdminAuth } from '../features/admin/hooks/useAdminAuth';
-import { socket } from '../shared/lib/socket';
-import { Modal } from '../shared/components/Modal';
-import { AdminHeader } from '../shared/components/AdminHeader';
-import { Button } from '../shared/components/button';
-import { Input } from '../shared/components/input';
-import { LoadingOverlay } from '../shared/components/LoadingOverlay';
-import { StationCard } from '../features/admin/components/StationCard';
-import { AdminApprovalCard } from '../features/admin/components/AdminApprovalCard';
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { motion, AnimatePresence } from "framer-motion";
+import { Plus } from "lucide-react";
+import { useAdminAuth } from "../features/admin/hooks/useAdminAuth";
+import { socket } from "../shared/lib/socket";
+import { Modal } from "../shared/components/Modal";
+import { AdminHeader } from "../shared/components/AdminHeader";
+import { Button } from "../shared/components/button";
+import { TextField } from "../shared/components/input";
+import { LoadingOverlay } from "../shared/components/LoadingOverlay";
+import { Logo } from "../shared/components/Logo";
+import { transitions } from "../shared/motion/springs";
+import { StationCard } from "../features/admin/components/StationCard";
+import { AdminApprovalCard } from "../features/admin/components/AdminApprovalCard";
 import type {
   CreateStationResponse,
   GetMyStationsResponse,
@@ -18,10 +20,10 @@ import type {
   ModerateAdminResponse,
   PendingAdmin,
   Station,
-} from '../shared/types';
+} from "../shared/types";
 
-const isHubTab = (value: string): value is 'stations' | 'users' =>
-  value === 'stations' || value === 'users';
+const isHubTab = (value: string): value is "stations" | "users" =>
+  value === "stations" || value === "users";
 
 export function AdminHubPage() {
   const { token, user, loading, logout } = useAdminAuth();
@@ -29,30 +31,30 @@ export function AdminHubPage() {
 
   const handleLogout = () => {
     logout();
-    navigate({ to: '/login' });
+    navigate({ to: "/login" });
   };
   const [stations, setStations] = useState<Station[]>([]);
   const [creating, setCreating] = useState(false);
-  const [newStationId, setNewStationId] = useState('');
+  const [newStationId, setNewStationId] = useState("");
   const [pendingAdmins, setPendingAdmins] = useState<PendingAdmin[]>([]);
-  const [activeHubTab, setActiveHubTab] = useState<'stations' | 'users'>('stations');
+  const [activeHubTab, setActiveHubTab] = useState<"stations" | "users">("stations");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   useEffect(() => {
-    document.title = 'Admin Hub | PLAY Sound Archive';
+    document.title = "Admin Hub | PLAY Sound Archive";
   }, []);
 
   useEffect(() => {
-    if (token && activeHubTab === 'stations') {
-      socket.emit('get_my_stations', { adminToken: token }, (res: GetMyStationsResponse) => {
+    if (token && activeHubTab === "stations") {
+      socket.emit("get_my_stations", { adminToken: token }, (res: GetMyStationsResponse) => {
         if (res.success) setStations(res.stations ?? []);
       });
     }
   }, [token, activeHubTab]);
 
   useEffect(() => {
-    if (token && user?.role === 'super_admin' && activeHubTab === 'users') {
-      socket.emit('get_pending_admins', { adminToken: token }, (res: GetPendingAdminsResponse) => {
+    if (token && user?.role === "super_admin" && activeHubTab === "users") {
+      socket.emit("get_pending_admins", { adminToken: token }, (res: GetPendingAdminsResponse) => {
         if (res.success) setPendingAdmins(res.admins ?? []);
       });
     }
@@ -63,42 +65,49 @@ export function AdminHubPage() {
   const handleCreateStation = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newStationId.trim() || !token) return;
-    const roomId = newStationId.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    const roomId = newStationId
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, "-");
     setCreating(true);
     setCreateError(null);
     if (!socket.connected) {
-      setCreateError('Not connected to server. Please wait...');
+      setCreateError("Not connected to server. Please wait...");
       setCreating(false);
       return;
     }
-    socket.emit('create_station', { roomId, adminToken: token }, (res: CreateStationResponse) => {
+    socket.emit("create_station", { roomId, adminToken: token }, (res: CreateStationResponse) => {
       setCreating(false);
       if (res.success && res.roomId) {
         setCreateError(null);
         setIsCreateModalOpen(false);
-        setNewStationId('');
-        navigate({ to: '/admin/$roomId', params: { roomId: res.roomId } });
+        setNewStationId("");
+        navigate({ to: "/admin/$roomId", params: { roomId: res.roomId } });
       } else {
-        setCreateError(res.error || 'Failed to create station. Please try again.');
+        setCreateError(res.error || "Failed to create station. Please try again.");
       }
     });
   };
 
   const handleApproveAdmin = (id: string) => {
     if (!token) return;
-    socket.emit('approve_admin', { adminToken: token, targetId: id }, (res: ModerateAdminResponse) => {
-      if (res.success) {
-        setPendingAdmins((prev) => prev.filter((admin) => admin.id !== id));
-      }
-    });
+    socket.emit(
+      "approve_admin",
+      { adminToken: token, targetId: id },
+      (res: ModerateAdminResponse) => {
+        if (res.success) {
+          setPendingAdmins((prev) => prev.filter((admin) => admin.id !== id));
+        }
+      },
+    );
   };
 
   const handleDenyAdmin = (id: string) => {
     if (!token) return;
-    const shouldDeny = window.confirm('Deny registration?');
+    const shouldDeny = window.confirm("Deny registration?");
     if (!shouldDeny) return;
 
-    socket.emit('deny_admin', { adminToken: token, targetId: id }, (res: ModerateAdminResponse) => {
+    socket.emit("deny_admin", { adminToken: token, targetId: id }, (res: ModerateAdminResponse) => {
       if (res.success) {
         setPendingAdmins((prev) => prev.filter((admin) => admin.id !== id));
       }
@@ -108,16 +117,25 @@ export function AdminHubPage() {
   if (loading || !token) return <LoadingOverlay isLoading={true} />;
 
   return (
-    <div className="min-h-screen bg-[#fcfcfc] text-black">
+    <div className="min-h-screen bg-surface text-on-surface">
       <AdminHeader
         user={user || undefined}
         onLogout={handleLogout}
         title="Admin Hub"
         tabs={
-          user?.role === 'super_admin'
+          user?.role === "super_admin"
             ? [
-                { id: 'stations', label: 'Stations' },
-                { id: 'users', label: `Approvals ${pendingAdmins.length > 0 ? '●' : ''}` },
+                { id: "stations", label: "Stations" },
+                {
+                  id: "users",
+                  label: "Approvals",
+                  trailing:
+                    pendingAdmins.length > 0 ? (
+                      <span className="rounded-m3-full bg-error px-2 text-label-small text-on-error">
+                        {pendingAdmins.length}
+                      </span>
+                    ) : undefined,
+                },
               ]
             : undefined
         }
@@ -127,88 +145,78 @@ export function AdminHubPage() {
         }}
       />
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-8 py-12 sm:py-20 pt-28 sm:pt-32">
+      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
         <AnimatePresence mode="wait">
-          {activeHubTab === 'stations' ? (
+          {activeHubTab === "stations" ? (
             <motion.div
               key="stations"
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="space-y-32"
+              exit={{ opacity: 0, y: -12 }}
+              transition={transitions.base}
+              className="flex flex-col gap-8"
             >
-              <div className="max-w-3xl mx-auto w-full">
-                <div className="flex items-center justify-between mb-16">
-                  <h2 className="text-sm font-bold uppercase tracking-[0.4em] text-black/30 flex items-center gap-4">
-                    Broadcast Control <span className="w-8 h-px bg-black/10" />{' '}
-                    <span className="text-orange-500">{stations.length} Active</span>
-                  </h2>
-                  <Button onClick={() => setIsCreateModalOpen(true)} variant="premium" size="premium-lg">
-                    <Plus size={18} strokeWidth={3} /> Add Station
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-headline-small">Broadcast control</h2>
+                  <p className="mt-1 text-body-medium text-on-surface-variant">
+                    {stations.length} active {stations.length === 1 ? "station" : "stations"}
+                  </p>
+                </div>
+                <Button onClick={() => setIsCreateModalOpen(true)} size="md">
+                  <Plus size={20} /> Add station
+                </Button>
+              </div>
+
+              {stations.length === 0 ? (
+                <div className="flex flex-col items-center rounded-m3-xl bg-surface-container px-6 py-16 text-center">
+                  <Logo size={88} className="mb-6" />
+                  <p className="text-title-medium text-on-surface-variant">
+                    Your soundscape is currently empty.
+                  </p>
+                  <Button onClick={() => setIsCreateModalOpen(true)} size="md" className="mt-6">
+                    <Plus size={20} /> Initialize first station
                   </Button>
                 </div>
-
-                {stations.length === 0 ? (
-                  <div className="bg-white border border-black/5 rounded-[60px] p-32 text-center shadow-2xl shadow-black/2">
-                    <div className="relative w-48 h-48 mx-auto mb-12">
-                      <div className="absolute inset-0 bg-orange-500/5 rounded-full animate-ping" />
-                      <div className="relative w-full h-full bg-[#f8f8f6] rounded-full flex items-center justify-center">
-                        <Radio size={64} className="text-orange-500/20" />
-                      </div>
-                    </div>
-                    <p className="font-poppins text-3xl text-black/20 font-bold tracking-tight leading-tight mb-8">
-                      Your soundscape is currently empty.
-                    </p>
-                    <Button
-                      onClick={() => setIsCreateModalOpen(true)}
-                      variant="premium"
-                      size="premium-lg"
-                      className="px-12 py-6 rounded-3xl"
-                    >
-                      <Plus size={20} strokeWidth={3} /> Initialize First Station
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    {stations.map((station) => (
-                      <StationCard
-                        key={station.id}
-                        station={station}
-                        onClick={() => navigate({ to: '/admin/$roomId', params: { roomId: station.id } })}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  {stations.map((station) => (
+                    <StationCard
+                      key={station.id}
+                      station={station}
+                      onClick={() =>
+                        navigate({ to: "/admin/$roomId", params: { roomId: station.id } })
+                      }
+                    />
+                  ))}
+                </div>
+              )}
 
               <Modal
                 isOpen={isCreateModalOpen}
                 onClose={() => setIsCreateModalOpen(false)}
-                title="Provision New Station"
+                title="Provision new station"
+                description="The slug becomes the participant URL."
               >
-                <form onSubmit={handleCreateStation} className="space-y-10">
-                  <div className="space-y-4">
-                    <label className="text-xs font-bold uppercase tracking-widest text-black/40 ml-4 block">
-                      Station Identity (URL Slug)
-                    </label>
-                    <Input
-                      required
-                      value={newStationId}
-                      onChange={(e) => { setNewStationId(e.target.value); setCreateError(null); }}
-                      placeholder="e.g. nocturnal-vibes"
-                      variant="premium-hero"
-                    />
-                  </div>
-                  {createError && (
-                    <p className="text-[11px] font-bold text-red-500 text-center px-4">{createError}</p>
-                  )}
+                <form onSubmit={handleCreateStation} className="flex flex-col gap-6">
+                  <TextField
+                    required
+                    label="Station identity (URL slug)"
+                    value={newStationId}
+                    onChange={(e) => {
+                      setNewStationId(e.target.value);
+                      setCreateError(null);
+                    }}
+                    error={createError ?? undefined}
+                  />
                   <Button
                     type="submit"
+                    size="md"
                     disabled={creating || !newStationId.trim()}
-                    variant="premium"
-                    className="w-full h-20 rounded-3xl flex items-center justify-center gap-4"
+                    className="w-full"
                   >
-                    {creating ? 'Syncing...' : 'Establish Station'} {!creating && <Plus size={20} strokeWidth={3} />}
+                    {creating ? "Syncing…" : "Establish station"}
+                    {!creating && <Plus size={20} />}
                   </Button>
                 </form>
               </Modal>
@@ -216,22 +224,20 @@ export function AdminHubPage() {
           ) : (
             <motion.div
               key="users"
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="max-w-3xl mx-auto"
+              exit={{ opacity: 0, y: -12 }}
+              transition={transitions.base}
+              className="mx-auto flex max-w-3xl flex-col gap-6"
             >
-              <h2 className="text-sm font-bold uppercase tracking-[0.4em] text-black/30 mb-12 text-center">
-                Access Authorization Requests
-              </h2>
+              <h2 className="text-headline-small">Access authorization requests</h2>
               {pendingAdmins.length === 0 ? (
-                <div className="text-center py-32 bg-white border border-black/5 rounded-[50px] shadow-sm">
-                  <p className="text-lg font-poppins font-bold text-black/10 uppercase tracking-widest">
-                    The queue is empty.
-                  </p>
+                <div className="flex flex-col items-center rounded-m3-xl bg-surface-container px-6 py-16 text-center">
+                  <Logo size={64} className="mb-5" />
+                  <p className="text-title-medium text-on-surface-variant">The queue is empty.</p>
                 </div>
               ) : (
-                <div className="space-y-6">
+                <div className="flex flex-col gap-4">
                   {pendingAdmins.map((admin) => (
                     <AdminApprovalCard
                       key={admin.id}

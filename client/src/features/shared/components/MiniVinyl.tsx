@@ -1,105 +1,122 @@
+import { useId } from "react";
 import { motion } from "framer-motion";
+import { Pause, Play } from "lucide-react";
+import { SHAPE_PATHS } from "@/shared/shapes/shape-data";
+import { cn } from "@/shared/lib/utils";
 
 interface MiniVinylProps {
   isPlaying: boolean;
-  progress: number;
   thumbnail?: string | null;
   onToggle?: () => void;
 }
 
-export function MiniVinyl({ isPlaying, progress, thumbnail, onToggle }: MiniVinylProps) {
-  return (
-    <div className="relative flex flex-col items-center gap-5 w-full max-w-[240px] mx-auto">
-      {/* The disc */}
-      <button
-        onClick={onToggle}
-        className="relative w-44 h-44 sm:w-52 sm:h-52 rounded-full bg-black cursor-pointer group"
+/**
+ * Compact vinyl for narrow widths.
+ *
+ * The disc silhouette is the M3 Expressive `cookie12` shape — the library's
+ * 12-sided scalloped cookie reads as a record edge, which is why it is the shape
+ * bound to the vinyl role. The thumbnail is clipped to the same path.
+ *
+ * Carries no progress bar: `TrackMetadata` always renders alongside it and owns
+ * the playback position, so the indicator lives in one place.
+ *
+ * The disc is the transport control only when `onToggle` is passed. Participants
+ * have no controls, so it renders as a plain disc rather than a button that does
+ * nothing.
+ */
+export function MiniVinyl({ isPlaying, thumbnail, onToggle }: MiniVinylProps) {
+  const clipId = useId().replace(/:/g, "");
+  const interactive = Boolean(onToggle);
+
+  const disc = (
+    <>
+      <motion.div
+        animate={{ rotate: isPlaying ? 360 : 0 }}
+        transition={{ repeat: Infinity, duration: 6, ease: "linear" }}
+        className="absolute inset-0 will-change-transform"
       >
-        {/* Vinyl shine layer */}
-        <motion.div
-          animate={{ rotate: isPlaying ? 360 : 0 }}
-          transition={{ repeat: Infinity, duration: 6, ease: "linear" }}
-          className="absolute inset-0 rounded-full overflow-hidden will-change-transform"
-        >
-          {/* Dark base */}
-          <div className="absolute inset-0 bg-gradient-to-br from-neutral-900 via-black to-neutral-800" />
+        <svg viewBox="0 0 100 100" className="size-full">
+          <defs>
+            <clipPath id={clipId}>
+              <path d={SHAPE_PATHS.cookie12} />
+            </clipPath>
+          </defs>
 
-          {/* Groove rings */}
-          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 200 200">
-            {Array.from({ length: 24 }).map((_, i) => (
-              <circle
-                key={i}
-                cx="100"
-                cy="100"
-                r={18 + i * 3.2}
-                fill="none"
-                stroke="rgba(255,255,255,0.03)"
-                strokeWidth="0.5"
+          <g clipPath={`url(#${clipId})`}>
+            <rect width="100" height="100" className="fill-inverse-surface" />
+
+            {thumbnail && (
+              <image
+                href={thumbnail}
+                x="24"
+                y="24"
+                width="52"
+                height="52"
+                preserveAspectRatio="xMidYMid slice"
               />
-            ))}
-          </svg>
-
-          {/* Thumbnail cutout */}
-          {thumbnail && (
-            <div className="absolute inset-[22%] rounded-full overflow-hidden ring-1 ring-white/10">
-              <img
-                src={thumbnail}
-                alt=""
-                className="w-full h-full object-cover"
-              />
-            </div>
-          )}
-
-          {/* Orange accent ring when playing */}
-          {isPlaying && (
-            <div className="absolute inset-[2px] rounded-full ring-1 ring-orange-500/30" />
-          )}
-
-          {/* Spinning highlight sweep */}
-          <motion.div
-            animate={{ rotate: isPlaying ? 360 : 0 }}
-            transition={{ repeat: Infinity, duration: 6, ease: "linear" }}
-            className="absolute inset-0 rounded-full"
-            style={{
-              background: isPlaying
-                ? "conic-gradient(from 0deg, transparent 0%, rgba(255,255,255,0.03) 30%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.03) 70%, transparent 100%)"
-                : "none",
-            }}
-          />
-        </motion.div>
-
-        {/* Center label */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="w-7 h-7 rounded-full bg-white/5 ring-1 ring-white/10 flex items-center justify-center">
-            <div className="w-2 h-2 rounded-full bg-orange-500/70" />
-          </div>
-        </div>
-
-        {/* Play/Pause overlay on hover */}
-        <div className="absolute inset-0 rounded-full flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-all duration-300">
-          <div className={`w-12 h-12 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg transition-all duration-300 ${isPlaying ? 'opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100' : 'opacity-100 scale-100'}`}>
-            {isPlaying ? (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="text-black">
-                <rect x="6" y="4" width="4" height="16" />
-                <rect x="14" y="4" width="4" height="16" />
-              </svg>
-            ) : (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="text-black ml-0.5">
-                <polygon points="5,3 19,12 5,21" />
-              </svg>
             )}
-          </div>
-        </div>
-      </button>
 
-      {/* Progress bar */}
-      <div className="w-full max-w-[180px] h-1 bg-black/5 rounded-full overflow-hidden">
-        <motion.div
-          className="h-full bg-orange-500/50 rounded-full"
-          animate={{ width: `${progress * 100}%` }}
-          transition={{ duration: 1, ease: "linear" }}
-        />
-      </div>
+            {/* Grooves */}
+            <g fill="none" strokeWidth="0.4" className="stroke-inverse-on-surface/10">
+              {Array.from({ length: 20 }).map((_, i) => (
+                <circle key={i} cx="50" cy="50" r={10 + i * 2.1} />
+              ))}
+            </g>
+
+            {isPlaying && (
+              <circle
+                cx="50"
+                cy="50"
+                r="47"
+                fill="none"
+                strokeWidth="1.5"
+                className="stroke-primary"
+              />
+            )}
+          </g>
+
+          {/* Spindle */}
+          <circle cx="50" cy="50" r="4" className="fill-primary" />
+        </svg>
+      </motion.div>
+
+      {interactive && (
+        <span
+          className={cn(
+            "absolute inset-0 flex items-center justify-center transition-opacity duration-200",
+            isPlaying
+              ? "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
+              : "opacity-100",
+          )}
+        >
+          <span className="flex size-14 items-center justify-center rounded-m3-full bg-surface-container-lowest/90 elevation-3">
+            {isPlaying ? (
+              <Pause size={22} className="text-on-surface" />
+            ) : (
+              <Play size={22} className="ml-0.5 text-on-surface" fill="currentColor" />
+            )}
+          </span>
+        </span>
+      )}
+    </>
+  );
+
+  return (
+    <div className="relative mx-auto flex w-full max-w-[240px] flex-col items-center gap-4">
+      {interactive ? (
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={isPlaying ? "Pause" : "Play"}
+          className="group relative size-44 cursor-pointer outline-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary sm:size-52"
+        >
+          {disc}
+        </button>
+      ) : (
+        <div aria-hidden="true" className="relative size-44 sm:size-52">
+          {disc}
+        </div>
+      )}
     </div>
   );
 }

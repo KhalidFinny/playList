@@ -1,0 +1,26 @@
+/* ============================================================================
+   M3 SHAPE TOKENS — corner radius scale
+   ============================================================================
+   Uncapped, up to `full`. Radius is assigned PER COMPONENT ROLE, not applied
+   uniformly: shape contrast is the system. Buttons take `full`, cards `medium`,
+   dialogs `extra-large`, menus `extra-small`. See palette.md §4.
+
+   NOTE ON THE TAILWIND BRIDGE: these are exposed as `rounded-m3-*` utilities,
+   NOT by remapping Tailwind's own `--radius-xs|sm|md|lg|xl|2xl` names. Remapping
+   those would silently resize 46 existing elements (rounded-xl is used 19× and
+   rounded-2xl 27×), jumping them to 28px and 48px. Components opt into the M3
+   scale deliberately as they are migrated in issue 03.
+   ============================================================================ */
+
+:root {
+  --md-sys-shape-corner-none: 0px;
+  --md-sys-shape-corner-extra-small: 4px;
+  --md-sys-shape-corner-small: 8px;
+  --md-sys-shape-corner-medium: 12px;
+  --md-sys-shape-corner-large: 16px;
+  --md-sys-shape-corner-large-increased: 20px;
+  --md-sys-shape-corner-extra-large: 28px;
+  --md-sys-shape-corner-extra-large-increased: 32px;
+  --md-sys-shape-corner-extra-extra-large: 48px;
+  --md-sys-shape-corner-full: 9999px;
+}

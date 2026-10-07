@@ -1,14 +1,43 @@
 import { Server, Socket } from "socket.io";
 import { sql } from "../db/client";
 import { redisCache } from "../lib/redis";
+import { clientIpOf } from "../lib/clientIp";
+import { RateLimiter } from "../lib/rateLimit";
+import { registerPrunable } from "../lib/prune";
+
+// These endpoints are unauthenticated, so they are throttled per IP: credential
+// stuffing on login, and pending-admin spam on register.
+const loginAttemptsPerIp = new RateLimiter(10, 60_000);
+const registerAttemptsPerIp = new RateLimiter(5, 60 * 60_000);
+registerPrunable(loginAttemptsPerIp);
+registerPrunable(registerAttemptsPerIp);
 
 
 
 export function handleAuthEvents(io: Server, socket: Socket) {
   
   // Register a new admin
-  socket.on("admin_register", async (data: { username: string; email: string; password: string }, callback) => {
-    const { username, email, password } = data;
+  socket.on("admin_register", async (data: { username: string; email: string; password: string; inviteCode?: string }, callback) => {
+    const { username, email, password, inviteCode } = data;
+
+    const clientIp = clientIpOf(socket);
+    if (!registerAttemptsPerIp.take(clientIp)) {
+      console.warn(`[AUTH] admin_register rate limited (ip=${clientIp})`);
+      return callback?.({ success: false, error: "Too many registration attempts. Please try again later." });
+    }
+
+    // Fail closed: without a configured code, registration is disabled rather
+    // than silently open.
+    const expectedInviteCode = process.env.ADMIN_INVITE_CODE;
+    if (!expectedInviteCode) {
+      console.error("[AUTH] ADMIN_INVITE_CODE is not set — registration is disabled.");
+      return callback?.({ success: false, error: "Registration is currently disabled." });
+    }
+
+    if (!inviteCode || inviteCode !== expectedInviteCode) {
+      console.warn(`[AUTH] admin_register rejected: bad invite code (ip=${clientIp})`);
+      return callback?.({ success: false, error: "Invalid invite code." });
+    }
 
     if (!email || !email.toLowerCase().endsWith("@playit.com")) {
       return callback?.({ success: false, error: "Only @playit.com corporate emails are allowed." });
@@ -51,6 +80,14 @@ export function handleAuthEvents(io: Server, socket: Socket) {
 
     if (!username || !password) {
       return callback?.({ success: false, error: "Missing credentials" });
+    }
+
+    // Throttle before the password verify so a stuffing loop cannot force
+    // expensive hashing on every request.
+    const clientIp = clientIpOf(socket);
+    if (!loginAttemptsPerIp.take(clientIp)) {
+      console.warn(`[AUTH] admin_login rate limited (ip=${clientIp})`);
+      return callback?.({ success: false, error: "Too many attempts. Please wait a moment." });
     }
 
     try {

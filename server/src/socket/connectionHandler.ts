@@ -3,6 +3,19 @@ import { roomManager } from "../state/roomManager";
 import { sql } from "../db/client";
 import { redis, redisCache } from "../lib/redis";
 import { getNowPlaying, getQueuePage, getQueueWindow } from "../services/liveQueue/index";
+import { grantAdminRoom, isAdminForRoom } from "./adminSession";
+import { generateUniquePasskey } from "../lib/passkey";
+import { clientIpOf } from "../lib/clientIp";
+import { RateLimiter } from "../lib/rateLimit";
+import { registerPrunable } from "../lib/prune";
+
+// A 5-digit passkey is only 90,000 codes, so the lookup endpoint must be
+// throttled or it can simply be enumerated. Limited per IP (survives a socket
+// reconnect) and per socket (stops a single connection hammering).
+const passkeyLookupPerIp = new RateLimiter(15, 60_000);
+const passkeyLookupPerSocket = new RateLimiter(8, 60_000);
+registerPrunable(passkeyLookupPerIp);
+registerPrunable(passkeyLookupPerSocket);
 
 export function handleConnection(io: Server, socket: Socket) {
   
@@ -24,9 +37,14 @@ export function handleConnection(io: Server, socket: Socket) {
 
         if (!room) {
           if (role === "admin") {
-            const generatedKey = Math.floor(10000 + Math.random() * 90000).toString();
+            const generatedKey = await generateUniquePasskey();
             console.log(`[ROOM] Creating room ${roomId} with key: ${generatedKey}`);
-            const newRoom = await sql`INSERT INTO rooms (id, passkey) VALUES (${roomId}, ${generatedKey}) RETURNING id, passkey, owner_id`;
+            // A racing create must return the existing row rather than throw.
+            const newRoom = await sql`
+              INSERT INTO rooms (id, passkey) VALUES (${roomId}, ${generatedKey})
+              ON CONFLICT (id) DO UPDATE SET id = EXCLUDED.id
+              RETURNING id, passkey, owner_id
+            `;
             room = newRoom[0];
           } else {
             if (callback) callback({ success: false, message: "Room not found." });
@@ -93,6 +111,10 @@ export function handleConnection(io: Server, socket: Socket) {
            if (callback) callback({ success: false, error: "You do not own this room." });
            return;
         }
+
+        // Token + ownership verified: remember this socket as an admin of the room
+        // so the admin mutations can authorize without a second token round-trip.
+        grantAdminRoom(socket, roomId);
 
         // ONLY Admins get the room key info pushed to them automatically
         socket.emit("room_key_info", { passkey: room.passkey });
@@ -173,6 +195,13 @@ export function handleConnection(io: Server, socket: Socket) {
       return;
     }
 
+    // The pending queue is the moderation queue: other people's unapproved
+    // requests. Participants may only page the approved queue.
+    if (status === "pending" && !isAdminForRoom(socket, roomId)) {
+      callback({ success: false, error: "Forbidden" });
+      return;
+    }
+
     try {
       callback({ success: true, ...(await getQueuePage(roomId, status, cursor ?? 0, limit ?? 50)) });
     } catch (err) {
@@ -182,6 +211,13 @@ export function handleConnection(io: Server, socket: Socket) {
   });
 
   socket.on("join_by_passkey", async ({ passkey }: { passkey: string }, callback) => {
+    // Throttle before any lookup so the code space cannot be enumerated.
+    if (!passkeyLookupPerIp.take(clientIpOf(socket)) || !passkeyLookupPerSocket.take(socket.id)) {
+      console.warn(`[AUTH] join_by_passkey rate limited (ip=${clientIpOf(socket)})`);
+      callback({ success: false, error: "Too many attempts. Please wait a moment." });
+      return;
+    }
+
     try {
       // 1. Check Redis for near-instant resolution
       let roomId = await redisCache.getRoomIdByKey(passkey);

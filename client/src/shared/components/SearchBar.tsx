@@ -1,5 +1,6 @@
 import { Search, Loader2, X } from "lucide-react";
-import { Input } from "./input";
+
+import { cn } from "@/shared/lib/utils";
 
 interface SearchBarProps {
   value: string;
@@ -12,29 +13,31 @@ interface SearchBarProps {
   onSubmit?: () => void;
 }
 
+/**
+ * M3 search bar: `full` radius on `surface-container-high`, 56px tall, with the
+ * leading search affordance and a trailing clear action.
+ *
+ * M3 search bars are a fixed size — the previous implementation scaled the input
+ * text up to 48px, which is a display type role applied to an input.
+ */
 export function SearchBar({
   value,
   onChange,
   placeholder = "Search...",
   loading = false,
-  className = "",
+  className,
   onClear,
   autoFocus = false,
   onSubmit,
 }: SearchBarProps) {
   return (
-    <div className={`relative group w-full ${className}`}>
-      <div className="absolute left-4 sm:left-6 top-1/2 -translate-y-1/2 text-black/20 group-focus-within:text-orange-500 transition-colors z-10">
-        {loading ? (
-          <div className="animate-spin">
-            <Loader2 size={22} />
-          </div>
-        ) : (
-          <Search size={22} />
-        )}
-      </div>
+    <div className={cn("group relative flex w-full items-center", className)}>
+      <span className="pointer-events-none absolute left-4 flex items-center text-on-surface-variant">
+        {loading ? <Loader2 size={20} className="animate-spin" /> : <Search size={20} />}
+      </span>
 
-      <Input
+      <input
+        type="search"
         autoFocus={autoFocus}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -45,16 +48,25 @@ export function SearchBar({
           }
         }}
         placeholder={placeholder}
-        className="w-full bg-[#f8f8f7] border-neutral-100 rounded-xl sm:rounded-2xl h-14 sm:h-18 pl-12 sm:pl-16 pr-12 sm:pr-16 text-xl sm:text-5xl font-poppins font-bold text-neutral-600 outline-none focus:bg-white transition-all placeholder:text-neutral-300 shadow-none"
+        aria-label={placeholder}
+        className={cn(
+          "h-14 w-full rounded-m3-full bg-surface-container-high pl-12 pr-12",
+          "text-body-large text-on-surface outline-none transition-colors",
+          "placeholder:text-on-surface-variant",
+          "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+          "[&::-webkit-search-cancel-button]:hidden",
+        )}
       />
 
-      {value && !loading && (
+      {value && (
         <button
+          type="button"
+          aria-label="Clear search"
           onClick={() => {
             onChange("");
             onClear?.();
           }}
-          className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 text-black/20 hover:text-black transition-colors"
+          className="state-layer absolute right-3 flex size-10 items-center justify-center rounded-m3-full text-on-surface-variant outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           <X size={18} />
         </button>

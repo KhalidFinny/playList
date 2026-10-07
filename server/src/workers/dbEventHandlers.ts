@@ -102,7 +102,7 @@ const persistByType = async (event: DbEvent) => {
       await sql`
         UPDATE songs
         SET status = 'done', done_at = NOW()
-        WHERE room_id = ${event.roomId} AND status IN ('pending', 'approved')
+        WHERE room_id = ${event.roomId} AND status IN ('pending', 'approved', 'playing')
       `;
       return;
 
