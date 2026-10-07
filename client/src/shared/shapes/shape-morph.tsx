@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { motion, useReducedMotion, useTime, useTransform } from "framer-motion";
 import { SHAPE_POINTS, SHAPE_SAMPLES, LOADING_MORPH, type ShapeName } from "./shape-data";
 
@@ -14,8 +15,21 @@ export interface ShapeMorphProps {
    * permanently morphing shape next to a paused player reads as a bug.
    */
   active?: boolean;
+  /**
+   * Update rate for the morph. The shape is interpolated by redrawing its path, so
+   * every update costs style, layout and paint; 30 is visually identical to 60 on
+   * a morph this slow and halves that cost.
+   */
+  fps?: number;
   className?: string;
 }
+
+/**
+ * Frames-per-second cap for the morph. The path has to be regenerated to
+ * interpolate between shapes, so this is the one animation here that cannot move
+ * to a CSS transform.
+ */
+const DEFAULT_FPS = 30;
 
 /** Linear interpolation between two shapes, point by point. */
 function lerpPath(from: ShapeName, to: ShapeName, t: number): string {
@@ -56,17 +70,36 @@ function MorphingShape({
   shapes,
   size,
   duration,
+  fps,
   className,
-}: Required<Pick<ShapeMorphProps, "shapes" | "size" | "duration">> & { className?: string }) {
+}: Required<Pick<ShapeMorphProps, "shapes" | "size" | "duration" | "fps">> & {
+  className?: string;
+}) {
   const time = useTime();
+  const frame = 1000 / fps;
+  // Cache keyed on the quantised frame, so a skipped frame costs neither the
+  // interpolation nor the DOM write. Returning the previous string is what lets
+  // Framer Motion see no change and leave the attribute alone.
+  const last = useRef({ frame: -1, path: "" });
+
   const d = useTransform(time, (now) => {
-    if (shapes.length < 2) return lerpPath(shapes[0], shapes[0], 0);
-    const progress = (((now / 1000 / duration) % 1) + 1) % 1;
-    const scaled = progress * shapes.length;
-    const index = Math.floor(scaled);
-    const from = shapes[index % shapes.length];
-    const to = shapes[(index + 1) % shapes.length];
-    return lerpPath(from, to, scaled - index);
+    const quantised = Math.floor(now / frame) * frame;
+    if (quantised === last.current.frame) return last.current.path;
+
+    let path: string;
+    if (shapes.length < 2) {
+      path = lerpPath(shapes[0], shapes[0], 0);
+    } else {
+      const progress = (((quantised / 1000 / duration) % 1) + 1) % 1;
+      const scaled = progress * shapes.length;
+      const index = Math.floor(scaled);
+      const from = shapes[index % shapes.length];
+      const to = shapes[(index + 1) % shapes.length];
+      path = lerpPath(from, to, scaled - index);
+    }
+
+    last.current = { frame: quantised, path };
+    return path;
   });
 
   return (
@@ -91,6 +124,7 @@ export function ShapeMorph({
   size = 40,
   duration = 2.4,
   active = true,
+  fps = DEFAULT_FPS,
   className,
 }: ShapeMorphProps) {
   const reduceMotion = useReducedMotion();
@@ -100,5 +134,13 @@ export function ShapeMorph({
     return <StaticShape shape={shapes[0]} size={size} className={className} />;
   }
 
-  return <MorphingShape shapes={shapes} size={size} duration={duration} className={className} />;
+  return (
+    <MorphingShape
+      shapes={shapes}
+      size={size}
+      duration={duration}
+      fps={fps}
+      className={className}
+    />
+  );
 }

@@ -1,5 +1,4 @@
 import { useId } from "react";
-import { motion } from "framer-motion";
 import { Pause, Play } from "lucide-react";
 import { SHAPE_PATHS } from "@/shared/shapes/shape-data";
 import { cn } from "@/shared/lib/utils";
@@ -30,10 +29,9 @@ export function MiniVinyl({ isPlaying, thumbnail, onToggle }: MiniVinylProps) {
 
   const disc = (
     <>
-      <motion.div
-        animate={{ rotate: isPlaying ? 360 : 0 }}
-        transition={{ repeat: Infinity, duration: 6, ease: "linear" }}
-        className="absolute inset-0 will-change-transform"
+      <div
+        className={cn("disc-spin absolute inset-0", !isPlaying && "anim-paused")}
+        aria-hidden="true"
       >
         <svg viewBox="0 0 100 100" className="size-full">
           <defs>
@@ -78,7 +76,7 @@ export function MiniVinyl({ isPlaying, thumbnail, onToggle }: MiniVinylProps) {
           {/* Spindle */}
           <circle cx="50" cy="50" r="4" className="fill-primary" />
         </svg>
-      </motion.div>
+      </div>
 
       {interactive && (
         <span

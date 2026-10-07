@@ -5,6 +5,7 @@ import { Shape } from "@/shared/shapes/shape";
 import { ShapeMorph } from "@/shared/shapes/shape-morph";
 import { transitions } from "@/shared/motion/springs";
 import { cn } from "@/shared/lib/utils";
+import { trackThumbnail } from "@/shared/lib/youtube";
 import type { Track } from "@/shared/types";
 
 interface NowPlayingBarProps {
@@ -29,6 +30,9 @@ export function NowPlayingBar({
   isVisible,
   isPlaying = false,
 }: NowPlayingBarProps) {
+  // Queued tracks carry no stored thumbnail; this falls back to the derived one.
+  const artwork = trackThumbnail(nowPlaying);
+
   return (
     <AnimatePresence>
       {isVisible && nowPlaying && (
@@ -41,8 +45,8 @@ export function NowPlayingBar({
         >
           <div className="flex min-w-0 items-center gap-4">
             <div className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-m3-sm bg-inverse-surface">
-              {nowPlaying.thumbnail ? (
-                <img src={nowPlaying.thumbnail} alt="" className="size-full object-cover" />
+              {artwork ? (
+                <img src={artwork} alt="" className="size-full object-cover" />
               ) : (
                 <Shape name="cookie12" size={36} className="text-inverse-primary" />
               )}

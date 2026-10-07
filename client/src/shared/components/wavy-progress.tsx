@@ -1,4 +1,4 @@
-import { motion, useReducedMotion, useTime, useTransform } from "framer-motion";
+import { useMemo } from "react";
 
 import { useElementWidth } from "@/shared/hooks/useElementWidth";
 import { cn } from "@/shared/lib/utils";
@@ -20,65 +20,30 @@ export interface WavyProgressProps {
   thickness?: number;
   /** Seconds for the wave to travel one wavelength. M3 ties speed to wavelength. */
   speed?: number;
-  /** Track (inactive) stroke. Defaults to the `accent-warm` role. */
+  /** Unplayed stroke. Defaults to the `accent-warm` role. */
   trackClassName?: string;
   className?: string;
   /** Accessible name. The component carries the `progressbar` role. */
   label?: string;
 }
 
+/** Sampling step, in px. Small enough that the wave reads as smooth. */
 const SAMPLE_STEP = 2;
+
 /** Fraction of the track the indeterminate wave segment occupies. */
 const INDETERMINATE_SEGMENT = 0.35;
 
-/**
- * Distance over which the line becomes a squiggle, in px.
- *
- * Conversion happens at the **leading edge**, where the wave is currently
- * sweeping: the line right at the playhead is still straight and it grows into
- * the squiggle just behind it. That is what makes the change read as the wave
- * progressively taking the line over, rather than as a squiggle that was always
- * there. About a wavelength wide.
- */
-const SQUIGGLE_RAMP = 60;
-
-/**
- * M3's amplitude ramp: the wave flattens at the very start and very end so a
- * near-empty or near-complete indicator does not render a jagged stub. Values
- * are M3's `waveAmplitudeRampProgressMin` (0.1) and `...Max` (0.9).
- */
-function amplitudeRamp(progress: number): number {
-  if (progress <= 0 || progress >= 1) return 0;
-  if (progress < 0.1) return progress / 0.1;
-  if (progress > 0.9) return (1 - progress) / 0.1;
-  return 1;
-}
-
-/** Smoothstep, so the wave enters and leaves the line without a kink. */
-function smoothstep(t: number): number {
-  const c = Math.min(1, Math.max(0, t));
-  return c * c * (3 - 2 * c);
-}
-
-/**
- * Samples a wave across `[from, to]` in px, in the element's own space.
- *
- * `amplitudeAt` returns the amplitude at a given x, which is what lets the line
- * grow into the squiggle instead of switching to it.
- */
+/** A sine wave sampled across `[from, to]`, in the element's own pixel space. */
 function wavePath(
   from: number,
   to: number,
   centerY: number,
-  amplitudeAt: (x: number) => number,
+  amplitude: number,
   wavelength: number,
-  phase: number,
 ): string {
-  if (to <= from) {
-    return `M${from} ${centerY} H${to}`;
-  }
-  const y = (x: number) =>
-    centerY + amplitudeAt(x) * Math.sin((2 * Math.PI * x) / wavelength + phase);
+  if (to <= from) return `M${from} ${centerY} H${to}`;
+
+  const y = (x: number) => centerY + amplitude * Math.sin((2 * Math.PI * x) / wavelength);
 
   let d = "";
   for (let x = from; x < to; x += SAMPLE_STEP) {
@@ -90,17 +55,19 @@ function wavePath(
 /**
  * M3 Expressive wavy progress indicator.
  *
- * A sine wave travels along the active track — the squiggle Google uses for
- * downloading and for playback position. M3 ships this on Android only, so it is
- * hand-built here.
+ * The **whole bar is one wave**, not a squiggle over a flat line: the unplayed
+ * portion squiggles in step with the played portion, and only the colour changes
+ * at the playhead. Two independently drawn waves would drift apart, so both
+ * layers render the same path and carry the same animation; the unplayed layer is
+ * offset by the played width so the wave stays continuous across the boundary.
  *
- * Follows the spec's numbers: amplitude 3, wavelength 40, and a wave speed of one
- * wavelength per second. The active indicator is the `primary` role and the track
- * is `accent-warm`, a warm mid-tone; a stop dot terminates the track, which M3
- * requires because that track colour sits below 3:1 against the surface.
+ * The wave **translates** rather than being redrawn. Because it is periodic,
+ * shifting it by exactly one wavelength reproduces it, so the path is built once
+ * and a CSS transform slides it on the compositor. Redrawing the path every frame
+ * cost 33% of the main thread on a throttled device, since every `d` write
+ * invalidates style, layout and paint.
  *
- * The wave is generated at the element's real pixel width, so it is never
- * stretched. Pass `value` for determinate, omit it for indeterminate.
+ * Pass `value` for determinate, omit it for indeterminate.
  */
 export function WavyProgress({
   value,
@@ -112,60 +79,39 @@ export function WavyProgress({
   className,
   label,
 }: WavyProgressProps) {
-  const reduceMotion = useReducedMotion();
   const { ref, width } = useElementWidth<HTMLDivElement>();
-  const time = useTime();
 
   const indeterminate = value === undefined;
   const centerY = thickness / 2 + amplitude;
   const height = thickness + amplitude * 2;
 
-  // Phase advances one wavelength per `speed` seconds.
-  const phase = useTransform(time, (now) => {
-    if (reduceMotion) return 0;
-    return (2 * Math.PI * (now / 1000)) / speed;
-  });
+  const clamped = Math.min(1, Math.max(0, value ?? 0));
+  const played = width * clamped;
 
-  // Indeterminate: a wavy segment sweeps the full width, looping.
-  const sweep = useTransform(time, (now) => {
-    if (reduceMotion) return 0.5;
-    const cycle = (now / 1000 / 2) % 1;
-    return cycle;
-  });
-
-  const activePath = useTransform([phase, sweep], (values: number[]) => {
-    const p = values[0];
-    const s = values[1];
+  // Built over one extra wavelength so the right edge is never empty mid-slide.
+  const wave = useMemo(() => {
     if (width <= 0) return "";
+    return wavePath(0, width + wavelength, centerY, amplitude, wavelength);
+  }, [width, wavelength, centerY, amplitude]);
 
-    if (indeterminate) {
-      const segment = width * INDETERMINATE_SEGMENT;
-      const start = -segment + s * (width + segment);
-      const from = Math.max(0, start);
-      const to = Math.min(width, start + segment);
-      // Indeterminate has no "already played" region to grow out of, so the
-      // amplitude is flat here and only the determinate path ramps.
-      return wavePath(from, to, centerY, () => amplitude, wavelength, p);
-    }
+  const segmentWidth = width * INDETERMINATE_SEGMENT;
+  const indeterminateWave = useMemo(() => {
+    if (width <= 0) return "";
+    return wavePath(0, segmentWidth + wavelength, centerY, amplitude, wavelength);
+  }, [width, segmentWidth, wavelength, centerY, amplitude]);
 
-    const clamped = Math.min(1, Math.max(0, value ?? 0));
-    const played = width * clamped;
-    const peak = amplitude * amplitudeRamp(clamped);
-    // Full squiggle behind the sweep, straightening to flat right at the playhead.
-    // The ramp is capped by the played length so a very early position is not
-    // entirely transition and still shows some formed wave.
-    const ramp = Math.min(SQUIGGLE_RAMP, played * 0.75);
-    return wavePath(
-      0,
-      played,
-      centerY,
-      (x) => (ramp > 0 ? peak * smoothstep((played - x) / ramp) : peak),
-      wavelength,
-      p,
-    );
-  });
+  const waveVars = {
+    "--wave-wavelength": `${wavelength}px`,
+    "--wave-duration": `${speed}s`,
+  } as React.CSSProperties;
 
-  const clampedValue = Math.min(1, Math.max(0, value ?? 0));
+  const svgProps = {
+    width: width + wavelength,
+    height,
+    viewBox: `0 0 ${width + wavelength} ${height}`,
+    fill: "none" as const,
+    "aria-hidden": true,
+  };
 
   return (
     <div
@@ -174,51 +120,82 @@ export function WavyProgress({
       aria-label={label}
       aria-valuemin={indeterminate ? undefined : 0}
       aria-valuemax={indeterminate ? undefined : 1}
-      aria-valuenow={indeterminate ? undefined : Math.min(1, Math.max(0, value ?? 0))}
+      aria-valuenow={indeterminate ? undefined : clamped}
       className={cn("relative w-full", className)}
       style={{ height }}
     >
       {width > 0 && (
-        <svg
-          width={width}
-          height={height}
-          viewBox={`0 0 ${width} ${height}`}
-          fill="none"
-          className="overflow-visible"
-          aria-hidden="true"
-        >
-          {/* Inactive track, plus the stop dot M3 requires at its end. */}
-          <path
-            d={`M0 ${centerY} H${width}`}
-            className={trackClassName}
-            strokeWidth={thickness}
-            strokeLinecap="round"
-          />
-          <circle cx={width} cy={centerY} r={thickness / 2} className="fill-current" />
+        <>
+          {/* Played. Clipped to the progress extent, so the colour changes at the
+              playhead while the wave runs through both layers unbroken. */}
+          <div
+            className="absolute inset-y-0 left-0 overflow-hidden"
+            style={{ width: indeterminate ? segmentWidth : played }}
+          >
+            <svg {...svgProps} className="wave-slide absolute inset-y-0 left-0" style={waveVars}>
+              <path
+                d={indeterminate ? indeterminateWave : wave}
+                className="stroke-current"
+                strokeWidth={thickness}
+                strokeLinecap="round"
+              />
+            </svg>
+          </div>
 
-          <motion.path
-            d={activePath}
-            className="stroke-current"
-            strokeWidth={thickness}
-            strokeLinecap="round"
-          />
-
-          {/* Playhead. The wave is fully formed by the time it reaches here, so
-              this marks the boundary between the squiggle and the untouched
-              line — without it the squiggle just stops, which is what made the
-              conversion read as abrupt. */}
-          {!indeterminate && clampedValue > 0 && (
-            <line
-              x1={width * clampedValue}
-              y1={centerY - amplitude - thickness / 2}
-              x2={width * clampedValue}
-              y2={centerY + amplitude + thickness / 2}
-              className="stroke-current"
-              strokeWidth={thickness}
-              strokeLinecap="round"
-            />
+          {/* Unplayed. Same path and same animation, shifted by the played width so
+              it continues the wave rather than starting a new one. The static shift
+              uses `translate` and the animation uses `transform`, which compose. */}
+          {!indeterminate && (
+            <div className="absolute inset-y-0 right-0 overflow-hidden" style={{ left: played }}>
+              <svg
+                {...svgProps}
+                className="wave-slide absolute inset-y-0 left-0"
+                style={{ ...waveVars, translate: `-${played}px` }}
+              >
+                <path
+                  d={wave}
+                  className={trackClassName}
+                  strokeWidth={thickness}
+                  strokeLinecap="round"
+                />
+              </svg>
+            </div>
           )}
-        </svg>
+
+          {/* Stop dot at the end of the track. */}
+          <svg
+            width={width}
+            height={height}
+            viewBox={`0 0 ${width} ${height}`}
+            fill="none"
+            className="pointer-events-none absolute inset-0 overflow-visible"
+            aria-hidden="true"
+          >
+            <circle cx={width} cy={centerY} r={thickness / 2} className="fill-current" />
+          </svg>
+
+          {/* Playhead. Marks where played becomes unplayed. */}
+          {!indeterminate && clamped > 0 && (
+            <svg
+              width={width}
+              height={height}
+              viewBox={`0 0 ${width} ${height}`}
+              fill="none"
+              className="pointer-events-none absolute inset-0 overflow-visible"
+              aria-hidden="true"
+            >
+              <line
+                x1={played}
+                y1={centerY - amplitude - thickness / 2}
+                x2={played}
+                y2={centerY + amplitude + thickness / 2}
+                className="stroke-current"
+                strokeWidth={thickness}
+                strokeLinecap="round"
+              />
+            </svg>
+          )}
+        </>
       )}
     </div>
   );

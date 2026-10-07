@@ -15,12 +15,18 @@ export function useElementWidth<T extends HTMLElement>() {
     const el = ref.current;
     if (!el) return;
 
-    setWidth(el.getBoundingClientRect().width);
+    // Rounded to whole pixels: a resize drag reports sub-pixel widths many times a
+    // second, and each one re-rendered the tree for a difference the SVG path
+    // cannot show anyway.
+    const apply = (next: number) => {
+      const rounded = Math.round(next);
+      setWidth((current) => (current === rounded ? current : rounded));
+    };
+
+    apply(el.getBoundingClientRect().width);
 
     const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setWidth(entry.contentRect.width);
-      }
+      for (const entry of entries) apply(entry.contentRect.width);
     });
     observer.observe(el);
     return () => observer.disconnect();

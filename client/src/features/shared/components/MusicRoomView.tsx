@@ -6,6 +6,7 @@ import { TrackMetadata } from "@/features/music-room/components/TrackMetadata";
 import { StationSequence } from "@/features/music-room/components/StationSequence";
 import { Shape } from "@/shared/shapes/shape";
 import { transitions } from "@/shared/motion/springs";
+import { trackThumbnail } from "@/shared/lib/youtube";
 import { cn } from "@/shared/lib/utils";
 import type { Track } from "@/shared/types";
 
@@ -88,6 +89,9 @@ export function MusicRoomView({
 }: MusicRoomViewProps) {
   const isAdmin = role === "admin";
   const hasNextTrack = queue.length > 0;
+  // Queued tracks carry no stored thumbnail, so this falls back to the one
+  // derived from the video id.
+  const trackArtwork = nowPlaying ? trackThumbnail(nowPlaying) : undefined;
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-y-auto px-4 pb-8 lg:flex-row lg:items-center lg:gap-10 lg:overflow-hidden lg:px-6 lg:pb-6">
@@ -100,8 +104,8 @@ export function MusicRoomView({
       >
         <div className="flex items-start gap-5">
           <div className="hidden size-[104px] shrink-0 items-center justify-center overflow-hidden rounded-m3-lg bg-surface-container-high sm:flex">
-            {nowPlaying?.thumbnail ? (
-              <img src={nowPlaying.thumbnail} alt="" className="size-full object-cover" />
+            {trackArtwork ? (
+              <img src={trackArtwork} alt="" className="size-full object-cover" />
             ) : (
               <Shape name="cookie12" size={48} className="text-on-surface-variant" />
             )}
@@ -131,7 +135,7 @@ export function MusicRoomView({
           <div className="lg:hidden">
             <MiniVinyl
               isPlaying={isPlaying}
-              thumbnail={nowPlaying?.thumbnail}
+              thumbnail={trackArtwork}
               onToggle={isAdmin ? onTogglePlay : undefined}
             />
           </div>
@@ -139,7 +143,7 @@ export function MusicRoomView({
             <Turntable
               isPlaying={isPlaying}
               progress={progress}
-              thumbnail={nowPlaying?.thumbnail}
+              thumbnail={trackArtwork}
               onToggle={isAdmin ? onTogglePlay : undefined}
             />
           </div>

@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { motion, useReducedMotion, useTime, useTransform } from "framer-motion";
 
 import { useElementWidth } from "@/shared/hooks/useElementWidth";
 import { cn } from "@/shared/lib/utils";
@@ -39,7 +38,6 @@ export interface WavyCircularProgressProps {
   /**
    * Travel the wave along the arc. The arc's extent still tracks `value`; only the
    * squiggle's phase moves, so the indicator reads as alive rather than frozen.
-   * Used by the turntable, where the ring sits still but the wave should ripple.
    */
   animated?: boolean;
   /** Seconds for the wave to travel one wavelength (`animated` only). */
@@ -71,21 +69,17 @@ function amplitudeRamp(progress: number): number {
 /**
  * A wavy arc: the centreline is a circle of radius `radius`, modulated radially
  * by a sine wave so the stroke itself squiggles around the ring.
- *
- * A fixed `phase` means the squiggle shape is rigid — rotating the arc rotates
- * the squiggle with it, which is what reads as "circling".
  */
 function wavyArcPath(
   center: number,
   radius: number,
   amplitude: number,
   waves: number,
-  phase: number,
   from: number,
   to: number,
 ): string {
   const at = (theta: number) => {
-    const r = radius + amplitude * Math.sin(waves * theta + phase);
+    const r = radius + amplitude * Math.sin(waves * theta);
     return [center + r * Math.cos(theta), center + r * Math.sin(theta)] as const;
   };
 
@@ -103,109 +97,35 @@ function wavyArcPath(
   return d + "L" + ex.toFixed(2) + " " + ey.toFixed(2);
 }
 
-/**
- * The rotating arc for the indeterminate variant.
- *
- * Split into its own component so `useTime` (a requestAnimationFrame clock) only
- * runs when the indicator is actually indeterminate. Hooks cannot be called
- * conditionally, so the determinate path must render a different component.
- */
-function RotatingArc({
-  center,
-  radius,
-  amplitude,
-  waves,
-  period,
-  arcSpan,
-  thickness,
-}: {
-  center: number;
-  radius: number;
-  amplitude: number;
-  waves: number;
-  period: number;
-  arcSpan: number;
-  thickness: number;
-}) {
-  const reduceMotion = useReducedMotion();
-  const time = useTime();
-
-  // One revolution per `period`, constant speed, no easing or reset jump.
-  // Wrapped at 2π: `waves` is an integer, so the squiggle phase is identical
-  // every turn and this keeps the trig arguments small instead of drifting.
-  const rotation = useTransform(time, (now) => {
-    if (reduceMotion) return 0;
-    return (((now / 1000) * (2 * Math.PI)) / period) % (2 * Math.PI);
-  });
-
-  const d = useTransform(rotation, (r) =>
-    wavyArcPath(center, radius, amplitude, waves, 0, r, r + arcSpan * 2 * Math.PI),
-  );
-
-  return (
-    <motion.path d={d} className="stroke-current" strokeWidth={thickness} strokeLinecap="round" />
-  );
+/** A pie wedge covering `[0, angle]`, used to clip the wave to the progress arc. */
+function wedgePath(center: number, radius: number, angle: number): string {
+  if (angle <= 0) return "";
+  if (angle >= Math.PI * 2) {
+    return `M${center - radius} ${center} a ${radius} ${radius} 0 1 0 ${radius * 2} 0 a ${radius} ${radius} 0 1 0 ${-radius * 2} 0 Z`;
+  }
+  const x0 = center + radius * Math.cos(0);
+  const y0 = center + radius * Math.sin(0);
+  const x1 = center + radius * Math.cos(angle);
+  const y1 = center + radius * Math.sin(angle);
+  const largeArc = angle > Math.PI ? 1 : 0;
+  return `M${center} ${center} L${x0.toFixed(2)} ${y0.toFixed(2)} A${radius} ${radius} 0 ${largeArc} 1 ${x1.toFixed(2)} ${y1.toFixed(2)} Z`;
 }
 
 /**
- * The determinate arc with the wave travelling along it.
- *
- * Split out for the same reason as `RotatingArc`: the `useTime` clock should only
- * run when the wave is actually animating. The arc's *extent* still comes from
- * `value`; only the wave's phase moves, so the progress reading stays honest while
- * the squiggle ripples.
- */
-function TravelingArc({
-  center,
-  radius,
-  amplitude,
-  waves,
-  value,
-  wavePeriod,
-  thickness,
-}: {
-  center: number;
-  radius: number;
-  amplitude: number;
-  waves: number;
-  value: number;
-  wavePeriod: number;
-  thickness: number;
-}) {
-  const reduceMotion = useReducedMotion();
-  const time = useTime();
-
-  // Wrapped at 2π: `waves` is an integer, so the shape at phase 2π is identical to
-  // phase 0 and the loop has no visible seam.
-  const phase = useTransform(time, (now) => {
-    if (reduceMotion) return 0;
-    return (((now / 1000) * 2 * Math.PI) / wavePeriod) % (2 * Math.PI);
-  });
-
-  const d = useTransform(phase, (p) =>
-    wavyArcPath(center, radius, amplitude, waves, p, 0, 2 * Math.PI * value),
-  );
-
-  return (
-    <motion.path d={d} className="stroke-current" strokeWidth={thickness} strokeLinecap="round" />
-  );
-}
-
-/**
- * M3 Expressive circular wavy progress indicator: a sine wave wrapped around a
- * ring. M3 ships this on Android only, so it is hand-built here.
+ * M3 Expressive circular wavy progress indicator.
  *
  * There is **no track**: the squiggle is the only stroke, so it floats against
- * the surface instead of sitting on a circle. A visible circle behind it read as
- * a plain ring with a wobbly arc on top.
+ * the surface instead of sitting on a circle.
  *
- * Indeterminate (omit `value`) is a **constant** arc of squiggle rotating around
- * the ring. It deliberately does not grow and shrink the way M3's indeterminate
- * circular indicator does: that reads as a pulse.
+ * Both variants animate with a CSS transform, never a per-frame path rewrite.
+ * Redrawing the path every frame cost the music room a measurable slice of the
+ * main thread, because each `d` write invalidates style, layout and paint.
  *
- * Determinate renders a plain path with no animation clock unless `animated` is
- * set, so a large static ring costs nothing per frame and only a ring that asks to
- * ripple pays for the clock.
+ * - **Determinate**: the full-circle wave is drawn once and a static wedge clips
+ *   it to the progress extent, so the wave travels *inside* a fixed arc.
+ * - **Indeterminate**: a constant arc of squiggle rotating around the ring. It
+ *   deliberately does not grow and shrink the way M3's indeterminate indicator
+ *   does: that reads as a pulse.
  *
  * Pass the colour with `text-*` on the wrapper.
  */
@@ -237,15 +157,26 @@ export function WavyCircularProgress({
       ? Math.max(1, Math.round(waveCount))
       : Math.max(1, Math.round((2 * Math.PI * radius) / (wavelength ?? 40)));
 
-  const geometry = { center, radius, amplitude: amp, waves } as const;
-
   const clamped = Math.min(1, Math.max(0, value ?? 0));
-  const rampedAmplitude = amp * amplitudeRamp(clamped);
+  const ramped = amp * amplitudeRamp(clamped);
 
-  const determinatePath = useMemo(() => {
-    if (box <= 0) return "";
-    return wavyArcPath(center, radius, rampedAmplitude, waves, 0, 0, 2 * Math.PI * clamped);
-  }, [box, center, radius, rampedAmplitude, waves, clamped]);
+  // Indeterminate: one arc, rotated by CSS.
+  const rotatingArc = useMemo(
+    () => (box > 0 ? wavyArcPath(center, radius, amp, waves, 0, arcSpan * 2 * Math.PI) : ""),
+    [box, center, radius, amp, waves, arcSpan],
+  );
+
+  // Determinate: the whole circle of wave, plus a wedge for the played extent.
+  const fullWave = useMemo(
+    () => (box > 0 && ramped > 0 ? wavyArcPath(center, radius, ramped, waves, 0, Math.PI * 2) : ""),
+    [box, center, radius, ramped, waves],
+  );
+  const wedge = useMemo(
+    () => (box > 0 ? wedgePath(center, radius + amp + thickness, clamped * 2 * Math.PI) : ""),
+    [box, center, radius, amp, thickness, clamped],
+  );
+
+  const clipId = `wave-clip-${Math.round(box)}-${Math.round(clamped * 1000)}`;
 
   return (
     <div
@@ -255,7 +186,7 @@ export function WavyCircularProgress({
       aria-hidden={label ? undefined : true}
       aria-valuemin={label && !indeterminate ? 0 : undefined}
       aria-valuemax={label && !indeterminate ? 1 : undefined}
-      aria-valuenow={label && !indeterminate ? Math.min(1, Math.max(0, value ?? 0)) : undefined}
+      aria-valuenow={label && !indeterminate ? clamped : undefined}
       className={cn(size ? "relative" : "relative aspect-square w-full", className)}
       style={size ? { width: size, height: size } : undefined}
     >
@@ -266,24 +197,48 @@ export function WavyCircularProgress({
           viewBox={`0 0 ${box} ${box}`}
           fill="none"
           className="-rotate-90"
+          aria-hidden="true"
         >
           {indeterminate ? (
-            <RotatingArc {...geometry} period={period} arcSpan={arcSpan} thickness={thickness} />
-          ) : animated ? (
-            <TravelingArc
-              {...geometry}
-              amplitude={rampedAmplitude}
-              value={clamped}
-              wavePeriod={wavePeriod}
-              thickness={thickness}
-            />
-          ) : (
             <path
-              d={determinatePath}
-              className="stroke-current"
+              d={rotatingArc}
+              className="ring-spin stroke-current"
+              style={
+                {
+                  "--ring-period": `${period}s`,
+                  "--ring-waves": "1",
+                } as React.CSSProperties
+              }
               strokeWidth={thickness}
               strokeLinecap="round"
             />
+          ) : (
+            <>
+              <defs>
+                <clipPath id={clipId}>
+                  <path d={wedge} />
+                </clipPath>
+              </defs>
+              {/* One wavelength of travel is a rotation of 360/waves degrees, and
+                  the full-circle wave is periodic at exactly that angle, so the
+                  loop is seamless. */}
+              <g clipPath={`url(#${clipId})`}>
+                <path
+                  d={fullWave}
+                  className={cn("stroke-current", animated && "ring-spin")}
+                  style={
+                    animated
+                      ? ({
+                          "--ring-period": `${wavePeriod}s`,
+                          "--ring-waves": String(waves),
+                        } as React.CSSProperties)
+                      : undefined
+                  }
+                  strokeWidth={thickness}
+                  strokeLinecap="round"
+                />
+              </g>
+            </>
           )}
         </svg>
       )}

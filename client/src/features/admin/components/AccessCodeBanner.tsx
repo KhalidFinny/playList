@@ -32,7 +32,7 @@ export function AccessCodeBanner({ roomKey, copied, onCopy, roomId }: AccessCode
           className="state-layer mt-4 rounded-m3-lg px-6 py-2 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-38"
         >
           <span className="block text-display-medium tabular-nums tracking-[0.15em] text-on-surface">
-            {roomKey ?? "——"}
+            {roomKey ?? "-----"}
           </span>
         </button>
 

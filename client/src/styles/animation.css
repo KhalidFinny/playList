@@ -1,0 +1,74 @@
+/* ============================================================================
+   CONTINUOUS ANIMATION
+   ============================================================================
+   These replace per-frame JavaScript. Framer Motion is the right tool for
+   gesture-driven and state-change motion, but a loop that never ends should not
+   be driven from the main thread: each `useTime()` clock writes to the DOM every
+   frame, which forces style recalc, layout and paint. Measured on the music room
+   at 6x CPU throttle, those loops held 78% of the main thread, and the single
+   position-bar wave was 33% of it on its own.
+
+   A CSS animation on `transform` is handed to the compositor and costs the main
+   thread nothing while it runs.
+
+   Each animation is paused, not removed, when its subject is not active, so the
+   element keeps its shape and only the motion stops.
+   ============================================================================ */
+
+/* The record. 4s per revolution, matching the previous Framer Motion timing. */
+@keyframes disc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.disc-spin {
+  animation: disc-spin 4s linear infinite;
+  /* The disc is large and holds 45 groove circles; promoting it keeps the
+     rotation off the paint path. */
+  will-change: transform;
+}
+
+/* The wave travelling along the position bar. Translating by exactly one
+   wavelength is what makes the loop seamless, since the wave is periodic. */
+@keyframes wave-slide {
+  to {
+    transform: translateX(calc(-1 * var(--wave-wavelength)));
+  }
+}
+
+.wave-slide {
+  animation: wave-slide var(--wave-duration, 1s) linear infinite;
+}
+
+/* The arc travelling around the turntable ring.
+   For the determinate case one wavelength of travel is a rotation of
+   360/waves degrees, which is exactly the wave's rotational period, so the loop
+   is seamless. Indeterminate sets --ring-waves to 1 for a full revolution. */
+@keyframes ring-spin {
+  to {
+    transform: rotate(calc(360deg / var(--ring-waves, 1)));
+  }
+}
+
+.ring-spin {
+  animation: ring-spin var(--ring-period, 2.4s) linear infinite;
+  /* SVG transforms resolve against the viewBox, not the element box, so the
+     origin has to be stated in that coordinate system. */
+  transform-box: view-box;
+  transform-origin: center;
+}
+
+/* Paused states. `animation-play-state` rather than removing the class, so the
+   element does not jump back to its start position when it stops. */
+.anim-paused {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .disc-spin,
+  .wave-slide,
+  .ring-spin {
+    animation: none;
+  }
+}

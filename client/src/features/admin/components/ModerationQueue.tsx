@@ -205,7 +205,7 @@ export function ModerationQueue({
                         author={song.author}
                       />
                       <p className="mt-3 text-center text-label-medium text-on-surface-variant">
-                        Private preview —{" "}
+                        Private preview:{" "}
                         {isCustomDevice
                           ? "routed to selected device"
                           : "plays through default speakers"}

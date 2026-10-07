@@ -40,31 +40,35 @@ export const Turntable = ({ isPlaying, onToggle, progress, thumbnail }: Turntabl
         />
       </div>
 
-      {/* The disc. 90% leaves the ring's trough clear of the disc edge. */}
-      <motion.div
-        animate={{ rotate: isPlaying ? 360 : 0 }}
-        transition={{ duration: 4, repeat: isPlaying ? Infinity : 0, ease: "linear" }}
-        className="relative flex size-[90%] items-center justify-center overflow-hidden rounded-m3-full bg-surface-container-lowest transition-colors duration-700 will-change-transform"
+      {/* The disc. 90% leaves the ring's trough clear of the disc edge.
+          Rotation is a CSS animation, not Framer Motion: a never-ending loop
+          driven from the main thread wrote to the DOM every frame and cost far
+          more than the compositor does. It also freezes where it is when paused,
+          rather than rewinding to 0. */}
+      <div
+        className={cn(
+          "disc-spin relative flex size-[90%] items-center justify-center overflow-hidden rounded-m3-full bg-surface-container-lowest transition-colors duration-700",
+          !isPlaying && "anim-paused",
+        )}
       >
+        {/* The record's label, the way a real 12" has one: the album art on a disc
+            at the centre, cropped to a circle and rotating with the record. The art
+            is not laid under the grooves — at the opacity that kept the grooves
+            readable it read as a smudge rather than as artwork. */}
         {thumbnail && (
-          <img
-            src={thumbnail}
-            alt=""
-            className={cn(
-              "absolute inset-0 size-full object-cover transition-opacity duration-700",
-              isPlaying ? "opacity-20" : "opacity-5 grayscale",
-            )}
-          />
+          <div className="absolute size-[62%] overflow-hidden rounded-m3-full">
+            <img src={thumbnail} alt="" className="size-full object-cover" />
+          </div>
         )}
 
-        {/* Grooves */}
+        {/* Grooves. They stop short of the label, as on a real record. */}
         <svg className="absolute inset-0 size-full opacity-60">
           {Array.from({ length: 45 }).map((_, i) => (
             <circle
               key={i}
               cx="50%"
               cy="50%"
-              r={`${4 + i * 1.05}%`}
+              r={`${32 + i * 1.05}%`}
               fill="none"
               stroke="currentColor"
               className={isPlaying ? "text-primary/30" : "text-outline-variant"}
@@ -72,7 +76,7 @@ export const Turntable = ({ isPlaying, onToggle, progress, thumbnail }: Turntabl
             />
           ))}
         </svg>
-      </motion.div>
+      </div>
 
       {/* The disc's edge. Sits at the disc's bounds (the disc is 90%, centred, so
           its bounds are inset 5%) and stays put while the record spins. */}
