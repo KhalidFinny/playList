@@ -1,4 +1,5 @@
 import Redis from "ioredis";
+import { metrics } from "./metrics";
 
 const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
 
@@ -9,6 +10,21 @@ const redisOptions = {
 
 export const redis = new Redis(redisUrl, redisOptions);
 export const dbEventRedisReader = new Redis(redisUrl, redisOptions);
+
+// Count Redis commands by name. Every queue transition, room lookup and playback
+// sync goes through here, so this is the cheapest place to see the shape of the
+// load without touching a call site.
+const originalSendCommand = redis.sendCommand.bind(redis);
+redis.sendCommand = ((command: { name?: string }) => {
+  try {
+    const name = String(command?.name ?? "unknown").toLowerCase();
+    metrics.count("redis.commands");
+    metrics.count(`redis.${name}`);
+  } catch {
+    /* metrics are best-effort */
+  }
+  return originalSendCommand(command as never);
+}) as typeof redis.sendCommand;
 
 redis.on("connect", () => {
   console.log("🚀 Connected to Redis for high-speed room resolution");

@@ -14,6 +14,7 @@ import { startDbPersistenceWorker } from "./src/workers/dbEvents";
 import { startMaintenance } from "./src/workers/maintenance";
 import { assignActorId } from "./src/lib/actor";
 import { startPruning } from "./src/lib/prune";
+import { metrics } from "./src/lib/metrics";
 
 // Verify environment before starting
 if (!process.env.DATABASE_URL) {
@@ -70,12 +71,49 @@ async function serveClient(req: IncomingMessage, res: ServerResponse): Promise<b
 httpServer.on("request", async (req: IncomingMessage, res: ServerResponse) => {
   const url = new URL(req.url || "/", `http://${req.headers.host}`);
 
+  // Time every HTTP response. `finish` fires once the body is flushed, so this
+  // measures what the client actually waited for.
+  const startedAt = performance.now();
+  res.on("finish", () => {
+    metrics.count("http.requests");
+    metrics.count(`http.status.${Math.floor(res.statusCode / 100)}xx`);
+    metrics.observe("http.ms", performance.now() - startedAt);
+  });
+
   // CORS headers for all API responses
   const setCORS = () => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   };
+
+  // Metrics. **Fail closed**: with no METRICS_TOKEN configured the route does
+  // not exist, so an unconfigured production process cannot leak load shape.
+  // A loopback check is not enough here — the Cloudflare tunnel connects to this
+  // server over localhost, so every public request also arrives from 127.0.0.1.
+  if (url.pathname === "/api/metrics") {
+    const token = process.env.METRICS_TOKEN;
+    const provided =
+      url.searchParams.get("token") ??
+      (req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+    if (!token) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Not found" }));
+      return;
+    }
+    if (provided !== token) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+    const wantsPrometheus = (req.headers.accept || "").includes("text/plain");
+    res.writeHead(200, {
+      "Content-Type": wantsPrometheus ? "text/plain; charset=utf-8" : "application/json",
+      "Cache-Control": "no-store",
+    });
+    res.end(wantsPrometheus ? metrics.renderPrometheus() : JSON.stringify(metrics.snapshot()));
+    return;
+  }
 
   // Preview audio. The client fetches a URL and plays it in an <audio> element
   // with setSinkId(). We hand back a SAME-ORIGIN stream URL rather than the raw
@@ -169,10 +207,72 @@ const io = new Server(httpServer, {
   },
 });
 
+// Every Engine.IO packet the server RECEIVES becomes one Durable Object request
+// once this runs on Workers — the heartbeat included. That is why inbound
+// packets are counted on their own: the free-plan verdict turns on this number,
+// not on the application events.
+io.engine.on("connection", (rawSocket) => {
+  metrics.gauge("ws.connections", io.engine.clientsCount);
+  rawSocket.on("packet", (packet: { type: string }) => {
+    metrics.count("ws.inbound_packets");
+    metrics.count(`ws.inbound.${packet.type}`);
+  });
+});
+
+// CPU and memory, sampled. `cpuUsage` is cumulative, so the delta over the
+// interval is the live figure.
+let lastCpu = process.cpuUsage();
+let lastSampleAt = Date.now();
+const sampleTimer = setInterval(() => {
+  const now = Date.now();
+  const cpu = process.cpuUsage(lastCpu);
+  const elapsedMs = now - lastSampleAt;
+  if (elapsedMs > 0) {
+    metrics.gauge("process.cpu_percent", Number((((cpu.user + cpu.system) / 1000 / elapsedMs) * 100).toFixed(1)));
+  }
+  lastCpu = process.cpuUsage();
+  lastSampleAt = now;
+  metrics.gauge("process.rss_bytes", process.memoryUsage().rss);
+  metrics.gauge("ws.connections", io.engine.clientsCount);
+}, 5000);
+sampleTimer.unref?.();
+
 io.on("connection", (socket) => {
   // Server-assigned identity for this connection. Set before any handler so the
   // rate limits never have to fall back to a client-supplied id.
   assignActorId(socket);
+
+  // Time and count every handler by event name. Wrapping the registration
+  // covers all 24 handlers at once; wrapping each call site would rot.
+  const register = socket.on.bind(socket);
+  socket.on = ((event: string, handler: (...args: unknown[]) => unknown) =>
+    register(event, (...args: unknown[]) => {
+      metrics.count(`socket.${event}`);
+      const start = performance.now();
+      let result: unknown;
+      try {
+        result = handler(...args);
+      } catch (err) {
+        metrics.count(`socket.${event}.error`);
+        metrics.observe("socket.ms", performance.now() - start);
+        throw err;
+      }
+      if (result instanceof Promise) {
+        return result.then(
+          (value) => {
+            metrics.observe("socket.ms", performance.now() - start);
+            return value;
+          },
+          (err) => {
+            metrics.count(`socket.${event}.error`);
+            metrics.observe("socket.ms", performance.now() - start);
+            throw err;
+          },
+        );
+      }
+      metrics.observe("socket.ms", performance.now() - start);
+      return result;
+    })) as typeof socket.on;
 
   // 1. Connection & room joining logic
   handleConnection(io, socket);
