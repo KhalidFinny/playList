@@ -19,6 +19,7 @@
     "test": "docker compose up -d redis && bun --env-file=.env vitest run tests"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261009.1",
     "@effect/vitest": "^4.0.0-beta.79",
     "@types/bun": "^1.3.12",
     "socket.io": "^4.8.3",

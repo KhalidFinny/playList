@@ -2,6 +2,14 @@
 
 > **Status:** ⏸️ **Preview blocker resolved — port still large.** 2026-10-06.
 >
+> **Free-tier question is answered: it fits.** Measured, not assumed — see
+> [issue 08](issues/08-critical-free-tier-requirements.md) and
+> `docs/plans/2026-10-08-o11y-load-test/ANALYSIS.md`. ~10,400 DO requests/day at
+> 50 connections against a 100,000/day allowance. **Two hard requirements fall
+> out of it**: the DO must use the Hibernation API (duration, not requests, is
+> what breaks a room), and the heartbeat should be served by
+> `setWebSocketAutoResponse`.
+>
 > The original blocker was `yt-dlp` preview audio + speaker routing (`setSinkId`).
 > That is now solved **without yt-dlp**: `server/src/services/preview/` resolves
 > audio through a single innertube HTTP call and streams it same-origin, so the

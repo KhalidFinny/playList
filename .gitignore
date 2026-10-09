@@ -34,6 +34,9 @@ server/bin/
 .cache
 *.tsbuildinfo
 
+# Cloudflare Workers local dev state (wrangler dev / miniflare)
+.wrangler/
+
 # Debug logs
 logs/
 *.log
