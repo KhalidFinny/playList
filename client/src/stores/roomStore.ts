@@ -11,6 +11,8 @@ type RoomState = {
   isPlaying: boolean;
   currentTime: number;
   duration: number;
+  /** Client epoch ms at which `currentTime` was true. `0` means "never synced". */
+  syncedAt: number;
   isConnecting: boolean;
   setRoomId: (roomId: string | null) => void;
   setRoomKey: (roomKey: string | null) => void;
@@ -33,6 +35,7 @@ const initialRoomState = {
   isPlaying: false,
   currentTime: 0,
   duration: 0,
+  syncedAt: 0,
   isConnecting: true,
 };
 
@@ -56,9 +59,9 @@ export const useRoomStore = create<RoomState>((set) => ({
     })),
   applySongRemoved: (songId) =>
     set((state) => ({ queue: state.queue.filter((song) => song.id !== songId) })),
-  applyPlaybackUpdated: (isPlaying) => set({ isPlaying }),
+  applyPlaybackUpdated: (isPlaying) => set({ isPlaying, syncedAt: Date.now() }),
   applyPlaybackSync: ({ currentTime, duration, isPlaying }) =>
-    set({ currentTime, duration, isPlaying }),
+    set({ currentTime, duration, isPlaying, syncedAt: Date.now() }),
   clearRoomQueue: () => set({ queue: [] }),
   setIsConnecting: (isConnecting) => set({ isConnecting }),
   resetRoom: () => set(initialRoomState),

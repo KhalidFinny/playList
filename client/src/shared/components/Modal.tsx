@@ -50,7 +50,7 @@ export function Modal({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
+            transition={transitions.fast}
             onClick={onClose}
             className="absolute inset-0 bg-scrim/32"
           />

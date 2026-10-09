@@ -1,13 +1,12 @@
 import { motion } from "framer-motion";
 import { Pause, Play } from "lucide-react";
-import { WavyCircularProgress } from "@/shared/components/wavy-circular-progress";
+import { CircularProgress } from "@/shared/components/circular-progress";
 import { cn } from "@/shared/lib/utils";
 
 interface TurntableProps {
   isPlaying: boolean;
   onToggle?: () => void;
   progress: number;
-  thumbnail?: string | null;
 }
 
 /**
@@ -17,25 +16,32 @@ interface TurntableProps {
  * The tonearm swings on the M3 expressive spatial spring, so it settles with the
  * slight overshoot the motion system specifies.
  *
- * Layer order matters here. The squiggle ring sits **behind** the tonearm: the arm
- * is opaque, so the wave is genuinely hidden where the arm crosses it rather than
+ * Layer order matters here. The progress ring sits **behind** the tonearm: the arm
+ * is opaque, so the arc is genuinely hidden where the arm crosses it rather than
  * showing through a translucent arm.
+ *
+ * The disc's edge is a conic-gradient fade that **sweeps around the rim while the
+ * record plays** (8s, slower than the record's 4s, so the two read as separate
+ * motions). It is a light source rather than part of the record, so it is not a
+ * child of the spinning disc — it has its own rotation and freezes when paused.
  *
  * No elevation on the disc — the groove rings and the gradient edge carry it, and
  * a drop shadow under a record reads as a floating card.
+ *
+ * The disc carries **no artwork**. The album art lives beside the title in the
+ * liner notes instead; at the size and opacity that kept the grooves readable it
+ * read as a smudge, and a plain record is the better read.
  */
-export const Turntable = ({ isPlaying, onToggle, progress, thumbnail }: TurntableProps) => {
+export const Turntable = ({ isPlaying, onToggle, progress }: TurntableProps) => {
   return (
     <figure className="relative flex aspect-square w-full max-w-[1200px] items-center justify-center">
-      {/* Progress — the M3 wavy indicator, riding the disc edge. The wave travels
-          while audio plays, so the ring reads as alive rather than frozen. */}
+      {/* Progress — M3's plain circular indicator, riding just outside the disc
+          edge. A smooth arc, not the wavy variant: the squiggle competed with
+          the grooves for the same read. */}
       <div className="pointer-events-none absolute inset-0 z-0">
-        <WavyCircularProgress
+        <CircularProgress
           value={progress}
           thickness={5}
-          amplitudeRatio={0.014}
-          waves={20}
-          animated={isPlaying}
           className={isPlaying ? "text-primary" : "text-on-surface-variant"}
         />
       </div>
@@ -51,17 +57,8 @@ export const Turntable = ({ isPlaying, onToggle, progress, thumbnail }: Turntabl
           !isPlaying && "anim-paused",
         )}
       >
-        {/* The record's label, the way a real 12" has one: the album art on a disc
-            at the centre, cropped to a circle and rotating with the record. The art
-            is not laid under the grooves — at the opacity that kept the grooves
-            readable it read as a smudge rather than as artwork. */}
-        {thumbnail && (
-          <div className="absolute size-[62%] overflow-hidden rounded-m3-full">
-            <img src={thumbnail} alt="" className="size-full object-cover" />
-          </div>
-        )}
-
-        {/* Grooves. They stop short of the label, as on a real record. */}
+        {/* Grooves. They stop short of the centre, as on a real record. The
+            centre is left plain: no artwork sits on the disc. */}
         <svg className="absolute inset-0 size-full opacity-60">
           {Array.from({ length: 45 }).map((_, i) => (
             <circle
@@ -79,10 +76,14 @@ export const Turntable = ({ isPlaying, onToggle, progress, thumbnail }: Turntabl
       </div>
 
       {/* The disc's edge. Sits at the disc's bounds (the disc is 90%, centred, so
-          its bounds are inset 5%) and stays put while the record spins. */}
+          its bounds are inset 5%) and stays put while the record spins. Its fade
+          sweeps around the rim while playing. */}
       <div
         aria-hidden="true"
-        className={cn("disc-ring inset-[5%] z-10", !isPlaying && "opacity-45")}
+        className={cn(
+          "disc-ring disc-ring-spin inset-[5%] z-10",
+          !isPlaying && "anim-paused opacity-45",
+        )}
       />
 
       {/* Stationary centre label. It is the transport control only when the role

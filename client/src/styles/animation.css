@@ -41,6 +41,19 @@
   animation: wave-slide var(--wave-duration, 1s) linear infinite;
 }
 
+/* The disc edge's fade sweeping around the rim. Slower than the record (8s vs
+   4s) so the two read as separate motions rather than one locked rotation. */
+@keyframes disc-ring-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.disc-ring-spin {
+  animation: disc-ring-spin 8s linear infinite;
+  will-change: transform;
+}
+
 /* The arc travelling around the turntable ring.
    For the determinate case one wavelength of travel is a rotation of
    360/waves degrees, which is exactly the wave's rotational period, so the loop
@@ -67,6 +80,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .disc-spin,
+  .disc-ring-spin,
   .wave-slide,
   .ring-spin {
     animation: none;

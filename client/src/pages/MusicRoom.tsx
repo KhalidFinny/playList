@@ -7,8 +7,10 @@ import { Badge } from "../shared/components/badge";
 import { SecretDoor } from "../shared/components/SecretDoor";
 import { Logo } from "../shared/components/Logo";
 import { MusicRoomView } from "../features/shared/components/MusicRoomView";
+import { ListenToggle } from "../features/participant/components/ListenToggle";
 import { LoadingOverlay } from "../shared/components/LoadingOverlay";
 import { ThemeToggle } from "../shared/components/theme-toggle";
+import { transitions } from "../shared/motion/springs";
 import { useMusicRoomPage } from "../hooks/pages/useMusicRoomPage";
 
 export function MusicRoom() {
@@ -34,6 +36,8 @@ export function MusicRoom() {
             <Badge variant="status" className="animate-pulse bg-primary" />
             <span className="text-label-medium text-on-surface-variant">Live</span>
           </span>
+
+          <ListenToggle />
 
           <ThemeToggle />
 
@@ -66,6 +70,7 @@ export function MusicRoom() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={transitions.base}
             className="fixed inset-0 z-40 flex flex-col items-center justify-center bg-surface p-6 text-center"
           >
             <div className="flex max-w-md flex-col items-center gap-6">

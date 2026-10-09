@@ -5,7 +5,6 @@ import { cn } from "@/shared/lib/utils";
 
 interface MiniVinylProps {
   isPlaying: boolean;
-  thumbnail?: string | null;
   onToggle?: () => void;
 }
 
@@ -14,16 +13,17 @@ interface MiniVinylProps {
  *
  * The disc silhouette is the M3 Expressive `cookie12` shape — the library's
  * 12-sided scalloped cookie reads as a record edge, which is why it is the shape
- * bound to the vinyl role. The thumbnail is clipped to the same path.
+ * bound to the vinyl role.
  *
- * Carries no progress bar: `TrackMetadata` always renders alongside it and owns
- * the playback position, so the indicator lives in one place.
+ * Carries no artwork: the album art lives beside the title in the liner notes.
+ * Carries no progress bar either — `TrackMetadata` always renders alongside it
+ * and owns the playback position, so the indicator lives in one place.
  *
  * The disc is the transport control only when `onToggle` is passed. Participants
  * have no controls, so it renders as a plain disc rather than a button that does
  * nothing.
  */
-export function MiniVinyl({ isPlaying, thumbnail, onToggle }: MiniVinylProps) {
+export function MiniVinyl({ isPlaying, onToggle }: MiniVinylProps) {
   const clipId = useId().replace(/:/g, "");
   const interactive = Boolean(onToggle);
 
@@ -42,17 +42,6 @@ export function MiniVinyl({ isPlaying, thumbnail, onToggle }: MiniVinylProps) {
 
           <g clipPath={`url(#${clipId})`}>
             <rect width="100" height="100" className="fill-inverse-surface" />
-
-            {thumbnail && (
-              <image
-                href={thumbnail}
-                x="24"
-                y="24"
-                width="52"
-                height="52"
-                preserveAspectRatio="xMidYMid slice"
-              />
-            )}
 
             {/* Grooves */}
             <g fill="none" strokeWidth="0.4" className="stroke-inverse-on-surface/10">

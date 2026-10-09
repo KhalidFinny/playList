@@ -11,6 +11,7 @@ import { ThemeToggle } from "@/shared/components/theme-toggle";
 import { JoinFlow } from "../features/participant/components/JoinFlow";
 import { RequestFlow } from "../features/participant/components/RequestFlow";
 import { NowPlayingBar } from "../features/participant/components/NowPlayingBar";
+import { ListenToggle } from "../features/participant/components/ListenToggle";
 
 import { useParticipantPage } from "../hooks/pages/useParticipantPage";
 
@@ -62,6 +63,8 @@ export function ParticipantPage() {
               <span className="text-label-medium text-on-surface-variant">Live</span>
             </span>
           )}
+
+          <ListenToggle />
 
           <ThemeToggle />
 

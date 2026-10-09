@@ -7,22 +7,36 @@
      2. SYSTEM     --md-sys-color-<role>               semantic roles
      3. BRIDGE     @theme inline in index.css          Tailwind utilities
 
-   Seed: #f97316 (HCT H 46.4 / C 70.0 / T 63.7), generated with
-   @material/material-color-utilities. The reference values are machine output —
-   regenerate them, do not hand-edit.
+   Palette: the Teto / BIRDBRAIN art. It is **not** a single-seed M3 derivation —
+   the art is a hand-composed multi-hue piece, and M3 seeded from its terracotta
+   picks a mustard tertiary instead of the plum. So each family is generated from
+   the art's own colour with @material/material-color-utilities, and the reference
+   values are machine output — regenerate them, do not hand-edit. The generator is
+   `.amp/in/scratch/m3/teto-apply.ts`.
 
-   Three documented deviations from the M3 algorithm:
-     - **secondary is the slate family**, not a tint of the seed (H 264.9 / C 21.9,
-       taken from the Teto / BIRDBRAIN art). It replaces a warm secondary that had
-       been forced down to chroma 12 because at the algorithm's ~23 its tone-90
-       container collided with primary-container (#ffdbca), collapsing the
-       tonal/filled distinction. A cool hue cannot collide with a warm one, so that
-       workaround is gone and the container carries its full chroma.
-     - **tertiary is the brand plum hue** (#64303B) at chroma 40, replacing the
-       algorithm's hue+60 olive (#646032), which reads muddy against the orange.
+     primary     terracotta #A23B3C   H  20.4 / C 54.6
+     tertiary    plum       #390633   H 338.6 / C 39.2  (chroma lifted to 40)
+     secondary   slate      #25324B   H 264.9 / C 21.9
+     accent-warm rose       #DC8296   H   5.8 / C 40.8
+     neutral     ink        #14090F   H 347.6 / C  1     (white base, not orange)
+     neutral-var ink        #14090F   H 347.6 / C  4
+
+   Documented deviations from the M3 algorithm:
+     - **secondary is the slate family**, not a tint of the seed. It replaces a warm
+       secondary that had been forced down to chroma 12 because at the algorithm's
+       ~23 its tone-90 container collided with primary-container (#ffdad8),
+       collapsing the tonal/filled distinction. A cool hue cannot collide with a
+       warm one, so that workaround is gone and the container carries full chroma.
+     - **tertiary is the art's plum hue**, not the algorithm's hue+60 (which is a
+       mustard against terracotta).
      - **`accent-warm` is not an M3 role.** M3 has no name for a light chromatic
-       mid-tone and the palette needs one; it is the art's rose, bound to the
-       existing tertiary tone 60 (light) / 70 (dark). A fill, not a mark.
+       mid-tone and the palette needs one. It is the art's rose, bound to its own
+       `rose` palette rather than to tertiary, because the plum and the rose are 27°
+       apart and sharing a family turned the rose mauve.
+     - **neutral is near-achromatic.** It carries a trace of the art ink's hue at
+       chroma 1, so the surface is white rather than the orange-derived beige it
+       used to be. A warm neutral tints every container and outline and is what
+       made the whole base read as washed orange.
 
    Light is the shipping scheme. Dark is defined and inactive — see the .dark
    block. `@theme inline` is what keeps the swap a class change rather than a
@@ -30,29 +44,29 @@
    ============================================================================ */
 
 :root {
-  /* primary */
+  /* primary — the art's terracotta #A23B3C (H 20.4 / C 54.6). */
   --md-ref-palette-primary-0: #000000;
-  --md-ref-palette-primary-4: #1e0700;
-  --md-ref-palette-primary-6: #270b00;
-  --md-ref-palette-primary-10: #341100;
-  --md-ref-palette-primary-12: #3a1400;
-  --md-ref-palette-primary-17: #4a1c00;
-  --md-ref-palette-primary-20: #552100;
-  --md-ref-palette-primary-22: #5b2400;
-  --md-ref-palette-primary-24: #622700;
-  --md-ref-palette-primary-30: #783200;
-  --md-ref-palette-primary-40: #9d4300;
-  --md-ref-palette-primary-50: #c45600;
-  --md-ref-palette-primary-60: #ec6a06;
-  --md-ref-palette-primary-70: #ff8d4b;
-  --md-ref-palette-primary-80: #ffb690;
-  --md-ref-palette-primary-87: #ffd0ba;
-  --md-ref-palette-primary-90: #ffdbca;
-  --md-ref-palette-primary-92: #ffe2d5;
-  --md-ref-palette-primary-94: #ffeae0;
-  --md-ref-palette-primary-95: #ffede6;
-  --md-ref-palette-primary-96: #fff1eb;
-  --md-ref-palette-primary-98: #fff8f6;
+  --md-ref-palette-primary-4: #270002;
+  --md-ref-palette-primary-6: #310004;
+  --md-ref-palette-primary-10: #410006;
+  --md-ref-palette-primary-12: #480008;
+  --md-ref-palette-primary-17: #5a040e;
+  --md-ref-palette-primary-20: #640b13;
+  --md-ref-palette-primary-22: #6a1117;
+  --md-ref-palette-primary-24: #70161b;
+  --md-ref-palette-primary-30: #832427;
+  --md-ref-palette-primary-40: #a33b3c;
+  --md-ref-palette-primary-50: #c35353;
+  --md-ref-palette-primary-60: #e36c6a;
+  --md-ref-palette-primary-70: #ff8986;
+  --md-ref-palette-primary-80: #ffb3b0;
+  --md-ref-palette-primary-87: #ffcfcc;
+  --md-ref-palette-primary-90: #ffdad8;
+  --md-ref-palette-primary-92: #ffe1e0;
+  --md-ref-palette-primary-94: #ffe9e7;
+  --md-ref-palette-primary-95: #ffedeb;
+  --md-ref-palette-primary-96: #fff0ef;
+  --md-ref-palette-primary-98: #fff8f7;
   --md-ref-palette-primary-99: #fffbff;
   --md-ref-palette-primary-100: #ffffff;
 
@@ -84,81 +98,84 @@
   --md-ref-palette-secondary-99: #fffbff;
   --md-ref-palette-secondary-100: #ffffff;
 
-  /* tertiary */
+  /* tertiary — the art's plum #390633 (H 338.6), chroma lifted to 40. */
   --md-ref-palette-tertiary-0: #000000;
-  --md-ref-palette-tertiary-4: #26000a;
-  --md-ref-palette-tertiary-6: #30000e;
-  --md-ref-palette-tertiary-10: #3d0416;
-  --md-ref-palette-tertiary-12: #43071a;
-  --md-ref-palette-tertiary-17: #501324;
-  --md-ref-palette-tertiary-20: #59192a;
-  --md-ref-palette-tertiary-22: #5e1e2e;
-  --md-ref-palette-tertiary-24: #642233;
-  --md-ref-palette-tertiary-30: #753040;
-  --md-ref-palette-tertiary-40: #924657;
-  --md-ref-palette-tertiary-50: #b05e6f;
-  --md-ref-palette-tertiary-60: #ce7788;
-  --md-ref-palette-tertiary-70: #ed91a2;
-  --md-ref-palette-tertiary-80: #ffb2bf;
-  --md-ref-palette-tertiary-87: #ffced5;
-  --md-ref-palette-tertiary-90: #ffd9de;
-  --md-ref-palette-tertiary-92: #ffe1e4;
-  --md-ref-palette-tertiary-94: #ffe9eb;
-  --md-ref-palette-tertiary-95: #ffecee;
-  --md-ref-palette-tertiary-96: #fff0f1;
-  --md-ref-palette-tertiary-98: #fff8f7;
+  --md-ref-palette-tertiary-4: #22001f;
+  --md-ref-palette-tertiary-6: #2b0027;
+  --md-ref-palette-tertiary-10: #370332;
+  --md-ref-palette-tertiary-12: #3c0836;
+  --md-ref-palette-tertiary-17: #491441;
+  --md-ref-palette-tertiary-20: #511b48;
+  --md-ref-palette-tertiary-22: #56204d;
+  --md-ref-palette-tertiary-24: #5b2452;
+  --md-ref-palette-tertiary-30: #6b3260;
+  --md-ref-palette-tertiary-40: #864979;
+  --md-ref-palette-tertiary-50: #a26293;
+  --md-ref-palette-tertiary-60: #be7bae;
+  --md-ref-palette-tertiary-70: #db95c9;
+  --md-ref-palette-tertiary-80: #f9afe6;
+  --md-ref-palette-tertiary-87: #ffcbef;
+  --md-ref-palette-tertiary-90: #ffd7f1;
+  --md-ref-palette-tertiary-92: #ffdff3;
+  --md-ref-palette-tertiary-94: #ffe7f5;
+  --md-ref-palette-tertiary-95: #ffecf6;
+  --md-ref-palette-tertiary-96: #fff0f7;
+  --md-ref-palette-tertiary-98: #fff7f9;
   --md-ref-palette-tertiary-99: #fffbff;
   --md-ref-palette-tertiary-100: #ffffff;
 
-  /* neutral */
+  /* neutral — near-achromatic, a trace of the art ink's hue (347.6) at chroma 1.
+     The surface is effectively white (#fef8f8) and the containers are neutral
+     grey. This replaces the orange-derived neutral, which left the whole base
+     washed beige: surface #fff8f6, container #f2e6e1, outlines #d7c2b9. */
   --md-ref-palette-neutral-0: #000000;
-  --md-ref-palette-neutral-4: #120d0b;
-  --md-ref-palette-neutral-6: #181210;
-  --md-ref-palette-neutral-10: #201a18;
-  --md-ref-palette-neutral-12: #241e1b;
-  --md-ref-palette-neutral-17: #2f2926;
-  --md-ref-palette-neutral-20: #362f2c;
-  --md-ref-palette-neutral-22: #3a3330;
-  --md-ref-palette-neutral-24: #3f3834;
-  --md-ref-palette-neutral-30: #4d4542;
-  --md-ref-palette-neutral-40: #655d59;
-  --md-ref-palette-neutral-50: #7f7571;
-  --md-ref-palette-neutral-60: #998f8a;
-  --md-ref-palette-neutral-70: #b4a9a4;
-  --md-ref-palette-neutral-80: #d0c4bf;
-  --md-ref-palette-neutral-87: #e4d7d3;
-  --md-ref-palette-neutral-90: #ede0db;
-  --md-ref-palette-neutral-92: #f2e6e1;
-  --md-ref-palette-neutral-94: #f8ebe6;
-  --md-ref-palette-neutral-95: #fbeee9;
-  --md-ref-palette-neutral-96: #fef1ec;
-  --md-ref-palette-neutral-98: #fff8f6;
+  --md-ref-palette-neutral-4: #0f0e0e;
+  --md-ref-palette-neutral-6: #141313;
+  --md-ref-palette-neutral-10: #1d1b1b;
+  --md-ref-palette-neutral-12: #211f1f;
+  --md-ref-palette-neutral-17: #2b292a;
+  --md-ref-palette-neutral-20: #323030;
+  --md-ref-palette-neutral-22: #363434;
+  --md-ref-palette-neutral-24: #3b3939;
+  --md-ref-palette-neutral-30: #494646;
+  --md-ref-palette-neutral-40: #615e5e;
+  --md-ref-palette-neutral-50: #7a7676;
+  --md-ref-palette-neutral-60: #949090;
+  --md-ref-palette-neutral-70: #aeaaaa;
+  --md-ref-palette-neutral-80: #cac5c5;
+  --md-ref-palette-neutral-87: #ded9d9;
+  --md-ref-palette-neutral-90: #e7e1e1;
+  --md-ref-palette-neutral-92: #ece7e7;
+  --md-ref-palette-neutral-94: #f2eded;
+  --md-ref-palette-neutral-95: #f5efef;
+  --md-ref-palette-neutral-96: #f8f2f2;
+  --md-ref-palette-neutral-98: #fef8f8;
   --md-ref-palette-neutral-99: #fffbff;
   --md-ref-palette-neutral-100: #ffffff;
 
-  /* neutral-variant */
+  /* neutral-variant — the same hue at chroma 4, for outlines and body text. */
   --md-ref-palette-neutral-variant-0: #000000;
-  --md-ref-palette-neutral-variant-4: #160c07;
-  --md-ref-palette-neutral-variant-6: #1c110c;
-  --md-ref-palette-neutral-variant-10: #241913;
-  --md-ref-palette-neutral-variant-12: #291d17;
-  --md-ref-palette-neutral-variant-17: #342721;
-  --md-ref-palette-neutral-variant-20: #3b2e27;
-  --md-ref-palette-neutral-variant-22: #3f322b;
-  --md-ref-palette-neutral-variant-24: #443630;
-  --md-ref-palette-neutral-variant-30: #52443d;
-  --md-ref-palette-neutral-variant-40: #6b5b54;
-  --md-ref-palette-neutral-variant-50: #85736b;
-  --md-ref-palette-neutral-variant-60: #a08d84;
-  --md-ref-palette-neutral-variant-70: #bba79e;
-  --md-ref-palette-neutral-variant-80: #d7c2b9;
-  --md-ref-palette-neutral-variant-87: #ebd6cc;
-  --md-ref-palette-neutral-variant-90: #f4ded4;
-  --md-ref-palette-neutral-variant-92: #fae4da;
-  --md-ref-palette-neutral-variant-94: #ffeae0;
-  --md-ref-palette-neutral-variant-95: #ffede6;
-  --md-ref-palette-neutral-variant-96: #fff1eb;
-  --md-ref-palette-neutral-variant-98: #fff8f6;
+  --md-ref-palette-neutral-variant-4: #110d0f;
+  --md-ref-palette-neutral-variant-6: #171214;
+  --md-ref-palette-neutral-variant-10: #1f1a1c;
+  --md-ref-palette-neutral-variant-12: #231e20;
+  --md-ref-palette-neutral-variant-17: #2e282b;
+  --md-ref-palette-neutral-variant-20: #352f31;
+  --md-ref-palette-neutral-variant-22: #393335;
+  --md-ref-palette-neutral-variant-24: #3e383a;
+  --md-ref-palette-neutral-variant-30: #4c4547;
+  --md-ref-palette-neutral-variant-40: #645c5f;
+  --md-ref-palette-neutral-variant-50: #7d7578;
+  --md-ref-palette-neutral-variant-60: #978e91;
+  --md-ref-palette-neutral-variant-70: #b2a9ab;
+  --md-ref-palette-neutral-variant-80: #cec4c7;
+  --md-ref-palette-neutral-variant-87: #e2d7da;
+  --md-ref-palette-neutral-variant-90: #ebe0e3;
+  --md-ref-palette-neutral-variant-92: #f0e5e8;
+  --md-ref-palette-neutral-variant-94: #f6ebee;
+  --md-ref-palette-neutral-variant-95: #f9eef1;
+  --md-ref-palette-neutral-variant-96: #fcf1f4;
+  --md-ref-palette-neutral-variant-98: #fff8f8;
   --md-ref-palette-neutral-variant-99: #fffbff;
   --md-ref-palette-neutral-variant-100: #ffffff;
 
@@ -215,10 +232,40 @@
   --md-ref-palette-slate-99: #fefbff;
   --md-ref-palette-slate-100: #ffffff;
 
-  /* primary tone 45 — the shipping light primary, a deviation from the M3 spec's
-     tone 40 (#9d4300). Tone 40 is spec-exact but reads brown; tone 45 is the most
-     vivid tone that still passes AA against a white label (5.38:1). */
-  --md-ref-palette-primary-45: #b14c00;
+  /* rose — the art's highlight, reference #DC8296 (H 5.8 / C 40.8). Bound to the
+     non-M3 `accent-warm` role. It has its own palette rather than riding the
+     tertiary family, because tertiary is now the art's plum (H 338.6) and the two
+     are 27° apart; sharing a family silently turned the rose mauve. */
+  --md-ref-palette-rose-0: #000000;
+  --md-ref-palette-rose-4: #26000b;
+  --md-ref-palette-rose-6: #300010;
+  --md-ref-palette-rose-10: #3d0317;
+  --md-ref-palette-rose-12: #43061b;
+  --md-ref-palette-rose-17: #511225;
+  --md-ref-palette-rose-20: #59192c;
+  --md-ref-palette-rose-22: #5f1d30;
+  --md-ref-palette-rose-24: #652134;
+  --md-ref-palette-rose-30: #762f42;
+  --md-ref-palette-rose-40: #934659;
+  --md-ref-palette-rose-50: #b05e71;
+  --md-ref-palette-rose-60: #ce778a;
+  --md-ref-palette-rose-70: #ed90a5;
+  --md-ref-palette-rose-80: #ffb1c1;
+  --md-ref-palette-rose-87: #ffcdd6;
+  --md-ref-palette-rose-90: #ffd9df;
+  --md-ref-palette-rose-92: #ffe1e5;
+  --md-ref-palette-rose-94: #ffe9eb;
+  --md-ref-palette-rose-95: #ffecee;
+  --md-ref-palette-rose-96: #fff0f1;
+  --md-ref-palette-rose-98: #fff8f7;
+  --md-ref-palette-rose-99: #fffbff;
+  --md-ref-palette-rose-100: #ffffff;
+
+  /* primary tone 45 — the shipping light primary. Kept at tone 45 rather than the
+     M3 spec's tone 40 (#a33b3c, which reads brown): tone 45 is the most vivid tone
+     that still passes AA against a white label (5.37:1). Same rule as before the
+     Teto swap, which measured 5.38:1. */
+  --md-ref-palette-primary-45: #b34748;
 }
 
 /* ============================================================================
@@ -243,7 +290,7 @@
   /* The art's rose: the palette's only warm mid-tone. A fill, never a mark — at
      tone 60 it measures 3.0:1 on the light surface, which clears the graphic floor
      but not the 4.5:1 text floor. Used as the progress track. */
-  --md-sys-color-accent-warm: var(--md-ref-palette-tertiary-60);
+  --md-sys-color-accent-warm: var(--md-ref-palette-rose-60);
 
   --md-sys-color-tertiary: var(--md-ref-palette-tertiary-40);
   --md-sys-color-on-tertiary: var(--md-ref-palette-tertiary-100);
@@ -301,7 +348,7 @@
 
   /* Rose lifted a tone for dark: a mid-tone has to sit higher to read as one
      against a dark surface (tone 70 measures 8.1:1). */
-  --md-sys-color-accent-warm: var(--md-ref-palette-tertiary-70);
+  --md-sys-color-accent-warm: var(--md-ref-palette-rose-70);
 
   --md-sys-color-tertiary: var(--md-ref-palette-tertiary-80);
   --md-sys-color-on-tertiary: var(--md-ref-palette-tertiary-20);

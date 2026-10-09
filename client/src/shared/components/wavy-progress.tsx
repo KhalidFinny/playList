@@ -20,6 +20,13 @@ export interface WavyProgressProps {
   thickness?: number;
   /** Seconds for the wave to travel one wavelength. M3 ties speed to wavelength. */
   speed?: number;
+  /**
+   * Whether the wave is live. When false the amplitude settles to zero, so a
+   * paused player goes flat instead of holding a frozen squiggle. This is the
+   * Expressive behaviour: the wave *grows* out of the track rather than being
+   * present the whole time.
+   */
+  waving?: boolean;
   /** Unplayed stroke. Defaults to the `accent-warm` role. */
   trackClassName?: string;
   className?: string;
@@ -55,17 +62,19 @@ function wavePath(
 /**
  * M3 Expressive wavy progress indicator.
  *
- * The **whole bar is one wave**, not a squiggle over a flat line: the unplayed
- * portion squiggles in step with the played portion, and only the colour changes
- * at the playhead. Two independently drawn waves would drift apart, so both
- * layers render the same path and carry the same animation; the unplayed layer is
- * offset by the played width so the wave stays continuous across the boundary.
+ * The **active indicator waves; the track does not.** That is M3's own
+ * arrangement and it is the quieter one: a single moving line against a still
+ * one, instead of two squiggles competing. Only the colour changes at the
+ * playhead, which is where the wave stops and the flat track begins.
  *
- * The wave **translates** rather than being redrawn. Because it is periodic,
- * shifting it by exactly one wavelength reproduces it, so the path is built once
- * and a CSS transform slides it on the compositor. Redrawing the path every frame
- * cost 33% of the main thread on a throttled device, since every `d` write
- * invalidates style, layout and paint.
+ * The amplitude is **animated**, so the wave grows out of the track when it
+ * starts and settles flat when it stops (`waving`). Scaling the whole path on the
+ * Y axis about the centre line is what makes this a CSS transition on the
+ * compositor — animating the path's `d` would mean a per-frame DOM write, which
+ * measured 33% of the main thread on a throttled device.
+ *
+ * The wave **translates** rather than being redrawn, for the same reason: a sine
+ * is periodic, so shifting it by exactly one wavelength reproduces it.
  *
  * Pass `value` for determinate, omit it for indeterminate.
  */
@@ -75,6 +84,7 @@ export function WavyProgress({
   wavelength = 40,
   thickness = 4,
   speed = 1,
+  waving = true,
   trackClassName = "stroke-accent-warm",
   className,
   label,
@@ -105,6 +115,15 @@ export function WavyProgress({
     "--wave-duration": `${speed}s`,
   } as React.CSSProperties;
 
+  // Scale about the resting centre line, so only the amplitude changes. The
+  // stroke is exempted from the scale (`non-scaling-stroke`) so it keeps its
+  // weight as the wave flattens.
+  const amplitudeVars = {
+    transform: `translateY(${centerY}px) scaleY(${waving ? 1 : 0}) translateY(${-centerY}px)`,
+    transition:
+      "transform var(--md-sys-motion-duration-expressive-default-spatial) var(--md-sys-motion-easing-expressive-default-spatial)",
+  } as React.CSSProperties;
+
   const svgProps = {
     width: width + wavelength,
     height,
@@ -126,40 +145,45 @@ export function WavyProgress({
     >
       {width > 0 && (
         <>
-          {/* Played. Clipped to the progress extent, so the colour changes at the
-              playhead while the wave runs through both layers unbroken. */}
+          {/* Active indicator. Clipped to the progress extent, so the colour
+              changes at the playhead while the wave runs on unbroken. */}
           <div
             className="absolute inset-y-0 left-0 overflow-hidden"
             style={{ width: indeterminate ? segmentWidth : played }}
           >
             <svg {...svgProps} className="wave-slide absolute inset-y-0 left-0" style={waveVars}>
-              <path
-                d={indeterminate ? indeterminateWave : wave}
-                className="stroke-current"
+              <g style={indeterminate ? undefined : amplitudeVars}>
+                <path
+                  d={indeterminate ? indeterminateWave : wave}
+                  className="stroke-current"
+                  strokeWidth={thickness}
+                  strokeLinecap="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              </g>
+            </svg>
+          </div>
+
+          {/* Track. Flat, as M3 draws it — the wave is the only moving thing. */}
+          {!indeterminate && width - played > 0 && (
+            <svg
+              width={width}
+              height={height}
+              viewBox={`0 0 ${width} ${height}`}
+              fill="none"
+              className="pointer-events-none absolute inset-0 overflow-visible"
+              aria-hidden="true"
+            >
+              <line
+                x1={played}
+                y1={centerY}
+                x2={width}
+                y2={centerY}
+                className={trackClassName}
                 strokeWidth={thickness}
                 strokeLinecap="round"
               />
             </svg>
-          </div>
-
-          {/* Unplayed. Same path and same animation, shifted by the played width so
-              it continues the wave rather than starting a new one. The static shift
-              uses `translate` and the animation uses `transform`, which compose. */}
-          {!indeterminate && (
-            <div className="absolute inset-y-0 right-0 overflow-hidden" style={{ left: played }}>
-              <svg
-                {...svgProps}
-                className="wave-slide absolute inset-y-0 left-0"
-                style={{ ...waveVars, translate: `-${played}px` }}
-              >
-                <path
-                  d={wave}
-                  className={trackClassName}
-                  strokeWidth={thickness}
-                  strokeLinecap="round"
-                />
-              </svg>
-            </div>
           )}
 
           {/* Stop dot at the end of the track. */}
@@ -173,28 +197,6 @@ export function WavyProgress({
           >
             <circle cx={width} cy={centerY} r={thickness / 2} className="fill-current" />
           </svg>
-
-          {/* Playhead. Marks where played becomes unplayed. */}
-          {!indeterminate && clamped > 0 && (
-            <svg
-              width={width}
-              height={height}
-              viewBox={`0 0 ${width} ${height}`}
-              fill="none"
-              className="pointer-events-none absolute inset-0 overflow-visible"
-              aria-hidden="true"
-            >
-              <line
-                x1={played}
-                y1={centerY - amplitude - thickness / 2}
-                x2={played}
-                y2={centerY + amplitude + thickness / 2}
-                className="stroke-current"
-                strokeWidth={thickness}
-                strokeLinecap="round"
-              />
-            </svg>
-          )}
         </>
       )}
     </div>

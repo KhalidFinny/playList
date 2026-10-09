@@ -58,6 +58,7 @@ export const TrackMetadata = ({
       {duration > 0 && (
         <WavyProgress
           value={percent / 100}
+          waving={isPlaying}
           label={`Playback position ${formatTime(currentTime)} of ${formatTime(duration)}`}
           className="mt-1 max-w-[200px] text-primary"
         />

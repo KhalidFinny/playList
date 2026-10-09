@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 import { Logo } from "@/shared/components/Logo";
 import { WavyCircularProgress } from "@/shared/components/wavy-circular-progress";
+import { transitions } from "@/shared/motion/springs";
 
 interface LoadingOverlayProps {
   isLoading: boolean;
@@ -23,7 +24,7 @@ export function LoadingOverlay({ isLoading }: LoadingOverlayProps) {
         <motion.div
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.3 }}
+          transition={transitions.slow}
           className="fixed inset-0 z-100 flex items-center justify-center bg-surface"
         >
           <div className="relative flex items-center justify-center">

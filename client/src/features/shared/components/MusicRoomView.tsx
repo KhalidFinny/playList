@@ -133,17 +133,12 @@ export function MusicRoomView({
 
         <div className="w-full max-w-[240px] lg:max-w-[min(560px,calc(100vh-15rem))]">
           <div className="lg:hidden">
-            <MiniVinyl
-              isPlaying={isPlaying}
-              thumbnail={trackArtwork}
-              onToggle={isAdmin ? onTogglePlay : undefined}
-            />
+            <MiniVinyl isPlaying={isPlaying} onToggle={isAdmin ? onTogglePlay : undefined} />
           </div>
           <div className="hidden lg:block">
             <Turntable
               isPlaying={isPlaying}
               progress={progress}
-              thumbnail={trackArtwork}
               onToggle={isAdmin ? onTogglePlay : undefined}
             />
           </div>

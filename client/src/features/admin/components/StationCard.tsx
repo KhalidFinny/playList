@@ -3,6 +3,7 @@ import { ChevronRight } from "lucide-react";
 import { Card } from "@/shared/components/card";
 import { Badge } from "@/shared/components/badge";
 import { Shape } from "@/shared/shapes/shape";
+import { transitions } from "@/shared/motion/springs";
 
 interface Station {
   id: string;
@@ -23,6 +24,7 @@ export function StationCard({ station, onClick }: StationCardProps) {
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
+      transition={transitions.base}
       key={station.id}
       onClick={onClick}
     >
