@@ -91,24 +91,48 @@ Measured on the current server (`.amp/in/scratch/cpu-probe.ts`, 5 runs each):
 `admin_login` calls `Bun.password.verify` (`server/src/socket/authHandler.ts:111`).
 At **~128 ms of CPU** that is **13× the 10 ms Workers free-plan CPU budget**.
 
-### The ambiguity that decides it
+### The ambiguity is resolved — the 10 ms cap DOES apply to Durable Objects
 
-The Workers limits page gives the plan-level cap:
+Tested against a real deployment (2026-10-09), with a throwaway probe Worker that
+burned CPU in both the Worker fetch handler and a Durable Object, then read the
+outcome from `wrangler tail`.
 
-| Limit | Workers Free | Workers Paid |
-|---|---|---|
-| CPU time | **10 ms** | 5 min |
+The DO **does** enforce a CPU limit, and the documented "30 seconds" is not what
+a free-tier DO gets:
 
-The Durable Objects limits page says `CPU per request | 30 seconds (default)`,
-and the Workers page says raising `cpu_ms` is a Paid-plan setting. So:
+```
+"outcome": "exceededCpu"
+"exceptions": [{ "name": "Error",
+  "message": "Durable Object exceeded its CPU time limit and was reset." }]
+```
 
-- **If the 10 ms plan cap applies to DO invocations** (the conservative reading,
-  since it is the account-level limit and cannot be raised on Free), then
-  `admin_login` cannot run on the free plan at all.
-- **If DO invocations really do get 30 s on Free**, the cost is irrelevant.
+- A 150 ms burn in the DO → `exceededCpu`. 400 ms and 1000 ms likewise.
+- The same 150 ms burn in the Worker fetch handler → `error 1102`. So the control
+  confirms enforcement is real and the probe was measuring something.
+- A 150 ms burn in the **Worker** also failed, which is the documented 10 ms cap
+  behaving as expected.
 
-**Confirm this empirically before designing around it.** Everything below assumes
-the conservative reading.
+**Conclusion: DO invocations are bound by the account's CPU limit, not the DO's
+configurable 30 s maximum.** The 30 s is the ceiling a Paid account can raise
+`cpu_ms` to; it is not the Free allowance. `admin_login`'s 128 ms cannot run here.
+
+#### What the threshold measurement could not settle
+
+An exact ms threshold was **not** pinned, and the attempt is worth recording so
+nobody repeats it:
+
+- A busy loop doing `while (Date.now() - t < ms)` is dominated by `Date.now()`
+  calls, not by the intended work, so its results are meaningless.
+- A plain arithmetic loop is **eliminated by the optimiser**: 100,000,000
+  iterations reported `wallMs: 0`, which is impossible.
+- Real SHA-256 digests are not eliminable, but the results are non-monotonic —
+  10 digests failed while 5,000 passed. Cloudflare documents that each isolate
+  gets "built-in flexibility to allow for cases where your Worker infrequently
+  runs over the configured limit", so borderline work passes or fails
+  non-deterministically. A black-box threshold cannot be read off this way.
+
+The budget is therefore known to be **low single-digit milliseconds at most**,
+not 30 s — which is all the decision needs.
 
 ### Why it is not just a Bun detail
 
@@ -135,11 +159,14 @@ outbound `fetch()`, and I/O does not count toward CPU time.
 
 ## What NOT to do
 
-- **Do not raise `pingInterval` to buy headroom.** It was the recommendation in
-  the first, wrong version of the analysis. At 20:1 there is no need to trade
-  liveness-detection latency for capacity.
-- **Do not move to Workers Paid on these numbers.** Nothing here needs it at
-  50 connections.
+- **Do not raise `pingInterval` to buy request headroom.** It was the
+  recommendation in the first, wrong version of the analysis. At 20:1 there is no
+  need to trade liveness-detection latency for capacity.
+- **Do not assume the paid plan is unnecessary.** An earlier revision of this
+  file said that, on the request numbers alone. The CPU measurement overturns it:
+  password verification is 128 ms against a low-single-digit-ms budget, so the
+  paid plan is now the leading option. The *request* limits are still fine for
+  free; CPU is what decides.
 
 ## Done Criteria
 
@@ -151,8 +178,9 @@ outbound `fetch()`, and I/O does not count toward CPU time.
 - [ ] `rows_written` per connection-day measured against the 100,000/day
       allowance
 - [x] CPU of the password path measured — **128 ms, 13× over the 10 ms budget**
-- [ ] The DO-CPU ambiguity resolved: does the 10 ms Free cap apply to DO
-      invocations, or the DO's 30 s?
+- [x] The DO-CPU ambiguity resolved: **the 10 ms cap applies to DO invocations**;
+      a 150 ms burn returns `outcome: exceededCpu`. The "30 s" is the Paid ceiling,
+      not the Free allowance.
 - [ ] A decision taken on the password path (paid plan, or auth off the Worker)
 
 ## Implemented and verified (2026-10-09)

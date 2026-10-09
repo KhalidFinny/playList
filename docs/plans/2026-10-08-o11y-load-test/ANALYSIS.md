@@ -108,10 +108,26 @@ the thing most likely to force a decision.
 **Caveat, and it is load-bearing.** The Workers limits page gives CPU as a
 plan-level cap (Free 10 ms, Paid 5 min), while the Durable Objects limits page
 says `CPU per request | 30 seconds (default)` and raising it is a Paid setting.
-If DO invocations really do get 30 s on Free, this finding is moot. If the 10 ms
-account cap applies to them — the conservative reading — `admin_login` cannot run
-on the free plan. **This needs confirming against a real deployment**, and it is
-the single most valuable thing left to measure.
+
+**Resolved 2026-10-09 by testing a real deployment.** A throwaway probe Worker
+burned CPU in both the Worker fetch handler and a Durable Object; the outcome came
+from `wrangler tail`:
+
+```
+"outcome": "exceededCpu"
+"message": "Durable Object exceeded its CPU time limit and was reset."
+```
+
+**The 10 ms cap applies to Durable Object invocations.** A 150 ms burn in the DO
+was killed; so was 400 ms and 1000 ms. The documented "30 s" is the ceiling a
+*Paid* account can raise `cpu_ms` to, not the Free allowance. So `admin_login`
+cannot run in a Worker or a DO on the free plan.
+
+An exact threshold was not pinned — a plain arithmetic loop is eliminated by the
+optimiser (100M iterations reported `wallMs: 0`), and real SHA-256 digests gave
+non-monotonic results because Cloudflare allows each isolate "built-in
+flexibility" for occasional overages. The budget is low single-digit milliseconds
+at most, which is all the decision needs.
 
 It is also not a Bun detail. Any memory-hard hash (argon2, bcrypt, PBKDF2 with
 sane iterations) is deliberately expensive; whatever replaces `Bun.password` will
@@ -185,8 +201,11 @@ The free plan holds. To keep it holding, in priority order:
    `sync_playback` every 3 s. If it grows, batch the playback write or lower the
    sync frequency. It is the second-tightest limit.
 4. **The CPU question is answered — and it is the blocker.** Password
-   verification costs **128 ms**, 13× the 10 ms free budget. See the section
-   above. Decide: paid plan, or auth off the Worker.
+   verification costs **128 ms**, against a free-plan budget now *measured* to be
+   low single-digit milliseconds. The DO does **not** get the documented 30 s:
+   a 150 ms burn returns `outcome: exceededCpu` with
+   "Durable Object exceeded its CPU time limit and was reset." Decide: paid plan,
+   or auth off the Worker.
 
 ## Status (2026-10-09)
 
