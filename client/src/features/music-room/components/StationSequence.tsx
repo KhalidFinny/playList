@@ -22,10 +22,14 @@ interface StationSequenceProps {
  */
 export const StationSequence: FC<StationSequenceProps> = ({ queue, roomId, onAddToQueue }) => {
   return (
-    <aside className="flex min-h-0 w-full flex-col">
-      <h2 className="mb-2 text-title-medium">Up next</h2>
+    <aside className="flex w-full min-h-0 flex-col">
+      <h2 className="mb-2 shrink-0 text-title-medium">Up next</h2>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      {/* Five rows tall, always: 5 × (44px artwork + 16px vertical padding) =
+          300px. A fixed height rather than a maximum is deliberate — the panel
+          must not resize as tracks are added or played, or the artwork above it
+          and the disc beside it shift with every change. */}
+      <div className="h-[300px] min-h-0 overflow-y-auto">
         {queue.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-8 text-center">
             <Shape name="cookie12" size={40} className="text-on-surface-variant" />

@@ -100,9 +100,9 @@ export function MusicRoomView({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={transitions.base}
-        className="flex w-full shrink-0 flex-col gap-6 lg:w-[400px] lg:justify-center"
+        className="flex w-full shrink-0 flex-col gap-6 lg:h-full lg:min-h-0 lg:w-[400px] lg:justify-center"
       >
-        <div className="flex items-start gap-5">
+        <div className="flex shrink-0 items-start gap-5">
           <div className="hidden size-[104px] shrink-0 items-center justify-center overflow-hidden rounded-m3-lg bg-surface-container-high sm:flex">
             {trackArtwork ? (
               <img src={trackArtwork} alt="" className="size-full object-cover" />
