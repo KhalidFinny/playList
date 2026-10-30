@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/podman run --rm --name playmusic_redis -p 6104:6379 -v playmusic_redis_data:/data docker.io/library/redis:7-alpine redis-server --appendonly yes --requirepass REDIS
+ExecStart=/usr/bin/podman run --rm --replace --name playmusic_redis -p 6104:6379 -v playmusic_redis_data:/data docker.io/library/redis:7-alpine redis-server --appendonly yes --requirepass REDIS
 Restart=always
 RestartSec=5
 TimeoutStopSec=30
