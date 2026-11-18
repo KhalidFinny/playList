@@ -5,6 +5,7 @@ import { socket } from "@/shared/lib/socket";
 import { playbackMachine } from "@/machines/playbackMachine";
 import { normalizeGain, resolveLoudness } from "@/shared/lib/loudness";
 import { applyGain, watchAudioSettings } from "@/shared/lib/audioGraph";
+import { fetchStream } from "@/shared/lib/preview";
 import { useAudioStore } from "@/stores/audioStore";
 import { setMediaSession, setMediaSessionPlaybackState } from "@/shared/lib/mediaSession";
 import { MusicRoomView } from "../../shared/components/MusicRoomView";
@@ -120,11 +121,7 @@ export function PlaybackController({
     setStreamFailed(false);
     setTrackLoudness(null);
 
-    fetch(`/api/preview/${videoId}`)
-      .then((res) => {
-        if (!res.ok) throw new Error(`stream resolve failed (${res.status})`);
-        return res.json() as Promise<{ url: string; loudnessLufs?: number | null }>;
-      })
+    fetchStream(videoId)
       .then((data) => {
         if (cancelled) return;
         setStreamUrl(data.url);

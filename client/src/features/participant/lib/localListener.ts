@@ -3,6 +3,7 @@ import { useListenStore } from "@/stores/listenStore";
 import type { Track } from "@/shared/types";
 import { normalizeGain, resolveLoudness } from "@/shared/lib/loudness";
 import { applyGain, watchAudioSettings } from "@/shared/lib/audioGraph";
+import { fetchStream } from "@/shared/lib/preview";
 import { useAudioStore } from "@/stores/audioStore";
 import { setMediaSession, setMediaSessionPlaybackState } from "@/shared/lib/mediaSession";
 
@@ -89,12 +90,7 @@ async function loadTrack(element: HTMLAudioElement, track: Track): Promise<void>
   useListenStore.getState().setPhase("loading");
 
   try {
-    const res = await fetch(`/api/preview/${track.youtubeId}`);
-    if (!res.ok) throw new Error("Audio is unavailable for this track");
-    const { url, loudnessLufs } = (await res.json()) as {
-      url: string;
-      loudnessLufs?: number | null;
-    };
+    const { url, loudnessLufs } = await fetchStream(track.youtubeId);
     if (token !== generation) return;
 
     element.src = url;

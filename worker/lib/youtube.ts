@@ -116,6 +116,43 @@ async function ensureVisitor(fresh = false): Promise<string> {
   return visitorData;
 }
 
+// Resolving costs a YouTube player call, and an `<audio>` element makes several
+// range requests per track, so an uncached resolver spends one call per range
+// request. Measured on the deployed Worker: 21 of 30 rapid resolves were refused
+// with a bot check, and every stream request waited ~270ms for its first byte.
+//
+// The cache is the Cache API rather than a module-level map: each request can land
+// on a different isolate, so a per-isolate map almost never hits. Five minutes is
+// well inside the signed URL's six-hour life, and a miss is only one call.
+const RESOLVE_TTL_SECONDS = 300;
+const cacheKey = (videoId: string) => new Request(`https://preview.internal/${videoId}`);
+
+/** The stream for a video, resolving it only on a cache miss. */
+export async function getAudioStream(
+  videoId: string,
+  ctx?: ExecutionContext,
+): Promise<AudioStream> {
+  const cache = caches.default;
+  const key = cacheKey(videoId);
+
+  const hit = await cache.match(key);
+  if (hit) return (await hit.json()) as AudioStream;
+
+  const stream = await resolveAudio(videoId);
+  const stored = new Response(JSON.stringify(stream), {
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": `public, max-age=${RESOLVE_TTL_SECONDS}`,
+    },
+  });
+
+  // Not awaited on the hot path: the caller needs the stream, not the cache write.
+  if (ctx) ctx.waitUntil(cache.put(key, stored));
+  else await cache.put(key, stored);
+
+  return stream;
+}
+
 export async function resolveAudio(videoId: string): Promise<AudioStream> {
   const visitor = await ensureVisitor();
   let lastError = new Error("No playable audio format found");

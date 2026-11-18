@@ -33,6 +33,10 @@ export function useAdminDashboard(roomId: string) {
   const playerARef = useRef<PlayerRef | null>(null);
   const playerBRef = useRef<PlayerRef | null>(null);
   const nowPlayingRef = useRef<Track | null>(null);
+  // How long the room has to answer a playback request. Without a bound, a reply
+  // lost to a dropped socket left the in-flight guard set for good.
+  const ACK_TIMEOUT_MS = 10_000;
+
   const isRequestingNextRef = useRef(false);
   const isRequestingPreviousRef = useRef(false);
 
@@ -103,18 +107,24 @@ export function useAdminDashboard(roomId: string) {
     if (!roomId || isRequestingNextRef.current) return;
 
     isRequestingNextRef.current = true;
-    socket.emit(
-      "eo_track_ended",
-      { roomId, idempotencyKey: crypto.randomUUID() },
-      (res: EoTrackEndedResponse) => {
-        if (res.success) {
-          applyNowPlaying(res.nextTrack);
-          setUpNext(res.upNext);
-          if (res.oldTrackId) setHasPreviousTrack(true);
-        }
-        isRequestingNextRef.current = false;
-      },
-    );
+    socket
+      .timeout(ACK_TIMEOUT_MS)
+      .emit(
+        "eo_track_ended",
+        { roomId, idempotencyKey: crypto.randomUUID() },
+        (err: Error | null, res: EoTrackEndedResponse) => {
+          if (err || !res) {
+            isRequestingNextRef.current = false;
+            return;
+          }
+          if (res.success) {
+            applyNowPlaying(res.nextTrack);
+            setUpNext(res.upNext);
+            if (res.oldTrackId) setHasPreviousTrack(true);
+          }
+          isRequestingNextRef.current = false;
+        },
+      );
   }, [applyNowPlaying, roomId]);
 
   const onPlayerReady = useCallback((id: "A" | "B", player: PlayerRef) => {
@@ -127,39 +137,49 @@ export function useAdminDashboard(roomId: string) {
 
     isRequestingNextRef.current = true;
     return new Promise<boolean>((resolve) => {
-      socket.emit(
-        "eo_track_ended",
-        { roomId, idempotencyKey: crypto.randomUUID() },
-        (res: EoTrackEndedResponse) => {
-          let advanced = false;
-          if (res.success) {
-            applyNowPlaying(res.nextTrack);
-            setUpNext(res.upNext);
-            if (res.oldTrackId) setHasPreviousTrack(true);
-
-            if (res.nextTrack) {
-              const nextPlayer = activePlayerRef.current === "A" ? "B" : "A";
-              setActivePlayer(nextPlayer);
-              socket.emit("sync_playback", {
-                roomId,
-                currentTime: 0,
-                duration: 0,
-                isPlaying: true,
-              });
-              advanced = true;
-            } else {
-              socket.emit("sync_playback", {
-                roomId,
-                currentTime: 0,
-                duration: 0,
-                isPlaying: false,
-              });
+      socket
+        .timeout(ACK_TIMEOUT_MS)
+        .emit(
+          "eo_track_ended",
+          { roomId, idempotencyKey: crypto.randomUUID() },
+          (err: Error | null, res: EoTrackEndedResponse) => {
+            // The room did not answer in time. Treat it as a failed advance rather
+            // than leaving the guard set, which used to block every later track
+            // end until the page was reloaded.
+            if (err || !res) {
+              isRequestingNextRef.current = false;
+              resolve(false);
+              return;
             }
-          }
-          isRequestingNextRef.current = false;
-          resolve(advanced);
-        },
-      );
+            let advanced = false;
+            if (res.success) {
+              applyNowPlaying(res.nextTrack);
+              setUpNext(res.upNext);
+              if (res.oldTrackId) setHasPreviousTrack(true);
+
+              if (res.nextTrack) {
+                const nextPlayer = activePlayerRef.current === "A" ? "B" : "A";
+                setActivePlayer(nextPlayer);
+                socket.emit("sync_playback", {
+                  roomId,
+                  currentTime: 0,
+                  duration: 0,
+                  isPlaying: true,
+                });
+                advanced = true;
+              } else {
+                socket.emit("sync_playback", {
+                  roomId,
+                  currentTime: 0,
+                  duration: 0,
+                  isPlaying: false,
+                });
+              }
+            }
+            isRequestingNextRef.current = false;
+            resolve(advanced);
+          },
+        );
     });
   }, [applyNowPlaying, roomId]);
 
@@ -168,15 +188,23 @@ export function useAdminDashboard(roomId: string) {
 
     isRequestingPreviousRef.current = true;
     return new Promise<boolean>((resolve) => {
-      socket.emit(
+      socket.timeout(ACK_TIMEOUT_MS).emit(
         "previous_track",
         { roomId },
-        (res: {
-          success: boolean;
-          previousTrack?: Track;
-          hasPrevious?: boolean;
-          error?: string;
-        }) => {
+        (
+          err: Error | null,
+          res: {
+            success: boolean;
+            previousTrack?: Track;
+            hasPrevious?: boolean;
+            error?: string;
+          },
+        ) => {
+          if (err || !res) {
+            isRequestingPreviousRef.current = false;
+            resolve(false);
+            return;
+          }
           const moved = Boolean(res.success && res.previousTrack);
           if (res.success && res.previousTrack) {
             applyNowPlaying(res.previousTrack);
@@ -225,6 +253,10 @@ export function useAdminDashboard(roomId: string) {
     const handleConnect = () => {
       console.log("[DASHBOARD] Socket connected");
       setConnected(true);
+      // A request that was in flight when the socket dropped will never be
+      // acknowledged, so its guard has to be released here.
+      isRequestingNextRef.current = false;
+      isRequestingPreviousRef.current = false;
       // Re-join the room on reconnect (socket.io reconnects automatically but doesn't re-emit our events)
       const token = localStorage.getItem("adminToken");
       if (token && joinRoomRef.current) {
@@ -293,6 +325,8 @@ export function useAdminDashboard(roomId: string) {
 
     const handleDisconnect = () => {
       setConnected(false);
+      isRequestingNextRef.current = false;
+      isRequestingPreviousRef.current = false;
     };
 
     socket.on("connect", handleConnect);
