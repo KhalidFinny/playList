@@ -1,29 +1,69 @@
-import { RoomDO } from "./room-do";
+import { RoomHub } from "./hub";
+import { resolveAudio } from "./lib/youtube";
 
-export { RoomDO };
+export { RoomHub };
 
 export interface Env {
-  ROOM: DurableObjectNamespace<RoomDO>;
+  ROOM: DurableObjectNamespace;
   ASSETS: Fetcher;
+  ADMIN_INVITE_CODE?: string;
 }
 
-/**
- * Worker entry.
- *
- * `/socket.io` goes to the room's Durable Object; everything else is the built
- * SPA. The room has to be known **before** the WebSocket is accepted, because a
- * Durable Object is chosen by name — hence the `?roomId=` query parameter. That
- * is the one client-side change the port needs (see issue 02).
- */
+const json = (body: unknown, status: number) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+  });
+
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
 
-    if (url.pathname.startsWith("/socket.io")) {
-      const roomId = url.searchParams.get("roomId") ?? "lobby";
-      return env.ROOM.get(env.ROOM.idFromName(roomId)).fetch(req);
+    // 11-character ids only, so this never becomes an open proxy.
+    const stream = /^\/api\/preview\/([A-Za-z0-9_-]{11})\/stream$/.exec(url.pathname);
+    if (stream) return proxyStream(stream[1], req);
+
+    // A room id has to be known before the socket is accepted, and this app
+    // joins by passkey, so every socket lands on the same hub object.
+    if (url.pathname.startsWith("/socket.io") || url.pathname.startsWith("/api/")) {
+      return env.ROOM.get(env.ROOM.idFromName("hub")).fetch(req);
     }
 
     return env.ASSETS.fetch(req);
   },
 } satisfies ExportedHandler<Env>;
+
+/**
+ * The signed googlevideo URL is bound to the resolver's IP and sends no CORS
+ * header, so the browser cannot play it directly. Streaming it through the
+ * Worker fixes both, and keeps Range support so `<audio>` can seek.
+ */
+async function proxyStream(videoId: string, req: Request): Promise<Response> {
+  let upstream: Awaited<ReturnType<typeof resolveAudio>>;
+  try {
+    upstream = await resolveAudio(videoId);
+  } catch (err) {
+    console.error(`[stream] ${videoId}:`, err);
+    return json({ error: "Failed to get audio stream" }, 502);
+  }
+
+  const range = req.headers.get("Range");
+  const response = await fetch(upstream.url, { headers: range ? { Range: range } : {} });
+
+  if (!response.ok && response.status !== 206) {
+    return json({ error: `Upstream refused the stream (${response.status})` }, 502);
+  }
+
+  const headers = new Headers({
+    "Content-Type": upstream.mimeType,
+    "Accept-Ranges": "bytes",
+    "Cache-Control": "no-store",
+    "Access-Control-Allow-Origin": "*",
+  });
+  for (const key of ["Content-Range", "Content-Length"]) {
+    const value = response.headers.get(key);
+    if (value) headers.set(key, value);
+  }
+
+  return new Response(response.body, { status: response.status, headers });
+}
