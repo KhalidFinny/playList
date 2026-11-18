@@ -27,7 +27,7 @@ type ParticipantFlowEvent =
   | { type: "SEARCH_REQUESTED"; query: string }
   | { type: "SEARCH_RECEIVED"; requestId: number; query: string; results: SearchResult[] }
   | { type: "SELECT_SONG"; youtubeId: string }
-  | { type: "SUBMIT_OK" }
+  | { type: "SUBMIT_OK"; autoApproved: boolean }
   | { type: "SUBMIT_FAILED"; error: string }
   | { type: "COOLDOWN_TICK" }
   | { type: "CLEAR_STATUS" }
@@ -101,11 +101,17 @@ export const participantFlowMachine = setup({
           }
         : {},
     ),
-    setSubmitOk: assign({
+    setSubmitOk: assign(({ event }) => ({
       submittingId: null,
-      statusMsg: { type: "success", text: "Song added to queue!" },
+      statusMsg: {
+        type: "success",
+        text:
+          event.type === "SUBMIT_OK" && event.autoApproved
+            ? "Added to the queue!"
+            : "Request sent for approval.",
+      },
       cooldownSeconds: 3,
-    }),
+    })),
     setSubmitFailed: assign(({ event }) =>
       event.type === "SUBMIT_FAILED"
         ? { submittingId: null, statusMsg: { type: "error", text: event.error } }

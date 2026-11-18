@@ -96,6 +96,7 @@ export const playbackMachine = setup({
     paused: {
       on: {
         PLAY: "playing",
+        TRACK_ENDED: "transitioning",
         NEXT_REQUESTED: "transitioning",
         PREVIOUS_REQUESTED: "previousLoading",
       },

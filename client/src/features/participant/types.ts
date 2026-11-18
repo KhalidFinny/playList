@@ -1,4 +1,4 @@
-import type { SearchResult, Track } from "../../shared/types";
+import type { RoomMode, SearchResult, Track } from "../../shared/types";
 
 export type ParticipantTrack = Track;
 
@@ -13,6 +13,7 @@ export type NowPlayingResponse = {
 
 export type JoinRoomResponse = {
   success: boolean;
+  mode?: RoomMode;
   message?: string;
   error?: string;
   code?: string;

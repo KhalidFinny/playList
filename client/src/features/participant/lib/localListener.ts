@@ -1,6 +1,10 @@
 import { useRoomStore } from "@/stores/roomStore";
 import { useListenStore } from "@/stores/listenStore";
 import type { Track } from "@/shared/types";
+import { normalizeGain, resolveLoudness } from "@/shared/lib/loudness";
+import { applyGain, watchAudioSettings } from "@/shared/lib/audioGraph";
+import { useAudioStore } from "@/stores/audioStore";
+import { setMediaSession, setMediaSessionPlaybackState } from "@/shared/lib/mediaSession";
 
 /**
  * Plays the room's broadcast on this device, so a participant can plug
@@ -22,6 +26,7 @@ const DRIFT_CHECK_MS = 2000;
 
 let audio: HTMLAudioElement | null = null;
 let unsubscribe: (() => void) | null = null;
+let unwatchSettings: (() => void) | null = null;
 let driftTimer: ReturnType<typeof setInterval> | null = null;
 let loadedTrackId: string | null = null;
 let appliedPlaying: boolean | null = null;
@@ -86,16 +91,36 @@ async function loadTrack(element: HTMLAudioElement, track: Track): Promise<void>
   try {
     const res = await fetch(`/api/preview/${track.youtubeId}`);
     if (!res.ok) throw new Error("Audio is unavailable for this track");
-    const { url } = (await res.json()) as { url: string };
+    const { url, loudnessLufs } = (await res.json()) as {
+      url: string;
+      loudnessLufs?: number | null;
+    };
     if (token !== generation) return;
 
     element.src = url;
     await waitForCanPlay(element);
     if (token !== generation) return;
 
+    // Same normalizer as the host, so headphones and the room speaker agree on
+    // level. YouTube's measurement arrives with the stream; only a track without
+    // one costs a decode.
+    applyGain(element, 1);
+    void resolveLoudness(track.youtubeId, url, loudnessLufs).then((loudness) => {
+      if (token !== generation) return;
+      applyGain(element, useAudioStore.getState().normalize ? normalizeGain(loudness) : 1);
+    });
+
     // Seek before playing, so it never starts from the top and jumps.
     element.currentTime = expectedPosition();
     ready = true;
+
+    // Headphones stay on the lock screen: the media session is what lets the
+    // OS keep this element running once the screen turns off or the app is
+    // backgrounded.
+    setMediaSession(track, {
+      onPlay: () => void startPlayback(element),
+      onPause: () => element.pause(),
+    });
 
     const { isPlaying } = useRoomStore.getState();
     appliedPlaying = isPlaying;
@@ -130,6 +155,7 @@ function syncFromStore(): void {
   if (!trackId || isPlaying === appliedPlaying) return;
 
   appliedPlaying = isPlaying;
+  setMediaSessionPlaybackState(isPlaying);
   if (isPlaying) void startPlayback(element);
   else element.pause();
 }
@@ -157,6 +183,9 @@ function teardown(): void {
   }
   unsubscribe?.();
   unsubscribe = null;
+  unwatchSettings?.();
+  unwatchSettings = null;
+  document.removeEventListener("visibilitychange", handleVisibility);
 
   if (audio) {
     audio.pause();
@@ -177,6 +206,22 @@ function fail(message: string): void {
   store.setPhase("error", message);
 }
 
+/**
+ * Browsers suspend a backgrounded tab: the element survives, but its position
+ * drifts and the page's timers stop. Coming back should not require the listener
+ * to toggle the headphones off and on.
+ */
+function handleVisibility(): void {
+  const element = audio;
+  if (!element || document.visibilityState !== "visible") return;
+  if (!ready) {
+    syncFromStore();
+    return;
+  }
+  correctDrift();
+  if (useRoomStore.getState().isPlaying && element.paused) void startPlayback(element);
+}
+
 export function startLocalListener(): void {
   if (audio) return;
 
@@ -189,13 +234,16 @@ export function startLocalListener(): void {
   store.setPhase("loading");
 
   unsubscribe = useRoomStore.subscribe(syncFromStore);
+  unwatchSettings = watchAudioSettings(element);
   driftTimer = setInterval(correctDrift, DRIFT_CHECK_MS);
+  document.addEventListener("visibilitychange", handleVisibility);
   syncFromStore();
 }
 
 export function stopLocalListener(): void {
   if (!audio) return;
   teardown();
+  setMediaSession(null, { onPlay: () => {}, onPause: () => {} });
   const store = useListenStore.getState();
   store.setEnabled(false);
   store.setPhase("idle");

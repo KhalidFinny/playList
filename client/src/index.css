@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@import "@fontsource-variable/google-sans-flex/full.css";
+@import "@fontsource-variable/google-sans-flex/wght.css";
 
 @import "./styles/tokens.css";
 @import "./styles/shape.css";
@@ -8,6 +8,7 @@
 @import "./styles/typography.css";
 @import "./styles/disc.css";
 @import "./styles/animation.css";
+@import "./styles/equalizer.css";
 
 /* ============================================================================
    TAILWIND BRIDGE
@@ -91,6 +92,11 @@
      (wght, wdth, slnt, opsz, GRAD, ROND). Fallback chain follows Google's
      documented order: Google Sans Flex -> Roboto -> Noto Sans. */
   --font-sans: "Google Sans Flex Variable", "Roboto", "Noto Sans", system-ui, sans-serif;
+  /* The condensed face used by the landing hero. It is a separate family so the
+     width axis is not paid for on every room: the weight-only file is 50 KB, the
+     one carrying the width axis is 116 KB. */
+  --font-condensed:
+    "Google Sans Flex Condensed", "Google Sans Flex Variable", system-ui, sans-serif;
 }
 
 @layer base {
@@ -128,6 +134,24 @@
   h6 {
     font-size: inherit;
     font-weight: inherit;
+  }
+
+  /* Condensed display type: the width axis only, loaded on first use. */
+  @font-face {
+    font-family: "Google Sans Flex Condensed";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 1 1000;
+    font-stretch: 25% 151%;
+    src: url("@fontsource-variable/google-sans-flex/files/google-sans-flex-latin-wdth-normal.woff2")
+      format("woff2-variations");
+    unicode-range:
+      U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+      U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+
+  .font-condensed {
+    font-family: var(--font-condensed);
   }
 
   .font-editorial {

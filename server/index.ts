@@ -142,6 +142,7 @@ httpServer.on("request", async (req: IncomingMessage, res: ServerResponse) => {
         JSON.stringify({
           url: `/api/preview/${videoId}/stream`,
           mimeType: stream.mimeType,
+          loudnessLufs: stream.loudnessLufs,
         }),
       );
     } catch (err) {

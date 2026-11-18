@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { socket } from "../../../shared/lib/socket";
 import { useDebounce } from "../../../shared/hooks/useDebounce";
-import type { YouTubeProps } from "react-youtube";
 import type {
   BasicResponse,
   EoTrackEndedResponse,
@@ -9,6 +8,7 @@ import type {
   PlayerRef,
   QueueSong,
   RoomKeyInfo,
+  RoomMode,
   SearchResult,
   SearchSongsResponse,
   SearchSuggestionsResponse,
@@ -16,35 +16,13 @@ import type {
   Track,
 } from "../types";
 import { useAdminQueueStore } from "../../../stores/adminQueueStore";
-
-const normalize = (value: string) => value.toLowerCase().trim();
-
-const rankSuggestions = (query: string, rawSuggestions: string[]) => {
-  const q = normalize(query);
-  const unique = Array.from(new Set(rawSuggestions.map((item) => item.trim()).filter(Boolean)));
-
-  return unique
-    .map((text) => {
-      const n = normalize(text);
-      return {
-        text,
-        starts: n.startsWith(q),
-        idx: n.indexOf(q),
-        len: n.length,
-      };
-    })
-    .sort((a, b) => {
-      if (a.starts !== b.starts) return a.starts ? -1 : 1;
-      if (a.idx !== b.idx) return a.idx - b.idx;
-      return a.len - b.len;
-    })
-    .map((item) => item.text);
-};
+import { rankSuggestions } from "../../../shared/lib/suggestions";
 
 export function useAdminDashboard(roomId: string) {
   // --- STATE: GLOBAL ---
   const [connected, setConnected] = useState(false);
   const [roomKey, setRoomKey] = useState<string | null>(null);
+  const [mode, setMode] = useState<RoomMode | null>(null);
   const [previewActive, setPreviewActive] = useState(false);
 
   // --- STATE: PLAYER (EO) ---
@@ -139,11 +117,10 @@ export function useAdminDashboard(roomId: string) {
     );
   }, [applyNowPlaying, roomId]);
 
-  const onPlayerReady: (id: "A" | "B") => NonNullable<YouTubeProps["onReady"]> =
-    (id) => (event) => {
-      if (id === "A") playerARef.current = event.target as unknown as PlayerRef;
-      else playerBRef.current = event.target as unknown as PlayerRef;
-    };
+  const onPlayerReady = useCallback((id: "A" | "B", player: PlayerRef) => {
+    if (id === "A") playerARef.current = player;
+    else playerBRef.current = player;
+  }, []);
 
   const onPlayerEnd = useCallback(() => {
     if (!roomId || isRequestingNextRef.current) return Promise.resolve(false);
@@ -239,6 +216,7 @@ export function useAdminDashboard(roomId: string) {
         if (res && !res.success) {
           console.warn(res.error || "Failed to join room");
         }
+        if (res?.success && res.mode) setMode(res.mode);
       });
     };
 
@@ -258,6 +236,7 @@ export function useAdminDashboard(roomId: string) {
             if (res && !res.success) {
               console.warn(res.error || "Failed to rejoin room");
             }
+            if (res?.success && res.mode) setMode(res.mode);
           },
         );
       }
@@ -497,6 +476,7 @@ export function useAdminDashboard(roomId: string) {
   return {
     connected,
     roomKey,
+    mode,
     nowPlaying,
     upNext,
     activePlayer,

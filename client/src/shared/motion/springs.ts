@@ -68,3 +68,28 @@ export const transitions: Record<"fast" | "base" | "slow", Transition> = {
   /** Full-surface and full-screen changes. */
   slow: { duration: 0.3, ease: [0.34, 0.88, 0.34, 1] },
 };
+
+/**
+ * The same tokens as real physics, for Framer Motion.
+ *
+ * A spring is defined by mass, stiffness and damping ratio; Framer takes mass
+ * and damping *coefficient*, so the ratio is doubled against the critical
+ * damping. This is what makes an oversized move feel like material and not a
+ * curve: the velocity carries through an interruption instead of restarting.
+ */
+const physics = (token: Spring, mass = 1): Transition => ({
+  type: "spring",
+  mass,
+  stiffness: token.stiffness,
+  damping: 2 * token.damping * Math.sqrt(token.stiffness),
+  restDelta: 0.001,
+});
+
+export const springsFm = {
+  fastSpatial: physics(motion.fastSpatial),
+  defaultSpatial: physics(motion.defaultSpatial),
+  slowSpatial: physics(motion.slowSpatial),
+  fastEffects: physics(motion.fastEffects),
+  defaultEffects: physics(motion.defaultEffects),
+  slowEffects: physics(motion.slowEffects),
+} as const;

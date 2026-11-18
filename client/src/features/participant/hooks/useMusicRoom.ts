@@ -42,10 +42,21 @@ export function useMusicRoom(roomId: string) {
     const handleRoomKeyInfo = ({ passkey }: { passkey: string }) =>
       useRoomStore.getState().setRoomKey(passkey);
 
-    socket.emit("get_now_playing", { roomId }, (res: NowPlayingResponse) => {
-      if (res.nowPlaying) useRoomStore.getState().setNowPlaying(res.nowPlaying);
-      useRoomStore.getState().setIsConnecting(false);
-    });
+    const syncNowPlaying = () => {
+      socket.emit("get_now_playing", { roomId }, (res: NowPlayingResponse) => {
+        if (res.nowPlaying) useRoomStore.getState().setNowPlaying(res.nowPlaying);
+        useRoomStore.getState().setIsConnecting(false);
+      });
+    };
+
+    syncNowPlaying();
+
+    // A phone that slept or lost the socket comes back to a room that has moved
+    // on, so the state is re-read rather than trusted from before the sleep.
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") syncNowPlaying();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
 
     const fallbackTimer = setTimeout(() => useRoomStore.getState().setIsConnecting(false), 3000);
 
@@ -63,7 +74,10 @@ export function useMusicRoom(roomId: string) {
       isPlaying: boolean;
     }) => useRoomStore.getState().applyPlaybackSync(state);
 
-    socket.on("connect", joinWithSavedPasskey);
+    socket.on("connect", () => {
+      joinWithSavedPasskey();
+      syncNowPlaying();
+    });
     socket.on("room_key_info", handleRoomKeyInfo);
     socket.on("now_playing_updated", handleNowPlayingUpdated);
     socket.on("playback_updated", handlePlaybackUpdated);
@@ -77,7 +91,8 @@ export function useMusicRoom(roomId: string) {
 
     return () => {
       clearTimeout(fallbackTimer);
-      socket.off("connect", joinWithSavedPasskey);
+      socket.off("connect");
+      document.removeEventListener("visibilitychange", handleVisibility);
       socket.off("room_key_info", handleRoomKeyInfo);
       socket.off("now_playing_updated", handleNowPlayingUpdated);
       socket.off("playback_updated", handlePlaybackUpdated);

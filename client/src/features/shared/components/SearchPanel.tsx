@@ -58,7 +58,7 @@ export function SearchPanel({
   const isStale = loading && results.length > 0;
 
   return (
-    <div className="relative z-20 mx-auto w-full max-w-[820px] px-4">
+    <div className="relative z-20 mx-auto w-full max-w-[820px] px-4 pt-4">
       <h1 className="text-headline-small">{title}</h1>
 
       <div className="mt-4">

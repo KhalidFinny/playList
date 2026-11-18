@@ -1,10 +1,10 @@
-import type { YouTubeProps } from "react-youtube";
-import type { Track, PendingSong, SearchResult } from "../../shared/types";
+import type { Track, PendingSong, SearchResult, RoomMode } from "../../shared/types";
 
-export type { Track, PendingSong, SearchResult };
+export type { Track, PendingSong, SearchResult, RoomMode };
 
 export type BasicResponse = {
   success: boolean;
+  mode?: RoomMode;
   error?: string;
 };
 
@@ -38,6 +38,8 @@ export interface PlayerRef {
   pauseVideo: () => void;
   getCurrentTime: () => number;
   getDuration: () => number;
+  getPlayerState: () => number;
+  seekTo: (seconds: number, allowSeekAhead: boolean) => void;
 }
 
 export interface PlaybackControllerProps {
@@ -47,11 +49,14 @@ export interface PlaybackControllerProps {
   fullQueue: Track[];
   activePlayer: "A" | "B";
   hasPreviousTrack: boolean;
-  onPlayerReady: (id: "A" | "B") => NonNullable<YouTubeProps["onReady"]>;
+  onPlayerReady: (id: "A" | "B", player: PlayerRef) => void;
   onPlayerEnd: () => Promise<boolean>;
   onPrevious: () => Promise<boolean>;
   onGoToSearch: () => void;
   togglePlayback: (isPlaying: boolean) => void;
+  /** Remove a queued track. The server event is admin-gated. */
+  onRemoveTrack: (trackId: string) => void;
+  removingTrackId: string | null;
 }
 
 export interface ModerationQueueProps {

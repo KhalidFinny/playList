@@ -1,10 +1,11 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState } from "react";
 import { useMachine } from "@xstate/react";
 import { socket, getUserId } from "../../../shared/lib/socket";
 import { useDebounce } from "../../../shared/hooks/useDebounce";
-import type { PendingSong, SearchResult, Track } from "../../../shared/types";
+import type { PendingSong, RoomMode, SearchResult, Track } from "../../../shared/types";
 import { participantFlowMachine } from "../../../machines/participantFlowMachine";
 import { useRoomStore } from "../../../stores/roomStore";
+import { rankSuggestions } from "../../../shared/lib/suggestions";
 import type {
   JoinByPasskeyResponse,
   JoinRoomResponse,
@@ -14,25 +15,6 @@ import type {
   SuggestionsResponse,
 } from "../types";
 
-const normalize = (value: string) => value.toLowerCase().trim();
-
-const rankSuggestions = (query: string, rawSuggestions: string[]) => {
-  const q = normalize(query);
-  const unique = Array.from(new Set(rawSuggestions.map((item) => item.trim()).filter(Boolean)));
-
-  return unique
-    .map((text) => {
-      const n = normalize(text);
-      return { text, starts: n.startsWith(q), idx: n.indexOf(q), len: n.length };
-    })
-    .sort((a, b) => {
-      if (a.starts !== b.starts) return a.starts ? -1 : 1;
-      if (a.idx !== b.idx) return a.idx - b.idx;
-      return a.len - b.len;
-    })
-    .map((item) => item.text);
-};
-
 export function useParticipant(roomId: string) {
   const [flow, send] = useMachine(participantFlowMachine);
   const { query, results, suggestions, isConfirmed, submittingId, statusMsg, cooldownSeconds } =
@@ -41,6 +23,8 @@ export function useParticipant(roomId: string) {
   const nowPlaying = useRoomStore((state) => state.nowPlaying);
   const isPlaying = useRoomStore((state) => state.isPlaying);
   const queue = useRoomStore((state) => state.queue);
+  // Word the confirmation by what actually happened to the request.
+  const [roomMode, setRoomMode] = useState<RoomMode>("approval");
 
   const debouncedQuery = useDebounce(query, 350);
   const debouncedSuggestionQuery = useDebounce(query, 250);
@@ -139,6 +123,7 @@ export function useParticipant(roomId: string) {
     send({ type: "SUBMIT_PASSKEY" });
     socket.emit("join_room", { roomId, role: "participant", passkey }, (res: JoinRoomResponse) => {
       if (res?.success) {
+        setRoomMode(res.mode ?? "approval");
         send({ type: "JOIN_OK" });
         if (silent) send({ type: "CLEAR_STATUS" });
         callback?.(true);
@@ -178,7 +163,7 @@ export function useParticipant(roomId: string) {
         userId: getUserId(),
       },
       (res: SubmitSongResponse) => {
-        if (res.success) send({ type: "SUBMIT_OK" });
+        if (res.success) send({ type: "SUBMIT_OK", autoApproved: roomMode === "party" });
         else send({ type: "SUBMIT_FAILED", error: res.error ?? "Unable to submit song" });
       },
     );

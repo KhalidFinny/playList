@@ -26,7 +26,7 @@ export function JoinFlow({ passkey, onPasskeyChange, onSubmit, isResolving }: Jo
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
       transition={transitions.base}
-      className="relative z-20 flex min-h-screen flex-col items-center justify-center px-4"
+      className="relative z-20 flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center px-4 py-10"
     >
       <div className="w-full max-w-md text-center">
         <div className="mb-8 flex flex-col items-center">

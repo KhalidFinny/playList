@@ -21,7 +21,7 @@ export function AccessCodeBanner({ roomKey, copied, onCopy, roomId }: AccessCode
       <div className="flex flex-col items-center">
         <Logo size={56} className="mb-4" />
         <p className="text-label-large uppercase tracking-[0.2em] text-on-surface-variant">
-          Broadcast room code
+          Room code
         </p>
 
         <button

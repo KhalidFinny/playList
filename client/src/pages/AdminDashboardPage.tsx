@@ -149,6 +149,8 @@ export function AdminDashboardPage() {
             onPrevious={onPrevious}
             togglePlayback={togglePlayback}
             onGoToSearch={() => setActiveTab("search")}
+            onRemoveTrack={handleDelete}
+            removingTrackId={processingId}
           />
         </div>
 

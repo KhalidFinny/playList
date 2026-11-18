@@ -1,15 +1,13 @@
 import { useEffect } from "react";
 import { Link } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Home } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "../shared/components/button";
-import { Badge } from "../shared/components/badge";
-import { SecretDoor } from "../shared/components/SecretDoor";
 import { Logo } from "../shared/components/Logo";
+import { RoomHeader } from "../shared/components/RoomHeader";
 import { MusicRoomView } from "../features/shared/components/MusicRoomView";
 import { ListenToggle } from "../features/participant/components/ListenToggle";
 import { LoadingOverlay } from "../shared/components/LoadingOverlay";
-import { ThemeToggle } from "../shared/components/theme-toggle";
 import { transitions } from "../shared/motion/springs";
 import { useMusicRoomPage } from "../hooks/pages/useMusicRoomPage";
 
@@ -25,31 +23,9 @@ export function MusicRoom() {
     <div className="relative flex h-screen flex-col overflow-hidden bg-surface text-on-surface">
       <LoadingOverlay isLoading={isConnecting} />
 
-      <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between gap-4 bg-surface px-4 sm:px-6">
-        <div className="flex min-w-0 items-center gap-3">
-          <SecretDoor size="xl" />
-          <span className="truncate text-title-large">Room · {roomId.toUpperCase()}</span>
-        </div>
-
-        <div className="flex shrink-0 items-center gap-3">
-          <span className="flex items-center gap-2 rounded-m3-full bg-surface-container-high px-3 py-1.5">
-            <Badge variant="status" className="animate-pulse bg-primary" />
-            <span className="text-label-medium text-on-surface-variant">Live</span>
-          </span>
-
-          <ListenToggle />
-
-          <ThemeToggle />
-
-          <Link
-            to="/"
-            aria-label="Home"
-            className="state-layer flex size-10 items-center justify-center rounded-m3-full text-on-surface-variant outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-          >
-            <Home size={20} />
-          </Link>
-        </div>
-      </header>
+      <RoomHeader roomId={roomId} live>
+        <ListenToggle />
+      </RoomHeader>
 
       <main className="flex w-full flex-1 items-center justify-center overflow-hidden px-2 sm:px-6">
         <MusicRoomView

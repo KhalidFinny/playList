@@ -27,9 +27,11 @@ export interface ShapeMorphProps {
 /**
  * Frames-per-second cap for the morph. The path has to be regenerated to
  * interpolate between shapes, so this is the one animation here that cannot move
- * to a CSS transform.
+ * to a CSS transform. 12 is enough for a 2.4s cycle and costs a quarter of what
+ * 30 did: measured playing at 6x CPU throttle, the morph was the single largest
+ * JS cost on the room, ahead of the playback re-render.
  */
-const DEFAULT_FPS = 30;
+const DEFAULT_FPS = 12;
 
 /** Linear interpolation between two shapes, point by point. */
 function lerpPath(from: ShapeName, to: ShapeName, t: number): string {
@@ -83,6 +85,11 @@ function MorphingShape({
   const last = useRef({ frame: -1, path: "" });
 
   const d = useTransform(time, (now) => {
+    // A hidden tab still runs this clock while audio plays; skip the rebuild
+    // entirely, the shape is not on screen.
+    if (typeof document !== "undefined" && document.hidden) {
+      return last.current.path || lerpPath(shapes[0], shapes[0], 0);
+    }
     const quantised = Math.floor(now / frame) * frame;
     if (quantised === last.current.frame) return last.current.path;
 

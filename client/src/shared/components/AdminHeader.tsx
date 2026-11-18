@@ -4,6 +4,7 @@ import { LogOut, Home } from "lucide-react";
 import type { TabItem } from "./Tabs";
 import { SecretDoor } from "./SecretDoor";
 import { ThemeToggle } from "./theme-toggle";
+import { SoundSettingsButton } from "./SoundSettings";
 import { cn } from "@/shared/lib/utils";
 
 interface AdminHeaderProps {
@@ -113,6 +114,8 @@ export function AdminHeader({
               <Home size={20} />
             </Link>
           )}
+
+          <SoundSettingsButton />
 
           <ThemeToggle />
 

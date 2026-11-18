@@ -19,17 +19,6 @@ const FullScreenVinyl: React.FC<{ isSpinning: boolean }> = ({ isSpinning }) => {
             <stop offset="100%" stopColor="#050505" />
           </radialGradient>
 
-          <mask id="rippleMask">
-            <motion.circle
-              cx="500"
-              cy="500"
-              fill="white"
-              initial={{ r: 0 }}
-              animate={{ r: [0, 1500], opacity: [0, 1, 1, 0] }}
-              transition={{ repeat: Infinity, duration: 16, ease: "easeInOut" }}
-            />
-          </mask>
-
           <filter id="softFade">
             <feGaussianBlur in="SourceGraphic" stdDeviation="60" />
           </filter>
@@ -51,7 +40,9 @@ const FullScreenVinyl: React.FC<{ isSpinning: boolean }> = ({ isSpinning }) => {
           ))}
         </g>
 
-        <g mask="url(#rippleMask)" filter="url(#softFade)">
+        {/* Ripple: one cached blurred layer, scaled and faded on the compositor.
+            See Hero.css for the measurement that made this CSS. */}
+        <g className="vinyl-ripple">
           <g stroke="rgba(255,77,0,0.15)" fill="none" strokeWidth="1.2">
             {Array.from({ length: 40 }).map((_, i) => (
               <circle key={i} cx="500" cy="500" r={60 + i * 18} />
@@ -82,11 +73,7 @@ export const Hero: React.FC = () => {
     >
       <FullScreenVinyl isSpinning={heroState.isSpinning} />
 
-      <motion.div
-        animate={{ scale: [1, 1.005, 1], opacity: [0.8, 1, 0.8] }}
-        transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-        className="absolute inset-0 z-1 pointer-events-none bg-black/10"
-      />
+      <div className="hero-breathe absolute inset-0 z-1 pointer-events-none bg-black/10" />
 
       {/* Corner metadata — compact on mobile */}
       <div className="absolute inset-0 p-6 sm:p-10 md:p-16 flex flex-col justify-between pointer-events-none z-30">
@@ -122,17 +109,13 @@ export const Hero: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={transitions.base}
             onClick={handleVinylClick}
-            className="text-[28vw] leading-none text-white tracking-widest select-none cursor-pointer drop-shadow-2xl text-center font-sans [font-stretch:62%] transition-all hover:text-orange-500"
+            className="text-[28vw] leading-none text-white tracking-widest select-none cursor-pointer drop-shadow-2xl text-center font-condensed [font-stretch:62%] transition-all hover:text-orange-500"
           >
             PLAY
           </motion.h1>
 
           <div className="relative flex items-center justify-center z-40 my-2">
-            <motion.div
-              animate={{ scale: [1, 1.05, 1], opacity: [0.02, 0.05, 0.02] }}
-              transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-              className="absolute w-[180px] h-[180px] sm:w-[250px] sm:h-[250px] rounded-full bg-white/5 blur-[80px]"
-            />
+            <div className="hero-glow absolute w-[180px] h-[180px] sm:w-[250px] sm:h-[250px] rounded-full" />
             <motion.div
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.96 }}
@@ -150,7 +133,7 @@ export const Hero: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={transitions.base}
             onClick={handleVinylClick}
-            className="text-[28vw] leading-none text-white tracking-widest select-none cursor-pointer drop-shadow-2xl text-center font-sans [font-stretch:62%] transition-all hover:text-orange-500"
+            className="text-[28vw] leading-none text-white tracking-widest select-none cursor-pointer drop-shadow-2xl text-center font-condensed [font-stretch:62%] transition-all hover:text-orange-500"
           >
             LIST
           </motion.h1>
@@ -164,18 +147,14 @@ export const Hero: React.FC = () => {
               animate={{ opacity: 1, x: 0 }}
               transition={transitions.base}
               onClick={handleVinylClick}
-              className="text-[18vw] leading-none text-white tracking-widest select-none cursor-pointer drop-shadow-2xl text-right font-sans [font-stretch:62%] transition-all hover:text-orange-500"
+              className="text-[18vw] leading-none text-white tracking-widest select-none cursor-pointer drop-shadow-2xl text-right font-condensed [font-stretch:62%] transition-all hover:text-orange-500"
             >
               PLAY
             </motion.h1>
           </div>
 
           <div className="relative flex items-center justify-center shrink-0 z-40">
-            <motion.div
-              animate={{ scale: [1, 1.05, 1], opacity: [0.02, 0.05, 0.02] }}
-              transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-              className="absolute w-[250px] h-[250px] md:w-[500px] md:h-[500px] rounded-full bg-white/5 blur-[120px]"
-            />
+            <div className="hero-glow absolute w-[250px] h-[250px] md:w-[500px] md:h-[500px] rounded-full" />
 
             <motion.div
               whileHover={{ scale: 1.05 }}
@@ -195,7 +174,7 @@ export const Hero: React.FC = () => {
               animate={{ opacity: 1, x: 0 }}
               transition={transitions.base}
               onClick={handleVinylClick}
-              className="text-[18vw] leading-none text-white tracking-widest select-none cursor-pointer drop-shadow-2xl text-left font-sans [font-stretch:62%] transition-all hover:text-orange-500 ml-12 md:ml-24"
+              className="text-[18vw] leading-none text-white tracking-widest select-none cursor-pointer drop-shadow-2xl text-left font-condensed [font-stretch:62%] transition-all hover:text-orange-500 ml-12 md:ml-24"
             >
               LIST
             </motion.h1>

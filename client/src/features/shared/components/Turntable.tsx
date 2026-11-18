@@ -1,7 +1,9 @@
+import { memo } from "react";
 import { motion } from "framer-motion";
 import { Pause, Play } from "lucide-react";
 import { CircularProgress } from "@/shared/components/circular-progress";
 import { cn } from "@/shared/lib/utils";
+import { springsFm } from "@/shared/motion/springs";
 
 interface TurntableProps {
   isPlaying: boolean;
@@ -32,6 +34,26 @@ interface TurntableProps {
  * liner notes instead; at the size and opacity that kept the grooves readable it
  * read as a smudge, and a plain record is the better read.
  */
+/** Static grooves. Memoised on the only thing that changes: the playing colour. */
+const DiscGrooves = memo(function DiscGrooves({ playing }: { playing: boolean }) {
+  return (
+    <svg className="absolute inset-0 size-full opacity-60">
+      {Array.from({ length: 45 }).map((_, i) => (
+        <circle
+          key={i}
+          cx="50%"
+          cy="50%"
+          r={`${32 + i * 1.05}%`}
+          fill="none"
+          stroke="currentColor"
+          className={playing ? "text-primary/30" : "text-outline-variant"}
+          strokeWidth="1"
+        />
+      ))}
+    </svg>
+  );
+});
+
 export const Turntable = ({ isPlaying, onToggle, progress }: TurntableProps) => {
   return (
     <figure className="relative flex aspect-square w-full max-w-[1200px] items-center justify-center">
@@ -59,20 +81,7 @@ export const Turntable = ({ isPlaying, onToggle, progress }: TurntableProps) => 
       >
         {/* Grooves. They stop short of the centre, as on a real record. The
             centre is left plain: no artwork sits on the disc. */}
-        <svg className="absolute inset-0 size-full opacity-60">
-          {Array.from({ length: 45 }).map((_, i) => (
-            <circle
-              key={i}
-              cx="50%"
-              cy="50%"
-              r={`${32 + i * 1.05}%`}
-              fill="none"
-              stroke="currentColor"
-              className={isPlaying ? "text-primary/30" : "text-outline-variant"}
-              strokeWidth="1"
-            />
-          ))}
-        </svg>
+        <DiscGrooves playing={isPlaying} />
       </div>
 
       {/* The disc's edge. Sits at the disc's bounds (the disc is 90%, centred, so
@@ -118,61 +127,62 @@ export const Turntable = ({ isPlaying, onToggle, progress }: TurntableProps) => 
         />
       )}
 
-      {/* Tonearm */}
+      {/* Tonearm. The pivot sits at the record's right edge, inside the frame.
+          It used to be anchored at 117% of the frame, which put the pivot off
+          the viewport on laptop widths, so all a listener saw was a bare line
+          with no circle at the end of it. The arm is sized in frame units for
+          the same reason. */}
       <div className="pointer-events-none absolute inset-0 z-30">
-        <div className="absolute -top-[3%] left-[117%]">
-          {/* Pivot */}
+        <motion.div
+          initial={false}
+          animate={{ rotate: isPlaying ? 0 : -14 }}
+          transition={springsFm.slowSpatial}
+          className="absolute left-[65%] top-[18%] w-[30%] -translate-y-1/2"
+          style={{ transformOrigin: "100% 50%" }}
+        >
           <div
             className={cn(
-              "relative flex size-[clamp(18px,1.9vw,30px)] items-center justify-center rounded-m3-full border-2",
-              "bg-surface-container-lowest transition-colors duration-700",
-              isPlaying ? "border-primary/60" : "border-outline",
+              "relative h-[clamp(5px,0.6vw,8px)] w-full rounded-m3-full transition-colors duration-700",
+              // Opaque, so the squiggle ring is genuinely hidden behind the arm
+              // rather than showing through it.
+              isPlaying ? "bg-primary" : "bg-on-surface-variant",
             )}
           >
-            <div
-              className={cn(
-                "size-1 rounded-m3-full transition-colors duration-700",
-                isPlaying ? "bg-primary" : "bg-on-surface-variant",
-              )}
-            />
-          </div>
+            {/* Counterweight, behind the pivot */}
+            <div className="absolute -right-2 top-1/2 size-[clamp(12px,1.2vw,18px)] -translate-y-1/2 rounded-m3-full border-2 border-outline bg-surface-container-lowest" />
 
-          {/* Arm */}
-          <motion.div
-            initial={false}
-            animate={{ rotate: isPlaying ? 168 : 180 }}
-            transition={{ type: "spring", stiffness: 82, damping: 17 }}
-            className="absolute left-1/2 top-1/2 -translate-y-1/2"
-            style={{ transformOrigin: "0 50%" }}
-          >
+            {/* Headshell, at the record */}
             <div
               className={cn(
-                "relative h-[clamp(5px,0.6vw,8px)] w-[clamp(190px,34vw,340px)] rounded-m3-full transition-colors duration-700",
-                // Opaque, so the squiggle ring is genuinely hidden behind the arm
-                // rather than showing through it.
-                isPlaying ? "bg-primary" : "bg-on-surface-variant",
+                "absolute -left-1 top-1/2 h-[clamp(13px,1.5vw,20px)] w-[clamp(16px,1.9vw,26px)] -translate-y-1/2 rounded-m3-xs border-2",
+                "bg-surface-container-lowest transition-colors duration-700",
+                isPlaying ? "border-primary/60" : "border-outline",
               )}
             >
-              {/* Counterweight */}
-              <div className="absolute -left-2 top-1/2 size-[clamp(12px,1.2vw,18px)] -translate-y-1/2 rounded-m3-full border-2 border-outline bg-surface-container-lowest" />
-
-              {/* Headshell */}
               <div
                 className={cn(
-                  "absolute -right-1 top-1/2 h-[clamp(13px,1.5vw,20px)] w-[clamp(16px,1.9vw,26px)] -translate-y-1/2 rounded-m3-xs border-2",
-                  "bg-surface-container-lowest transition-colors duration-700",
-                  isPlaying ? "border-primary/60" : "border-outline",
+                  "absolute left-1/2 top-full h-[clamp(8px,0.9vw,12px)] w-0.5 -translate-x-1/2 transition-colors duration-700",
+                  isPlaying ? "bg-primary" : "bg-on-surface-variant/40",
                 )}
-              >
-                <div
-                  className={cn(
-                    "absolute left-1/2 top-full h-[clamp(8px,0.9vw,12px)] w-0.5 -translate-x-1/2 transition-colors duration-700",
-                    isPlaying ? "bg-primary" : "bg-on-surface-variant/40",
-                  )}
-                />
-              </div>
+              />
             </div>
-          </motion.div>
+          </div>
+        </motion.div>
+
+        {/* Pivot */}
+        <div
+          className={cn(
+            "absolute left-[95%] top-[18%] flex size-[clamp(18px,1.9vw,30px)] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-m3-full border-2",
+            "bg-surface-container-lowest transition-colors duration-700",
+            isPlaying ? "border-primary/60" : "border-outline",
+          )}
+        >
+          <div
+            className={cn(
+              "size-1 rounded-m3-full transition-colors duration-700",
+              isPlaying ? "bg-primary" : "bg-on-surface-variant",
+            )}
+          />
         </div>
       </div>
     </figure>

@@ -48,14 +48,16 @@ export function ModerationQueue({
           <p className="mt-0.5 text-body-small text-on-surface-variant">Songs to approve</p>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Wraps rather than truncating: at 390px the device picker was cut to
+            "Default speak…" beside two buttons. */}
+        <div className="flex flex-wrap items-center gap-2">
           {devices.length > 0 && supportsSetSinkId && (
-            <div className="relative flex min-w-0 items-center">
+            <div className="relative flex w-full min-w-0 items-center sm:w-auto">
               <select
                 value={selectedDeviceId}
                 onChange={(e) => selectDevice(e.target.value)}
                 aria-label="Preview audio output device"
-                className="h-10 max-w-[11rem] truncate rounded-m3-sm border border-outline-variant bg-transparent pl-3 pr-8 text-label-large text-on-surface-variant outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                className="h-10 w-full truncate rounded-m3-sm border border-outline-variant bg-transparent pl-3 pr-8 text-label-large text-on-surface-variant outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:w-auto sm:max-w-[11rem]"
               >
                 <option value="default">Default speaker</option>
                 {devices.map((d) => (
