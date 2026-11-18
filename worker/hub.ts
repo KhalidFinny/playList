@@ -146,9 +146,6 @@ export class RoomHub {
       return json({ sockets: this.ctx.getWebSockets().length, rooms: this.roomList().length });
     }
 
-    if (url.pathname.startsWith("/api/preview/")) {
-      return this.preview(url.pathname.slice("/api/preview/".length));
-    }
     if (url.pathname === "/api/top-tracks") {
       return json({ tracks: this.topTracks() });
     }
@@ -950,19 +947,6 @@ export class RoomHub {
     hits.push(now);
     this.rateLimits.set(key, hits);
     return true;
-  }
-
-  // ---------------------------------------------------------------- preview ---
-
-  private async preview(videoId: string): Promise<Response> {
-    if (!/^[A-Za-z0-9_-]{11}$/.test(videoId)) return json({ error: "Invalid video ID" }, 400);
-    try {
-      const { url, mimeType } = await resolveAudio(videoId);
-      return json({ url: `/api/preview/${videoId}/stream`, mimeType });
-    } catch (err) {
-      console.error(`[preview] ${videoId}:`, err);
-      return json({ error: "Failed to get audio stream" }, 502);
-    }
   }
 }
 

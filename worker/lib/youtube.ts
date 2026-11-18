@@ -5,7 +5,12 @@ const SEARCH_ENDPOINT = "https://www.youtube.com/youtubei/v1/search?prettyPrint=
 // `videoRenderer` entries with a video id, title, length and thumbnail.
 const WEB_VERSION = "2.20260623.01.00";
 
-export type AudioStream = { url: string; mimeType: string };
+export type AudioStream = {
+  url: string;
+  mimeType: string;
+  /** The track's own integrated loudness in LUFS, as YouTube measured it. */
+  loudnessLufs: number | null;
+};
 
 export type SearchTrack = {
   id: string;
@@ -179,9 +184,11 @@ async function resolveWith(client: PlayerClient, videoId: string, visitor: strin
         bitrate?: number;
         isDrc?: boolean;
         audioTrack?: { audioIsDefault?: boolean };
+        trackAbsoluteLoudnessLkfs?: number;
       }[];
     };
     responseContext?: { visitorData?: string };
+    playerConfig?: { audioConfig?: { perceptualLoudnessDb?: number } };
   };
 
   if (data.responseContext?.visitorData) visitorData = data.responseContext.visitorData;
@@ -198,7 +205,13 @@ async function resolveWith(client: PlayerClient, videoId: string, visitor: strin
     .sort((a, b) => (b.bitrate ?? 0) - (a.bitrate ?? 0))[0];
 
   if (!best?.url) throw new Error("no audio format with a direct URL");
-  return { url: best.url, mimeType: best.mimeType };
+
+  const measured = best.trackAbsoluteLoudnessLkfs ?? data.playerConfig?.audioConfig?.perceptualLoudnessDb;
+  return {
+    url: best.url,
+    mimeType: best.mimeType,
+    loudnessLufs: typeof measured === "number" && Number.isFinite(measured) ? measured : null,
+  };
 }
 
 type Json = Record<string, unknown>;
