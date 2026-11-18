@@ -8,6 +8,7 @@ import { generateUniquePasskey } from "../lib/passkey";
 import { clientIpOf } from "../lib/clientIp";
 import { RateLimiter } from "../lib/rateLimit";
 import { registerPrunable } from "../lib/prune";
+import { getRoomMode, normalizeRoomMode } from "../services/rooms";
 
 // A 5-digit passkey is only 90,000 codes, so the lookup endpoint must be
 // throttled or it can simply be enumerated. Limited per IP (survives a socket
@@ -22,6 +23,7 @@ export function handleConnection(io: Server, socket: Socket) {
   // Custom tracking for this socket
   let currentRoom: string | null = null;
   let currentRole: "participant" | "admin" | "eo" | null = null;
+  let roomMode: "approval" | "party" | undefined;
 
   socket.on("join_room", async ({ roomId, role, passkey: providedPasskey, adminToken }: { roomId: string; role: "participant" | "admin" | "eo"; passkey?: string; adminToken?: string }, callback?: (res: any) => void) => {
     // 1. Initial debug log
@@ -32,7 +34,7 @@ export function handleConnection(io: Server, socket: Socket) {
       let roomPasskey = await redisCache.getPasskeyByRoomId(roomId);
 
       if (!roomPasskey || role === "admin") {
-        const dbRooms = await sql`SELECT id, passkey, owner_id FROM rooms WHERE id = ${roomId}`;
+        const dbRooms = await sql`SELECT id, passkey, owner_id, mode FROM rooms WHERE id = ${roomId}`;
         room = dbRooms[0];
 
         if (!room) {
@@ -43,7 +45,7 @@ export function handleConnection(io: Server, socket: Socket) {
             const newRoom = await sql`
               INSERT INTO rooms (id, passkey) VALUES (${roomId}, ${generatedKey})
               ON CONFLICT (id) DO UPDATE SET id = EXCLUDED.id
-              RETURNING id, passkey, owner_id
+              RETURNING id, passkey, owner_id, mode
             `;
             room = newRoom[0];
           } else {
@@ -96,7 +98,7 @@ export function handleConnection(io: Server, socket: Socket) {
         }
 
         if (!room) {
-          const dbRooms = await sql`SELECT id, passkey, owner_id FROM rooms WHERE id = ${roomId}`;
+          const dbRooms = await sql`SELECT id, passkey, owner_id, mode FROM rooms WHERE id = ${roomId}`;
           room = dbRooms[0];
         }
 
@@ -119,6 +121,13 @@ export function handleConnection(io: Server, socket: Socket) {
         // ONLY Admins get the room key info pushed to them automatically
         socket.emit("room_key_info", { passkey: room.passkey });
         console.log(`[AUTH] Socket ${socket.id} joined as Admin for room ${roomId}`);
+      }
+
+      // The policy this room runs. Participants need it to word the confirmation,
+      // admins to decide whether a Review queue exists. Resolved from the row
+      // above when it was loaded; otherwise one primary-key lookup.
+      if (role === "participant" || role === "admin") {
+        roomMode = room ? normalizeRoomMode(room.mode) : await getRoomMode(roomId);
       }
 
     } catch (e) {
@@ -177,7 +186,7 @@ export function handleConnection(io: Server, socket: Socket) {
     }
 
     console.log(`Socket ${socket.id} joined room ${roomId} as ${role}`);
-    if (callback) callback({ success: true });
+    if (callback) callback({ success: true, ...(roomMode ? { mode: roomMode } : {}) });
   });
 
   socket.on("get_now_playing", async ({ roomId }: { roomId: string }, callback) => {

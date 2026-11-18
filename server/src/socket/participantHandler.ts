@@ -1,6 +1,7 @@
 import { Server, Socket } from "socket.io";
 import ytsort from "yt-search";
-import { countPendingSongs, submitSong } from "../services/liveQueue/index";
+import { countPendingSongs, submitSong, addApprovedSong, getQueueWindow } from "../services/liveQueue/index";
+import { getRoomMode } from "../services/rooms";
 import { normalizeSearchQuery, TtlLruCache } from "./searchCache";
 import { actorIdOf } from "../lib/actor";
 import { clientIpOf } from "../lib/clientIp";
@@ -289,14 +290,33 @@ export function handleParticipantEvents(io: Server, socket: Socket) {
       }
 
       try {
-        const newSong = await submitSong(roomId, {
+        const song = {
           id: crypto.randomUUID(),
           youtubeId,
           title,
           author: author || "",
           submittedBy: userId,
           createdAt: new Date().toISOString(),
-        });
+        };
+
+        // A listening party has nobody to approve requests: the track joins the
+        // play queue immediately. The mode is read server-side, never trusted
+        // from the client.
+        if ((await getRoomMode(roomId)) === "party") {
+          const approvedSong = await addApprovedSong(roomId, song);
+
+          console.log(`[QUEUE] Party room ${roomId} auto-added: ${approvedSong.title}`);
+
+          io.to(`${roomId}:admin`).emit("song_approved", approvedSong);
+          io.to(`${roomId}:participant`).emit("song_approved", approvedSong);
+          io.to(`${roomId}:eo`).emit("song_approved", approvedSong);
+          io.to(roomId).emit("queue_updated", await getQueueWindow(roomId, "admin"));
+
+          if (callback) callback({ success: true, message: "Added to the queue" });
+          return;
+        }
+
+        const newSong = await submitSong(roomId, song);
 
         console.log(`[QUEUE] New song submitted for room ${roomId}: ${newSong.title}`);
 

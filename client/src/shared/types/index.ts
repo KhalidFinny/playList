@@ -36,9 +36,13 @@ export interface PendingAdmin extends AdminUser {
   createdAt: string;
 }
 
+/** How a room treats incoming requests. */
+export type RoomMode = "approval" | "party";
+
 export interface Station {
   id: string;
   passkey: string;
+  mode: RoomMode;
   createdAt: string;
 }
 
@@ -57,6 +61,8 @@ export type GetPendingAdminsResponse = {
 export type CreateStationResponse = {
   success: boolean;
   roomId?: string;
+  passkey?: string;
+  mode?: RoomMode;
   error?: string;
 };
 

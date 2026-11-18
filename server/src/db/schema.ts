@@ -142,6 +142,19 @@ export async function setupDatabase() {
       END $$;
     `;
 
+    // How a room handles requests: `approval` keeps the moderation queue,
+    // `party` adds every submission straight to the play queue. Existing rooms
+    // must keep the old behavior, so the default is `approval`.
+    console.log("  - Ensuring 'rooms.mode' exists...");
+    await sql`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='rooms' AND column_name='mode') THEN
+          ALTER TABLE rooms ADD COLUMN mode VARCHAR(20) NOT NULL DEFAULT 'approval';
+        END IF;
+      END $$;
+    `;
+
     // Seeding initial admins
     const { seedAdmins } = await import("./seed");
     await seedAdmins();

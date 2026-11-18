@@ -5,6 +5,7 @@ import { redisCache } from "../lib/redis";
 import { addApprovedSong, approveSong, clearQueue, deleteSong, getQueueWindow, updateSongTitle } from "../services/liveQueue/index";
 import { isAdminForRoom } from "./adminSession";
 import { generateUniquePasskey } from "../lib/passkey";
+import { normalizeRoomMode } from "../services/rooms";
 
 export function handleAdminEvents(io: Server, socket: Socket) {
   
@@ -181,9 +182,10 @@ export function handleAdminEvents(io: Server, socket: Socket) {
   });
 
   // Create a new station (room)
-  socket.on("create_station", async (data: { roomId: string; adminToken: string }, callback) => {
+  socket.on("create_station", async (data: { roomId: string; adminToken: string; mode?: string }, callback) => {
     const { roomId, adminToken } = data;
     if (!roomId || !adminToken) return callback?.({ success: false, error: "Missing fields" });
+    const mode = normalizeRoomMode(data.mode);
 
     try {
       const adminId = await redisCache.client.get(`admin_session:${adminToken}`);
@@ -196,14 +198,14 @@ export function handleAdminEvents(io: Server, socket: Socket) {
       const generatedKey = await generateUniquePasskey();
       
       await sql`
-        INSERT INTO rooms (id, passkey, owner_id) 
-        VALUES (${roomId}, ${generatedKey}, ${adminId})
+        INSERT INTO rooms (id, passkey, owner_id, mode) 
+        VALUES (${roomId}, ${generatedKey}, ${adminId}, ${mode})
       `;
 
       await redisCache.setRoomKey(roomId, generatedKey);
       roomManager.setPasskey(roomId, generatedKey);
 
-      if (callback) callback({ success: true, roomId, passkey: generatedKey });
+      if (callback) callback({ success: true, roomId, passkey: generatedKey, mode });
     } catch (err) {
       console.error(err);
       if (callback) callback({ success: false, error: "Internal server error" });
@@ -220,7 +222,7 @@ export function handleAdminEvents(io: Server, socket: Socket) {
       if (!adminId) return callback?.({ success: false, error: "Unauthorized" });
 
       const rooms = await sql`
-        SELECT id, passkey, created_at as "createdAt"
+        SELECT id, passkey, mode, created_at as "createdAt"
         FROM rooms 
         WHERE owner_id = ${adminId}
         ORDER BY created_at DESC

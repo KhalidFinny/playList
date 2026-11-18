@@ -4,11 +4,8 @@ import { Card } from "@/shared/components/card";
 import { Badge } from "@/shared/components/badge";
 import { Shape } from "@/shared/shapes/shape";
 import { transitions } from "@/shared/motion/springs";
-
-interface Station {
-  id: string;
-  passkey: string;
-}
+import { roomModeLabel } from "@/shared/lib/roomMode";
+import type { Station } from "@/shared/types";
 
 interface StationCardProps {
   station: Station;
@@ -40,8 +37,8 @@ export function StationCard({ station, onClick }: StationCardProps) {
               <h3 className="truncate text-title-large">{station.id.toUpperCase()}</h3>
               <Badge variant="status" className="shrink-0 bg-tertiary" />
             </div>
-            <p className="mt-0.5 flex items-center gap-2 text-label-medium text-on-surface-variant">
-              Access code
+            <p className="mt-0.5 flex flex-wrap items-center gap-2 text-label-medium text-on-surface-variant">
+              {roomModeLabel(station.mode)} · Access code
               <span className="rounded-m3-xs bg-surface-container-highest px-2 py-0.5 text-title-small text-on-surface">
                 {station.passkey}
               </span>

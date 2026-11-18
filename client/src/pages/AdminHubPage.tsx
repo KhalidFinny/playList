@@ -13,12 +13,14 @@ import { Logo } from "../shared/components/Logo";
 import { transitions } from "../shared/motion/springs";
 import { StationCard } from "../features/admin/components/StationCard";
 import { AdminApprovalCard } from "../features/admin/components/AdminApprovalCard";
+import { ROOM_MODE_OPTIONS } from "../shared/lib/roomMode";
 import type {
   CreateStationResponse,
   GetMyStationsResponse,
   GetPendingAdminsResponse,
   ModerateAdminResponse,
   PendingAdmin,
+  RoomMode,
   Station,
 } from "../shared/types";
 
@@ -36,6 +38,7 @@ export function AdminHubPage() {
   const [stations, setStations] = useState<Station[]>([]);
   const [creating, setCreating] = useState(false);
   const [newStationId, setNewStationId] = useState("");
+  const [newStationMode, setNewStationMode] = useState<RoomMode>("approval");
   const [pendingAdmins, setPendingAdmins] = useState<PendingAdmin[]>([]);
   const [activeHubTab, setActiveHubTab] = useState<"stations" | "users">("stations");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -76,17 +79,22 @@ export function AdminHubPage() {
       setCreating(false);
       return;
     }
-    socket.emit("create_station", { roomId, adminToken: token }, (res: CreateStationResponse) => {
-      setCreating(false);
-      if (res.success && res.roomId) {
-        setCreateError(null);
-        setIsCreateModalOpen(false);
-        setNewStationId("");
-        navigate({ to: "/admin/$roomId", params: { roomId: res.roomId } });
-      } else {
-        setCreateError(res.error || "Failed to create station. Please try again.");
-      }
-    });
+    socket.emit(
+      "create_station",
+      { roomId, adminToken: token, mode: newStationMode },
+      (res: CreateStationResponse) => {
+        setCreating(false);
+        if (res.success && res.roomId) {
+          setCreateError(null);
+          setIsCreateModalOpen(false);
+          setNewStationId("");
+          setNewStationMode("approval");
+          navigate({ to: "/admin/$roomId", params: { roomId: res.roomId } });
+        } else {
+          setCreateError(res.error || "Failed to create station. Please try again.");
+        }
+      },
+    );
   };
 
   const handleApproveAdmin = (id: string) => {
@@ -158,9 +166,9 @@ export function AdminHubPage() {
             >
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h2 className="text-headline-small">Broadcast control</h2>
+                  <h2 className="text-headline-small">Stations</h2>
                   <p className="mt-1 text-body-medium text-on-surface-variant">
-                    {stations.length} active {stations.length === 1 ? "station" : "stations"}
+                    {stations.length} {stations.length === 1 ? "station" : "stations"}
                   </p>
                 </div>
                 <Button onClick={() => setIsCreateModalOpen(true)} size="md">
@@ -171,11 +179,9 @@ export function AdminHubPage() {
               {stations.length === 0 ? (
                 <div className="flex flex-col items-center rounded-m3-xl bg-surface-container px-6 py-16 text-center">
                   <Logo size={88} className="mb-6" />
-                  <p className="text-title-medium text-on-surface-variant">
-                    Your soundscape is currently empty.
-                  </p>
+                  <p className="text-title-medium text-on-surface-variant">No stations yet.</p>
                   <Button onClick={() => setIsCreateModalOpen(true)} size="md" className="mt-6">
-                    <Plus size={20} /> Initialize first station
+                    <Plus size={20} /> Create a station
                   </Button>
                 </div>
               ) : (
@@ -195,13 +201,12 @@ export function AdminHubPage() {
               <Modal
                 isOpen={isCreateModalOpen}
                 onClose={() => setIsCreateModalOpen(false)}
-                title="Provision new station"
-                description="The slug becomes the participant URL."
+                title="New station"
               >
                 <form onSubmit={handleCreateStation} className="flex flex-col gap-6">
                   <TextField
                     required
-                    label="Station identity (URL slug)"
+                    label="Station ID"
                     value={newStationId}
                     onChange={(e) => {
                       setNewStationId(e.target.value);
@@ -209,13 +214,54 @@ export function AdminHubPage() {
                     }}
                     error={createError ?? undefined}
                   />
+                  <fieldset className="flex flex-col gap-2">
+                    <legend className="mb-2 text-label-large text-on-surface-variant">
+                      Room mode
+                    </legend>
+                    {ROOM_MODE_OPTIONS.map((option) => {
+                      const selected = newStationMode === option.id;
+                      return (
+                        <label
+                          key={option.id}
+                          className={`flex cursor-pointer items-start gap-3 rounded-m3-md border p-4 transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary ${
+                            selected
+                              ? "border-primary bg-surface-container-highest"
+                              : "border-outline-variant bg-surface-container hover:bg-surface-container-high"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="room-mode"
+                            value={option.id}
+                            checked={selected}
+                            onChange={() => setNewStationMode(option.id)}
+                            className="sr-only"
+                          />
+                          <span
+                            aria-hidden="true"
+                            className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-m3-full border-2 ${
+                              selected ? "border-primary" : "border-outline"
+                            }`}
+                          >
+                            {selected && <span className="size-2.5 rounded-m3-full bg-primary" />}
+                          </span>
+                          <span className="flex flex-col gap-1">
+                            <span className="text-title-small">{option.label}</span>
+                            <span className="text-body-medium text-on-surface-variant">
+                              {option.description}
+                            </span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </fieldset>
                   <Button
                     type="submit"
                     size="md"
                     disabled={creating || !newStationId.trim()}
                     className="w-full"
                   >
-                    {creating ? "Syncing…" : "Establish station"}
+                    {creating ? "Creating…" : "Create station"}
                     {!creating && <Plus size={20} />}
                   </Button>
                 </form>
@@ -230,11 +276,11 @@ export function AdminHubPage() {
               transition={transitions.base}
               className="mx-auto flex max-w-3xl flex-col gap-6"
             >
-              <h2 className="text-headline-small">Access authorization requests</h2>
+              <h2 className="text-headline-small">Admin requests</h2>
               {pendingAdmins.length === 0 ? (
                 <div className="flex flex-col items-center rounded-m3-xl bg-surface-container px-6 py-16 text-center">
                   <Logo size={64} className="mb-5" />
-                  <p className="text-title-medium text-on-surface-variant">The queue is empty.</p>
+                  <p className="text-title-medium text-on-surface-variant">No pending requests.</p>
                 </div>
               ) : (
                 <div className="flex flex-col gap-4">
