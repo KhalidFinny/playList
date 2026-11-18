@@ -1,15 +1,5 @@
 # server
 
-To install dependencies:
+The Bun server for playList: HTTP API, Socket.IO handlers, the Redis backed live queue, and Postgres persistence.
 
-```bash
-bun install
-```
-
-To run:
-
-```bash
-bun run index.ts
-```
-
-This project was created using `bun init` in bun v1.3.10. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+Run `bun run check` from this package to type check, or `bun run dev` for watch mode against `../.env`. See the [root README](../README.md) for setup, architecture, and deployment.
