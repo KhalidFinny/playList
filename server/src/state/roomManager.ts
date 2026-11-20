@@ -125,6 +125,11 @@ class RoomManager {
     const room = this.getOrInitRoom(roomId);
     room.passkey = passkey;
   }
+
+  /** Drops a deleted room, so nothing keeps serving its last playback state. */
+  public forgetRoom(roomId: string): void {
+    this.rooms.delete(roomId);
+  }
 }
 
 export const roomManager = new RoomManager();

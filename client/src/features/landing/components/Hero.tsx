@@ -5,7 +5,7 @@ import { useLanding } from "../hooks/useLanding";
 import logo from "../../../assets/logo.svg";
 import "./Hero.css";
 
-const FullScreenVinyl: React.FC<{ isSpinning: boolean }> = ({ isSpinning }) => {
+const FullScreenVinyl: React.FC = () => {
   return (
     <div className="absolute inset-0 z-0 flex items-center justify-center bg-[#050505] overflow-hidden">
       <svg
@@ -22,14 +22,6 @@ const FullScreenVinyl: React.FC<{ isSpinning: boolean }> = ({ isSpinning }) => {
           <filter id="softFade">
             <feGaussianBlur in="SourceGraphic" stdDeviation="60" />
           </filter>
-
-          <linearGradient id="vinylShine" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="white" stopOpacity="0" />
-            <stop offset="48%" stopColor="white" stopOpacity="0.08" />
-            <stop offset="50%" stopColor="white" stopOpacity="0" />
-            <stop offset="52%" stopColor="white" stopOpacity="0.08" />
-            <stop offset="100%" stopColor="white" stopOpacity="0" />
-          </linearGradient>
         </defs>
 
         <circle cx="500" cy="500" r="500" fill="url(#vinylDepth)" />
@@ -50,28 +42,25 @@ const FullScreenVinyl: React.FC<{ isSpinning: boolean }> = ({ isSpinning }) => {
           </g>
         </g>
 
-        <motion.g
-          animate={{ rotate: isSpinning ? 360 : 0 }}
-          transition={{ repeat: Infinity, duration: 60, ease: "linear" }}
-          style={{ originX: "500px", originY: "500px" }}
-          className="will-change-transform"
-        >
-          <circle cx="500" cy="500" r="500" fill="url(#vinylShine)" />
-        </motion.g>
+        {/* The rotating shine is gone. It was a full-width linear gradient that
+            swept a hard diagonal band across the hero once a minute, which read as
+            a stray line expanding out of the record rather than as light. The
+            record still turns and the ripple still breathes; the highlight is
+            carried by the radial gradient underneath. */}
       </svg>
     </div>
   );
 };
 
 export const Hero: React.FC = () => {
-  const { heroState, handleVinylClick } = useLanding();
+  const { handleVinylClick } = useLanding();
 
   return (
     <section
       className="relative min-h-screen w-full bg-[#050505] flex items-center justify-center overflow-hidden"
       id="hero"
     >
-      <FullScreenVinyl isSpinning={heroState.isSpinning} />
+      <FullScreenVinyl />
 
       <div className="hero-breathe absolute inset-0 z-1 pointer-events-none bg-black/10" />
 
@@ -109,7 +98,7 @@ export const Hero: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={transitions.base}
             onClick={handleVinylClick}
-            className="text-[28vw] leading-none text-white tracking-widest select-none cursor-pointer drop-shadow-2xl text-center font-condensed [font-stretch:62%] transition-all hover:text-orange-500"
+            className="text-[28vw] font-black leading-none text-white tracking-widest select-none cursor-pointer drop-shadow-2xl text-center font-condensed [font-stretch:72%] transition-all hover:text-orange-500"
           >
             PLAY
           </motion.h1>
@@ -133,21 +122,21 @@ export const Hero: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={transitions.base}
             onClick={handleVinylClick}
-            className="text-[28vw] leading-none text-white tracking-widest select-none cursor-pointer drop-shadow-2xl text-center font-condensed [font-stretch:62%] transition-all hover:text-orange-500"
+            className="text-[28vw] font-black leading-none text-white tracking-widest select-none cursor-pointer drop-shadow-2xl text-center font-condensed [font-stretch:72%] transition-all hover:text-orange-500"
           >
             LIST
           </motion.h1>
         </div>
 
         {/* Desktop/tablet: horizontal layout (PLAY — ● — LIST) */}
-        <div className="hidden sm:grid grid-cols-[1fr_auto_1fr] items-center w-full max-w-[100vw] gap-8 md:gap-16">
+        <div className="hidden sm:grid grid-cols-[1fr_auto_1fr] items-center w-full max-w-[100vw] gap-4 md:gap-10">
           <div className="flex justify-end overflow-visible">
             <motion.h1
               initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={transitions.base}
               onClick={handleVinylClick}
-              className="text-[18vw] leading-none text-white tracking-widest select-none cursor-pointer drop-shadow-2xl text-right font-condensed [font-stretch:62%] transition-all hover:text-orange-500"
+              className="text-[12vw] font-black leading-none text-white tracking-tight select-none cursor-pointer drop-shadow-2xl text-right font-condensed [font-stretch:78%] transition-all hover:text-orange-500"
             >
               PLAY
             </motion.h1>
@@ -174,7 +163,7 @@ export const Hero: React.FC = () => {
               animate={{ opacity: 1, x: 0 }}
               transition={transitions.base}
               onClick={handleVinylClick}
-              className="text-[18vw] leading-none text-white tracking-widest select-none cursor-pointer drop-shadow-2xl text-left font-condensed [font-stretch:62%] transition-all hover:text-orange-500 ml-12 md:ml-24"
+              className="text-[12vw] font-black leading-none text-white tracking-tight select-none cursor-pointer drop-shadow-2xl text-left font-condensed [font-stretch:78%] transition-all hover:text-orange-500 ml-4 md:ml-6"
             >
               LIST
             </motion.h1>

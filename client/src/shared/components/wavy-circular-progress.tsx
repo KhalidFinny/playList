@@ -202,7 +202,7 @@ export function WavyCircularProgress({
           {indeterminate ? (
             <path
               d={rotatingArc}
-              className="ring-spin stroke-current"
+              className="ring-spin-spring stroke-current"
               style={
                 {
                   "--ring-period": `${period}s`,

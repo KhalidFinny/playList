@@ -213,6 +213,37 @@ export function handleAdminEvents(io: Server, socket: Socket) {
   });
 
   // Get my stations
+  // Delete a station and everything it owns. The songs table cascades on the
+  // foreign key, but Redis and the in-memory room state do not, so both are
+  // cleared explicitly or a recreated room would inherit the old queue.
+  socket.on("delete_station", async (data: { roomId: string; adminToken: string }, callback) => {
+    const { roomId, adminToken } = data;
+    if (!roomId || !adminToken) return callback?.({ success: false, error: "Missing fields" });
+
+    try {
+      const adminId = await redisCache.client.get(`admin_session:${adminToken}`);
+      if (!adminId) return callback?.({ success: false, error: "Unauthorized" });
+
+      const owned = await sql`SELECT id FROM rooms WHERE id = ${roomId} AND owner_id = ${adminId}`;
+      if (owned.length === 0) {
+        return callback?.({ success: false, error: "Station not found" });
+      }
+
+      await sql`DELETE FROM songs WHERE room_id = ${roomId}`;
+      await sql`DELETE FROM rooms WHERE id = ${roomId}`;
+
+      await redisCache.deleteRoom(roomId);
+      roomManager.forgetRoom(roomId);
+
+      io.to(roomId).emit("station_deleted", { roomId });
+
+      if (callback) callback({ success: true });
+    } catch (err) {
+      console.error("[ADMIN] delete_station failed:", err);
+      if (callback) callback({ success: false, error: "Database error" });
+    }
+  });
+
   socket.on("get_my_stations", async (data: { adminToken: string }, callback) => {
     const { adminToken } = data;
     if (!adminToken) return callback?.({ success: false, error: "Missing token" });

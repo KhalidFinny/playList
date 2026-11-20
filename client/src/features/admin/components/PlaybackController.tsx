@@ -55,6 +55,9 @@ export function PlaybackController({
   // server the room stopped.
   const internalPauseRef = useRef(false);
   const streamIdRef = useRef<string | null>(null);
+  const recoveryRef = useRef(false);
+  // Last observed playback position, for the stall watchdog.
+  const lastProgressRef = useRef({ at: 0, seenAt: Date.now() });
 
   const audioPlayer = useMemo<PlayerRef>(
     () => ({
@@ -170,6 +173,88 @@ export function PlaybackController({
       });
     }
   }, [streamUrl, trackLoudness, audioPlayer, onPlayerReady]);
+
+  /**
+   * Re-resolve the current track and resume where it was.
+   *
+   * Signed stream URLs expire and the media server starts refusing them, and a
+   * long session outlives them. Without this the element dies mid-track and the
+   * room goes quiet until someone reloads, which is the failure a host sees as
+   * "it stopped after a while".
+   */
+  const recoverStream = useCallback(async () => {
+    const audio = audioRef.current;
+    const videoId = streamIdRef.current;
+    if (!audio || !videoId || recoveryRef.current) return;
+
+    recoveryRef.current = true;
+    const resumeAt = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
+
+    try {
+      // `fresh` skips the resolver cache: a cached URL is what just failed.
+      const { url } = await fetchStream(videoId, true);
+      if (streamIdRef.current !== videoId) return;
+
+      internalPauseRef.current = true;
+      audio.src = url;
+      audio.load();
+
+      await new Promise<void>((resolve) => {
+        const settle = () => {
+          audio.removeEventListener("loadedmetadata", settle);
+          resolve();
+        };
+        audio.addEventListener("loadedmetadata", settle);
+        setTimeout(settle, 4000);
+      });
+
+      internalPauseRef.current = false;
+      const end = Number.isFinite(audio.duration) ? audio.duration : 0;
+      audio.currentTime = end > 1 ? Math.min(resumeAt, end - 1) : resumeAt;
+
+      if (isPlayingRef.current) void audio.play().catch(() => {});
+      setStreamUrl(url);
+      setStreamFailed(false);
+    } catch (err) {
+      // Out of options for the element; the iframe still plays this video.
+      console.warn("[PLAYER] recovery failed, using the iframe:", err);
+      setStreamFailed(true);
+    } finally {
+      recoveryRef.current = false;
+    }
+  }, []);
+
+  /**
+   * The watchdog. A stream that has been refused, or a page that slept, leaves
+   * the element "playing" while its clock stands still; that is the one signal
+   * that distinguishes a dead stream from a quiet passage.
+   */
+  useEffect(() => {
+    if (!streamUrl) return;
+
+    const timer = setInterval(() => {
+      const audio = audioRef.current;
+      if (!audio || recoveryRef.current) return;
+
+      if (!isPlayingRef.current) {
+        lastProgressRef.current = { at: audio.currentTime, seenAt: Date.now() };
+        return;
+      }
+
+      const moved = Math.abs(audio.currentTime - lastProgressRef.current.at) > 0.25;
+      if (moved) {
+        lastProgressRef.current = { at: audio.currentTime, seenAt: Date.now() };
+        return;
+      }
+
+      // Paused with the room playing, or the clock has not moved for 8s.
+      if (audio.paused || Date.now() - lastProgressRef.current.seenAt > 8000) {
+        void recoverStream();
+      }
+    }, 4000);
+
+    return () => clearInterval(timer);
+  }, [streamUrl, recoverStream]);
 
   // The equalizer is per device, so it is applied to this element as the settings
   // change rather than being carried through the room.
@@ -395,12 +480,11 @@ export function PlaybackController({
           if (streamIdRef.current) handlePlayerPause({ current: audioPlayer });
         }}
         onError={() => {
-          // The URL resolved but the media server refused it. The iframe still
-          // plays this video, so switch to it rather than leave the room silent.
+          // The URL resolved but the media server refused it, which usually means
+          // the signature expired. Re-resolve once before giving up on the
+          // element; the iframe is the last resort, not the first answer.
           if (!streamIdRef.current) return;
-          internalPauseRef.current = true;
-          console.warn("[PLAYER] stream refused by the media server, using the iframe");
-          setStreamFailed(true);
+          void recoverStream();
         }}
       />
 

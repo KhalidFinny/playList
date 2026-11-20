@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Trash2 } from "lucide-react";
 import { Card } from "@/shared/components/card";
 import { Badge } from "@/shared/components/badge";
 import { Shape } from "@/shared/shapes/shape";
@@ -10,13 +10,14 @@ import type { Station } from "@/shared/types";
 interface StationCardProps {
   station: Station;
   onClick: () => void;
+  onDelete: () => void;
 }
 
 /**
  * M3 card for a station. The `cookie12` shape stands in for the vinyl record —
  * it is the app's primary repeated unit, so the shape earns its keep here.
  */
-export function StationCard({ station, onClick }: StationCardProps) {
+export function StationCard({ station, onClick, onDelete }: StationCardProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -46,9 +47,26 @@ export function StationCard({ station, onClick }: StationCardProps) {
           </div>
         </div>
 
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-m3-full text-on-surface-variant">
-          <ChevronRight size={22} />
-        </span>
+        <div className="flex shrink-0 items-center gap-1">
+          {/* Stops the click reaching the card, or deleting would also open the
+              station on its way out. */}
+          <button
+            type="button"
+            aria-label={`Delete station ${station.id}`}
+            title="Delete station"
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete();
+            }}
+            className="state-layer flex size-10 items-center justify-center rounded-m3-full text-on-surface-variant outline-none transition-colors hover:text-error focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            <Trash2 size={20} />
+          </button>
+
+          <span className="flex size-10 items-center justify-center rounded-m3-full text-on-surface-variant">
+            <ChevronRight size={22} />
+          </span>
+        </div>
       </Card>
     </motion.div>
   );

@@ -17,12 +17,18 @@ export type ResolvedStream = {
 const ATTEMPTS = 3;
 const BACKOFF_MS = 700;
 
-export async function fetchStream(videoId: string): Promise<ResolvedStream> {
+/**
+ * @param fresh skip the server's resolved-URL cache. Used by the playback
+ *   watchdog: a cached URL the media server has started refusing is exactly what
+ *   it is trying to get away from.
+ */
+export async function fetchStream(videoId: string, fresh = false): Promise<ResolvedStream> {
   let lastError: unknown;
+  const query = fresh ? "?fresh=1" : "";
 
   for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
     try {
-      const res = await fetch(`/api/preview/${videoId}`);
+      const res = await fetch(`/api/preview/${videoId}${query}`);
       if (!res.ok) throw new Error(`stream resolve failed (${res.status})`);
       return (await res.json()) as ResolvedStream;
     } catch (err) {

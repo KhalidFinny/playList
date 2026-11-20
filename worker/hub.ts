@@ -525,6 +525,31 @@ export class RoomHub {
         return { success: true, stations };
       }
 
+      // Deleting a station also has to evict anyone still connected to it, or a
+      // listener keeps a socket bound to a room that no longer exists.
+      case "delete_station": {
+        const adminId = this.sessionAdmin(str("adminToken"));
+        if (!adminId) return { success: false, error: "Unauthorized" };
+
+        const target = str("roomId");
+        const room = this.roomById(target);
+        if (!room) return { success: false, error: "Station not found" };
+        if (room.owner_id !== adminId) return { success: false, error: "You do not own this room" };
+
+        this.broadcast(target, "station_deleted", { roomId: target });
+        for (const [peer, peerSession] of this.sockets) {
+          if (peerSession.room !== target) continue;
+          peerSession.room = null;
+          peerSession.role = null;
+          peer.serializeAttachment(peerSession);
+        }
+
+        this.sql("DELETE FROM songs WHERE room_id = ?", target);
+        this.sql("DELETE FROM meta WHERE room_id = ?", target);
+        this.sql("DELETE FROM rooms WHERE id = ?", target);
+        return { success: true };
+      }
+
       case "approve_song": {
         if (!this.isAdminOf(session, roomId)) return { success: false, error: "Unauthorized" };
         const song = this.mutateSong(roomId, str("songId"), (current) => {

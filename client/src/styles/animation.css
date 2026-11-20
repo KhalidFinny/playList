@@ -64,6 +64,19 @@
   }
 }
 
+/* The indeterminate loader steps around the ring on a spring rather than at a
+   constant rate. Each revolution accelerates and settles, so it reads as
+   material being pushed round instead of a motor turning at one speed, and the
+   easing is the monotonic EFFECTS spring, so it never runs backwards. Velocity
+   is near zero at both ends of a cycle, which is what keeps the seam invisible.
+
+   Deliberately a separate class from `ring-spin`: that one carries the phase
+   travel of a determinate wave, where a constant rate is the point. */
+.ring-spin-spring {
+  animation: ring-spin var(--ring-period, 2.4s) var(--md-sys-motion-spring-default-effects-easing)
+    infinite;
+}
+
 .ring-spin {
   animation: ring-spin var(--ring-period, 2.4s) linear infinite;
   /* SVG transforms resolve against the viewBox, not the element box, so the

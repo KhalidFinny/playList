@@ -27,7 +27,7 @@ export default {
     // rather than in the hub. That also means it runs the code that was just
     // deployed, instead of whatever version the long-lived hub object started on.
     const preview = /^\/api\/preview\/([A-Za-z0-9_-]{11})$/.exec(url.pathname);
-    if (preview) return resolvePreview(preview[1], ctx);
+    if (preview) return resolvePreview(preview[1], ctx, url.searchParams.has("fresh"));
 
     // A room id has to be known before the socket is accepted, and this app
     // joins by passkey, so every socket lands on the same hub object.
@@ -40,9 +40,13 @@ export default {
 } satisfies ExportedHandler<Env>;
 
 /** The same-origin stream URL, with the track's own loudness for volume matching. */
-async function resolvePreview(videoId: string, ctx: ExecutionContext): Promise<Response> {
+async function resolvePreview(
+  videoId: string,
+  ctx: ExecutionContext,
+  fresh = false,
+): Promise<Response> {
   try {
-    const { mimeType, loudnessLufs } = await getAudioStream(videoId, ctx);
+    const { mimeType, loudnessLufs } = await getAudioStream(videoId, ctx, fresh);
     return json({ url: `/api/preview/${videoId}/stream`, mimeType, loudnessLufs });
   } catch (err) {
     console.error(`[preview] ${videoId}:`, err);

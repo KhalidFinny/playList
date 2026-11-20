@@ -97,6 +97,23 @@ export function AdminHubPage() {
     );
   };
 
+  const handleDeleteStation = (station: Station) => {
+    if (!token) return;
+    const confirmed = window.confirm(
+      `Delete ${station.id.toUpperCase()}? Its queue and history go with it, and the room code stops working.`,
+    );
+    if (!confirmed) return;
+
+    socket.emit(
+      "delete_station",
+      { roomId: station.id, adminToken: token },
+      (res: { success: boolean; error?: string }) => {
+        if (res.success) setStations((prev) => prev.filter((entry) => entry.id !== station.id));
+        else setCreateError(res.error || "Failed to delete station.");
+      },
+    );
+  };
+
   const handleApproveAdmin = (id: string) => {
     if (!token) return;
     socket.emit(
@@ -193,6 +210,7 @@ export function AdminHubPage() {
                       onClick={() =>
                         navigate({ to: "/admin/$roomId", params: { roomId: station.id } })
                       }
+                      onDelete={() => handleDeleteStation(station)}
                     />
                   ))}
                 </div>

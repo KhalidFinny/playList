@@ -131,11 +131,14 @@ const cacheKey = (videoId: string) => new Request(`https://preview.internal/${vi
 export async function getAudioStream(
   videoId: string,
   ctx?: ExecutionContext,
+  fresh = false,
 ): Promise<AudioStream> {
   const cache = caches.default;
   const key = cacheKey(videoId);
 
-  const hit = await cache.match(key);
+  // `fresh` is the recovery path: a cached URL that the media server has started
+  // refusing must not be handed back, or a stalled player can never recover.
+  const hit = fresh ? null : await cache.match(key);
   if (hit) return (await hit.json()) as AudioStream;
 
   const stream = await resolveAudio(videoId);

@@ -264,6 +264,23 @@ export function WavyProgress({
             </svg>
           )}
 
+          {/* Leading edge. The squiggle used to stop on a squared end, which
+              read as a line that had been cut rather than as a position. This is
+              the same dot as the track's stop dot, so the two ends of the bar
+              agree, and it rides the playhead as it moves. */}
+          {!indeterminate && played > 0 && (
+            <svg
+              width={width}
+              height={height}
+              viewBox={`0 0 ${width} ${height}`}
+              fill="none"
+              className="pointer-events-none absolute inset-0 overflow-visible"
+              aria-hidden="true"
+            >
+              <circle cx={played} cy={centerY} r={thickness / 2 + 1.5} className="fill-current" />
+            </svg>
+          )}
+
           {/* Stop dot at the end of the track. */}
           <svg
             width={width}
