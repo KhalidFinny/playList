@@ -32,15 +32,9 @@ const FullScreenVinyl: React.FC = () => {
           ))}
         </g>
 
-        {/* Ripple: one cached blurred layer, scaled and faded on the compositor.
-            See Hero.css for the measurement that made this CSS. */}
-        <g className="vinyl-ripple">
-          <g stroke="rgba(255,77,0,0.15)" fill="none" strokeWidth="1.2">
-            {Array.from({ length: 40 }).map((_, i) => (
-              <circle key={i} cx="500" cy="500" r={60 + i * 18} />
-            ))}
-          </g>
-        </g>
+        {/* No ripple. The ring that used to expand out of the record every 16s
+            read as a stray line scaling across the hero, not as sound. The
+            grooves underneath already carry the motion. */}
 
         {/* The rotating shine is gone. It was a full-width linear gradient that
             swept a hard diagonal band across the hero once a minute, which read as
