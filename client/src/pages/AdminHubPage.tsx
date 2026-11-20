@@ -207,9 +207,6 @@ export function AdminHubPage() {
                     <StationCard
                       key={station.id}
                       station={station}
-                      onClick={() =>
-                        navigate({ to: "/admin/$roomId", params: { roomId: station.id } })
-                      }
                       onDelete={() => handleDeleteStation(station)}
                     />
                   ))}

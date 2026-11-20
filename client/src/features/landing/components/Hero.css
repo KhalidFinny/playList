@@ -60,7 +60,7 @@
 .hero-disc {
   transform-box: view-box;
   transform-origin: 500px 500px;
-  animation: hero-disc 24s linear infinite;
+  animation: hero-disc 12s linear infinite;
   will-change: transform;
 }
 

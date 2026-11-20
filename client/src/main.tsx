@@ -5,7 +5,20 @@ import { routeTree } from "./routeTree.gen";
 import { applyTheme, getTheme, watchSystemTheme } from "./shared/lib/theme";
 import "./index.css";
 
-const router = createRouter({ routeTree });
+/**
+ * `defaultPreload: "intent"` is what makes a navigation feel instant.
+ *
+ * Every route is its own chunk, so without preloading a click has to fetch that
+ * chunk before the new screen can render, and the router keeps the current page
+ * on screen while it waits. That is the pause that read as "it shows me the old
+ * page first". With intent preloading the chunk is already in memory by the time
+ * the click lands, because hovering or touching a link started the fetch.
+ */
+const router = createRouter({
+  routeTree,
+  defaultPreload: "intent",
+  defaultPreloadDelay: 0,
+});
 
 declare module "@tanstack/react-router" {
   interface Register {

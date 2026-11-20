@@ -5,53 +5,91 @@ import { useLanding } from "../hooks/useLanding";
 import logo from "../../../assets/logo.svg";
 import "./Hero.css";
 
+/**
+ * The record behind the hero.
+ *
+ * It has to read as a turning disc, which takes three layers: grooves that rotate
+ * with it, an off-centre specular highlight that rotates too (a concentric groove
+ * alone is invisible when it turns), and a rim shadow that gives the edge depth.
+ *
+ * Everything bright is a soft radial or an arc, never a straight band: a linear
+ * gradient across a disc this large reads as a line sweeping the page rather than
+ * as light sitting on a record.
+ */
 const FullScreenVinyl: React.FC = () => {
   return (
-    <div className="absolute inset-0 z-0 flex items-center justify-center bg-[#050505] overflow-hidden">
+    <div className="absolute inset-0 z-0 flex items-center justify-center overflow-hidden bg-[#050505]">
       <svg
         viewBox="0 0 1000 1000"
         preserveAspectRatio="xMidYMid slice"
-        className="w-[150vmax] h-[150vmax] opacity-80"
+        className="h-[150vmax] w-[150vmax] opacity-90"
       >
         <defs>
           <radialGradient id="vinylDepth" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#151515" />
+            <stop offset="0%" stopColor="#1b1b1b" />
+            <stop offset="62%" stopColor="#111111" />
             <stop offset="100%" stopColor="#050505" />
           </radialGradient>
 
-          {/* Off-centre highlight. Concentric grooves rotating on their own are
-              invisible, because a circle is rotationally symmetric; this is what
-              makes the record's turn readable, the way light sits on a real one. */}
-          <radialGradient id="vinylSheen" cx="34%" cy="27%" r="58%">
-            <stop offset="0%" stopColor="white" stopOpacity="0.1" />
-            <stop offset="45%" stopColor="white" stopOpacity="0.03" />
+          {/* Off-centre key light. Rotating this is what makes the disc turn. */}
+          <radialGradient id="vinylSheen" cx="32%" cy="24%" r="62%">
+            <stop offset="0%" stopColor="white" stopOpacity="0.16" />
+            <stop offset="35%" stopColor="white" stopOpacity="0.05" />
             <stop offset="100%" stopColor="white" stopOpacity="0" />
           </radialGradient>
 
-          <filter id="softFade">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="60" />
-          </filter>
+          {/* Opposite, weaker fill so the far side is not flat black. */}
+          <radialGradient id="vinylFill" cx="74%" cy="78%" r="55%">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.045" />
+            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+          </radialGradient>
+
+          {/* Rim shadow: darkens the last stretch of the edge so the disc has
+              weight instead of ending flat against the page. */}
+          <radialGradient id="vinylRim" cx="50%" cy="50%" r="50%">
+            <stop offset="78%" stopColor="#000000" stopOpacity="0" />
+            <stop offset="96%" stopColor="#000000" stopOpacity="0.55" />
+            <stop offset="100%" stopColor="#000000" stopOpacity="0.8" />
+          </radialGradient>
         </defs>
 
+        {/* Base. */}
         <circle cx="500" cy="500" r="500" fill="url(#vinylDepth)" />
 
-        <g stroke="rgba(255,77,0,0.12)" fill="none" strokeWidth="0.8">
-          {Array.from({ length: 40 }).map((_, i) => (
-            <circle key={i} cx="500" cy="500" r={60 + i * 18} />
-          ))}
-        </g>
-
-        {/* The record turning. The highlight is inside the rotation, so the disc
-            visibly spins without a band sweeping across the whole hero. */}
+        {/* The turning part: grooves, both highlights, and the specular arc. */}
         <g className="hero-disc">
+          <g stroke="rgba(255,77,0,0.14)" fill="none" strokeWidth="0.8">
+            {Array.from({ length: 40 }).map((_, i) => (
+              <circle key={i} cx="500" cy="500" r={60 + i * 18} />
+            ))}
+          </g>
+
           <circle cx="500" cy="500" r="500" fill="url(#vinylSheen)" />
+          <circle cx="500" cy="500" r="500" fill="url(#vinylFill)" />
+
+          {/* A single soft specular arc, the way light catches the runout of a
+              real record. Rotating with the disc, so the turn is unmistakable. */}
+          <path
+            d="M 268 176 A 400 400 0 0 1 760 232"
+            fill="none"
+            stroke="white"
+            strokeOpacity="0.07"
+            strokeWidth="26"
+            strokeLinecap="round"
+          />
         </g>
 
-        {/* The rotating shine is gone. It was a full-width linear gradient that
-            swept a hard diagonal band across the hero once a minute, which read as
-            a stray line expanding out of the record rather than as light. The
-            record still turns and the ripple still breathes; the highlight is
-            carried by the radial gradient underneath. */}
+        {/* Stationary: the rim shadow and the outer edge highlight. */}
+        <circle cx="500" cy="500" r="500" fill="url(#vinylRim)" />
+        <circle
+          cx="500"
+          cy="500"
+          r="498"
+          fill="none"
+          stroke="white"
+          strokeOpacity="0.06"
+          strokeWidth="2"
+        />
       </svg>
     </div>
   );
@@ -103,7 +141,7 @@ export const Hero: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={transitions.base}
             onClick={handleVinylClick}
-            className="text-[28vw] font-black leading-none text-white tracking-widest select-none cursor-pointer drop-shadow-2xl text-center font-condensed [font-stretch:72%] transition-all hover:text-orange-500"
+            className="text-[31vw] font-black leading-none text-white tracking-widest select-none cursor-pointer drop-shadow-2xl text-center font-condensed [font-stretch:72%] transition-all hover:text-orange-500"
           >
             PLAY
           </motion.h1>
@@ -114,10 +152,10 @@ export const Hero: React.FC = () => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.96 }}
               onClick={handleVinylClick}
-              className="relative cursor-pointer w-20 h-20 sm:w-24 sm:h-24 bg-linear-to-br from-orange-300 via-orange-400 to-orange-500 rounded-full flex items-center justify-center shadow-[0_20px_60px_rgba(0,0,0,0.8)] border border-white/5 transition-all duration-500 will-change-transform overflow-hidden group"
+              className="relative flex size-20 cursor-pointer items-center justify-center rounded-full border-2 border-orange-500 bg-transparent transition-colors duration-500 will-change-transform hover:border-orange-400 sm:size-24"
             >
-              <div className="relative w-1/2 h-1/2 ml-[8%] flex items-center justify-center z-10">
-                <img src={logo} alt="Logo" className="relative w-full h-full brightness-[1.1]" />
+              <div className="relative z-10 ml-[8%] flex h-1/2 w-1/2 items-center justify-center">
+                <img src={logo} alt="Logo" className="relative h-full w-full" />
               </div>
             </motion.div>
           </div>
@@ -127,7 +165,7 @@ export const Hero: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={transitions.base}
             onClick={handleVinylClick}
-            className="text-[28vw] font-black leading-none text-white tracking-widest select-none cursor-pointer drop-shadow-2xl text-center font-condensed [font-stretch:72%] transition-all hover:text-orange-500"
+            className="text-[31vw] font-black leading-none text-white tracking-widest select-none cursor-pointer drop-shadow-2xl text-center font-condensed [font-stretch:72%] transition-all hover:text-orange-500"
           >
             LIST
           </motion.h1>
@@ -141,7 +179,7 @@ export const Hero: React.FC = () => {
               animate={{ opacity: 1, x: 0 }}
               transition={transitions.base}
               onClick={handleVinylClick}
-              className="text-[12vw] font-black leading-none text-white tracking-tight select-none cursor-pointer drop-shadow-2xl text-right font-condensed [font-stretch:78%] transition-all hover:text-orange-500"
+              className="text-[14vw] font-black leading-none text-white tracking-tight select-none cursor-pointer drop-shadow-2xl text-right font-condensed [font-stretch:78%] transition-all hover:text-orange-500"
             >
               PLAY
             </motion.h1>
@@ -154,10 +192,10 @@ export const Hero: React.FC = () => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.96 }}
               onClick={handleVinylClick}
-              className="relative cursor-pointer w-28 h-28 md:w-56 md:h-56 bg-linear-to-br from-orange-300 via-orange-400 to-orange-500 rounded-full flex items-center justify-center shadow-[0_20px_60px_rgba(0,0,0,0.8)] border border-white/5 transition-all duration-500 will-change-transform overflow-hidden group"
+              className="relative flex size-28 cursor-pointer items-center justify-center rounded-full border-2 border-orange-500 bg-transparent transition-colors duration-500 will-change-transform hover:border-orange-400 md:size-56"
             >
-              <div className="relative w-1/2 h-1/2 ml-[8%] flex items-center justify-center z-10">
-                <img src={logo} alt="Logo" className="relative w-full h-full brightness-[1.1]" />
+              <div className="relative z-10 ml-[8%] flex h-1/2 w-1/2 items-center justify-center">
+                <img src={logo} alt="Logo" className="relative h-full w-full" />
               </div>
             </motion.div>
           </div>
@@ -168,7 +206,7 @@ export const Hero: React.FC = () => {
               animate={{ opacity: 1, x: 0 }}
               transition={transitions.base}
               onClick={handleVinylClick}
-              className="text-[12vw] font-black leading-none text-white tracking-tight select-none cursor-pointer drop-shadow-2xl text-left font-condensed [font-stretch:78%] transition-all hover:text-orange-500 ml-4 md:ml-6"
+              className="text-[14vw] font-black leading-none text-white tracking-tight select-none cursor-pointer drop-shadow-2xl text-left font-condensed [font-stretch:78%] transition-all hover:text-orange-500 ml-4 md:ml-6"
             >
               LIST
             </motion.h1>

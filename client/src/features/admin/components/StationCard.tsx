@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { Link } from "@tanstack/react-router";
 import { ChevronRight, Trash2 } from "lucide-react";
 import { Card } from "@/shared/components/card";
 import { Badge } from "@/shared/components/badge";
@@ -9,22 +10,27 @@ import type { Station } from "@/shared/types";
 
 interface StationCardProps {
   station: Station;
-  onClick: () => void;
   onDelete: () => void;
 }
 
 /**
  * M3 card for a station. The `cookie12` shape stands in for the vinyl record —
  * it is the app's primary repeated unit, so the shape earns its keep here.
+ *
+ * The whole card is a real link, stretched over the surface by an absolutely
+ * positioned `Link`, rather than a div with an `onClick`. That is what gives it
+ * keyboard activation, open-in-new-tab, and the router's intent preload, which
+ * together are why the station opens without a pause. The delete button sits
+ * above the stretched link so it still takes its own clicks.
  */
-export function StationCard({ station, onClick, onDelete }: StationCardProps) {
+export function StationCard({ station, onDelete }: StationCardProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={transitions.base}
       key={station.id}
-      onClick={onClick}
+      className="relative"
     >
       <Card
         variant="filled"
@@ -48,17 +54,12 @@ export function StationCard({ station, onClick, onDelete }: StationCardProps) {
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
-          {/* Stops the click reaching the card, or deleting would also open the
-              station on its way out. */}
           <button
             type="button"
             aria-label={`Delete station ${station.id}`}
             title="Delete station"
-            onClick={(event) => {
-              event.stopPropagation();
-              onDelete();
-            }}
-            className="state-layer flex size-10 items-center justify-center rounded-m3-full text-on-surface-variant outline-none transition-colors hover:text-error focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            onClick={onDelete}
+            className="state-layer relative z-10 flex size-10 items-center justify-center rounded-m3-full text-on-surface-variant outline-none transition-colors hover:text-error focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             <Trash2 size={20} />
           </button>
@@ -68,6 +69,15 @@ export function StationCard({ station, onClick, onDelete }: StationCardProps) {
           </span>
         </div>
       </Card>
+
+      {/* The stretched link. Its accessible name is the station, so a screen
+          reader announces one link per card rather than a nameless one. */}
+      <Link
+        to="/admin/$roomId"
+        params={{ roomId: station.id }}
+        aria-label={`Open station ${station.id.toUpperCase()}`}
+        className="absolute inset-0 rounded-m3-md outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      />
     </motion.div>
   );
 }
