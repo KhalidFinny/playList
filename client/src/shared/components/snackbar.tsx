@@ -26,6 +26,10 @@ const icons: Record<SnackbarType, React.ReactNode> = {
 /**
  * M3 snackbar. `inverse-surface` roles so it reads as a floating layer, at the
  * `extra-small` radius M3 specifies for menus and snackbars.
+ *
+ * It clears the bottom bars: the listener's mini-player and the dashboard's
+ * navigation bar both sit at `bottom-0`, and at `bottom-6` the snackbar was
+ * rendered underneath them, which is why it looked like it had disappeared.
  */
 export function Snackbar({
   message,
@@ -45,7 +49,7 @@ export function Snackbar({
           exit={{ opacity: 0, y: 12, scale: 0.98 }}
           transition={transitions.base}
           className={cn(
-            "fixed bottom-6 left-1/2 z-100 flex -translate-x-1/2 items-center gap-3",
+            "fixed bottom-24 left-1/2 z-100 flex -translate-x-1/2 items-center gap-3",
             "min-w-80 max-w-[calc(100vw-2rem)] rounded-m3-xs bg-inverse-surface px-4 py-3",
             "text-body-medium text-inverse-on-surface elevation-3",
           )}

@@ -8,7 +8,7 @@ import { Modal } from "../shared/components/Modal";
 import { AdminHeader } from "../shared/components/AdminHeader";
 import { Button } from "../shared/components/button";
 import { TextField } from "../shared/components/input";
-import { LoadingOverlay } from "../shared/components/LoadingOverlay";
+import { PageLoader } from "../shared/components/LoadingOverlay";
 import { Logo } from "../shared/components/Logo";
 import { transitions } from "../shared/motion/springs";
 import { StationCard } from "../features/admin/components/StationCard";
@@ -139,7 +139,7 @@ export function AdminHubPage() {
     });
   };
 
-  if (loading || !token) return <LoadingOverlay isLoading={true} />;
+  if (loading || !token) return <PageLoader label="Opening the hub" />;
 
   return (
     <div className="min-h-screen bg-surface text-on-surface">

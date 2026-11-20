@@ -55,6 +55,21 @@
 /* The hero's remaining loops, both CSS rather than Framer Motion: a loop that
    never stops belongs on the compositor. The ripple that used to scale out of the
    record is gone; it read as a stray line expanding across the page. */
+/* The landing record. A sheen that turns with the disc, so the rotation reads
+   without anything sweeping across the page. */
+.hero-disc {
+  transform-box: view-box;
+  transform-origin: 500px 500px;
+  animation: hero-disc 24s linear infinite;
+  will-change: transform;
+}
+
+@keyframes hero-disc {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .hero-breathe {
   animation: hero-breathe 2s ease-in-out infinite;
   will-change: transform, opacity;

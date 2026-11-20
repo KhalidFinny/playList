@@ -19,6 +19,15 @@ const FullScreenVinyl: React.FC = () => {
             <stop offset="100%" stopColor="#050505" />
           </radialGradient>
 
+          {/* Off-centre highlight. Concentric grooves rotating on their own are
+              invisible, because a circle is rotationally symmetric; this is what
+              makes the record's turn readable, the way light sits on a real one. */}
+          <radialGradient id="vinylSheen" cx="34%" cy="27%" r="58%">
+            <stop offset="0%" stopColor="white" stopOpacity="0.1" />
+            <stop offset="45%" stopColor="white" stopOpacity="0.03" />
+            <stop offset="100%" stopColor="white" stopOpacity="0" />
+          </radialGradient>
+
           <filter id="softFade">
             <feGaussianBlur in="SourceGraphic" stdDeviation="60" />
           </filter>
@@ -32,9 +41,11 @@ const FullScreenVinyl: React.FC = () => {
           ))}
         </g>
 
-        {/* No ripple. The ring that used to expand out of the record every 16s
-            read as a stray line scaling across the hero, not as sound. The
-            grooves underneath already carry the motion. */}
+        {/* The record turning. The highlight is inside the rotation, so the disc
+            visibly spins without a band sweeping across the whole hero. */}
+        <g className="hero-disc">
+          <circle cx="500" cy="500" r="500" fill="url(#vinylSheen)" />
+        </g>
 
         {/* The rotating shine is gone. It was a full-width linear gradient that
             swept a hard diagonal band across the hero once a minute, which read as

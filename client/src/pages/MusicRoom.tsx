@@ -7,7 +7,6 @@ import { Logo } from "../shared/components/Logo";
 import { RoomHeader } from "../shared/components/RoomHeader";
 import { MusicRoomView } from "../features/shared/components/MusicRoomView";
 import { ListenToggle } from "../features/participant/components/ListenToggle";
-import { LoadingOverlay } from "../shared/components/LoadingOverlay";
 import { transitions } from "../shared/motion/springs";
 import { useMusicRoomPage } from "../hooks/pages/useMusicRoomPage";
 
@@ -21,8 +20,6 @@ export function MusicRoom() {
 
   return (
     <div className="relative flex h-screen flex-col overflow-hidden bg-surface text-on-surface">
-      <LoadingOverlay isLoading={isConnecting} />
-
       <RoomHeader roomId={roomId} live>
         <ListenToggle />
       </RoomHeader>
@@ -52,9 +49,13 @@ export function MusicRoom() {
             <div className="flex max-w-md flex-col items-center gap-6">
               <Logo size={88} />
               <div className="flex flex-col gap-2">
-                <h2 className="text-headline-medium-emphasized">No music playing</h2>
+                <h2 className="text-headline-medium-emphasized">
+                  {isConnecting ? "Connecting to the room" : "No music playing"}
+                </h2>
                 <p className="text-body-medium text-on-surface-variant">
-                  Waiting for the admin to play a song.
+                  {isConnecting
+                    ? "Reaching the station now."
+                    : "Waiting for the admin to play a song."}
                 </p>
               </div>
               <Button asChild size="md">

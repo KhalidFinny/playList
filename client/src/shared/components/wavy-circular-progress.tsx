@@ -30,12 +30,6 @@ export interface WavyCircularProgressProps {
   /** Seconds for one full revolution (indeterminate only). */
   period?: number;
   /**
-   * Fraction of the circle the rotating arc covers, 0 to 1 (indeterminate only).
-   * A constant span is what makes this read as a squiggle *circling* rather than
-   * pulsing.
-   */
-  arcSpan?: number;
-  /**
    * Travel the wave along the arc. The arc's extent still tracks `value`; only the
    * squiggle's phase moves, so the indicator reads as alive rather than frozen.
    */
@@ -138,7 +132,6 @@ export function WavyCircularProgress({
   amplitudeRatio,
   waves: waveCount,
   period = 2.4,
-  arcSpan = 0.75,
   animated = false,
   wavePeriod = 1.6,
   className,
@@ -160,10 +153,12 @@ export function WavyCircularProgress({
   const clamped = Math.min(1, Math.max(0, value ?? 0));
   const ramped = amp * amplitudeRamp(clamped);
 
-  // Indeterminate: one arc, rotated by CSS.
-  const rotatingArc = useMemo(
-    () => (box > 0 ? wavyArcPath(center, radius, amp, waves, 0, arcSpan * 2 * Math.PI) : ""),
-    [box, center, radius, amp, waves, arcSpan],
+  // Indeterminate sweep: the whole circle at full amplitude, trimmed by a
+  // dash pattern that grows and shrinks. `pathLength` normalises the path to 1,
+  // so the dash numbers are fractions of the ring and do not depend on its size.
+  const sweepWave = useMemo(
+    () => (box > 0 ? wavyArcPath(center, radius, amp, waves, 0, Math.PI * 2) : ""),
+    [box, center, radius, amp, waves],
   );
 
   // Determinate: the whole circle of wave, plus a wedge for the played extent.
@@ -200,18 +195,22 @@ export function WavyCircularProgress({
           aria-hidden="true"
         >
           {indeterminate ? (
-            <path
-              d={rotatingArc}
-              className="ring-spin-spring stroke-current"
-              style={
-                {
-                  "--ring-period": `${period}s`,
-                  "--ring-waves": "1",
-                } as React.CSSProperties
-              }
-              strokeWidth={thickness}
-              strokeLinecap="round"
-            />
+            // M3 Expressive indeterminate: the arc grows and shortens while it
+            // travels, which is what makes a loader read as working rather than
+            // as a fixed segment going round. The group rotates, the dash pattern
+            // sweeps; both are compositor-friendly and neither rewrites `d`.
+            <g
+              className="ring-rotate"
+              style={{ "--ring-period": `${period}s` } as React.CSSProperties}
+            >
+              <path
+                d={sweepWave}
+                pathLength={1}
+                className="ring-sweep stroke-current"
+                strokeWidth={thickness}
+                strokeLinecap="round"
+              />
+            </g>
           ) : (
             <>
               <defs>

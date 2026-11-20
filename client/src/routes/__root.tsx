@@ -1,7 +1,7 @@
 import { Outlet, createRootRoute, useRouterState } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 
-import { transitions } from "@/shared/motion/springs";
+import { springsFm } from "@/shared/motion/springs";
 
 /**
  * Route content.
@@ -12,8 +12,10 @@ import { transitions } from "@/shared/motion/springs";
  * tab switch inside one page (which does not touch the URL) does not animate,
  * and the audio element in a room is not torn down by its own re-render.
  *
- * No exit animation: waiting for the old screen to leave delays the new one for
- * no benefit, and the outgoing screen is stale by definition.
+ * The lift is a spatial spring and the fade is a short tween: a spring on opacity
+ * looks like a flicker, and a tween on position reads mechanical. No exit
+ * animation, because waiting for the old screen to leave delays the new one for
+ * no benefit.
  */
 function RouteContent() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
@@ -21,9 +23,9 @@ function RouteContent() {
   return (
     <motion.div
       key={pathname}
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={transitions.base}
+      transition={{ ...springsFm.defaultSpatial, opacity: { duration: 0.22, ease: "easeOut" } }}
     >
       <Outlet />
     </motion.div>

@@ -64,17 +64,45 @@
   }
 }
 
-/* The indeterminate loader steps around the ring on a spring rather than at a
-   constant rate. Each revolution accelerates and settles, so it reads as
-   material being pushed round instead of a motor turning at one speed, and the
-   easing is the monotonic EFFECTS spring, so it never runs backwards. Velocity
-   is near zero at both ends of a cycle, which is what keeps the seam invisible.
+/* The indeterminate loader: a group turning at a constant rate, carrying a
+   segment that grows and shortens. That combination is what M3's indeterminate
+   indicator does, and it is the difference between a loader and a spinner with a
+   fixed gap.
 
-   Deliberately a separate class from `ring-spin`: that one carries the phase
-   travel of a determinate wave, where a constant rate is the point. */
-.ring-spin-spring {
-  animation: ring-spin var(--ring-period, 2.4s) var(--md-sys-motion-spring-default-effects-easing)
-    infinite;
+   The dash numbers are fractions of the ring because the path sets
+   `pathLength="1"`, so none of this depends on the ring's pixel size. The dash
+   animation runs on the EFFECTS spring, which is monotonic and settles rather
+   than overshooting, so the segment never runs backwards. */
+@keyframes ring-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ring-rotate {
+  animation: ring-rotate var(--ring-period, 1.4s) linear infinite;
+  transform-box: view-box;
+  transform-origin: center;
+}
+
+@keyframes ring-sweep {
+  0% {
+    stroke-dasharray: 0.04 1;
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dasharray: 0.72 1;
+    stroke-dashoffset: -0.14;
+  }
+  100% {
+    stroke-dasharray: 0.04 1;
+    stroke-dashoffset: -0.96;
+  }
+}
+
+.ring-sweep {
+  animation: ring-sweep calc(var(--ring-period, 1.4s) * 1.6)
+    var(--md-sys-motion-spring-default-effects-easing) infinite;
 }
 
 .ring-spin {
@@ -95,7 +123,10 @@
   .disc-spin,
   .disc-ring-spin,
   .wave-slide,
-  .ring-spin {
+  .ring-spin,
+  .ring-rotate,
+  .ring-sweep,
+  .hero-disc {
     animation: none;
   }
 }

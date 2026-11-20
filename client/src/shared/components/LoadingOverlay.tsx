@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 import { Logo } from "@/shared/components/Logo";
 import { WavyCircularProgress } from "@/shared/components/wavy-circular-progress";
+import { WavyProgress } from "@/shared/components/wavy-progress";
 import { transitions } from "@/shared/motion/springs";
 
 interface LoadingOverlayProps {
@@ -42,5 +43,23 @@ export function LoadingOverlay({ isLoading }: LoadingOverlayProps) {
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+/**
+ * A compact loader for a page that is still fetching its own data.
+ *
+ * The splash is for the app's first paint only. Using it again on every route
+ * turned each navigation into a full-screen takeover, which is what made moving
+ * between pages feel like a reload rather than a change of view.
+ */
+export function PageLoader({ label = "Loading" }: { label?: string }) {
+  return (
+    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
+      <div className="w-40 text-primary">
+        <WavyProgress label={label} />
+      </div>
+      <p className="text-body-small text-on-surface-variant">{label}</p>
+    </div>
   );
 }
