@@ -7,7 +7,6 @@ import { PlaybackController } from "../features/admin/components/PlaybackControl
 import { SongSearch } from "../features/admin/components/SongSearch";
 import { ModerationQueue } from "../features/admin/components/ModerationQueue";
 import { AccessCodeBanner } from "../features/admin/components/AccessCodeBanner";
-import { PageLoader } from "../shared/components/LoadingOverlay";
 import { useAdminDashboardPage } from "../hooks/pages/useAdminDashboardPage";
 
 const isAdminTab = (value: string): value is "review" | "music" | "search" | "room" =>
@@ -22,7 +21,7 @@ const TAB_ICONS = {
 
 export function AdminDashboardPage() {
   const navigate = useNavigate();
-  const { logout, user, token, loading } = useAdminAuth();
+  const { logout, user } = useAdminAuth();
   const {
     roomId,
     activeTab,
@@ -78,8 +77,6 @@ export function AdminDashboardPage() {
     logout();
     navigate({ to: "/login" });
   }, [logout, navigate]);
-
-  if (loading || !token) return <PageLoader label="Opening the station" />;
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-surface text-on-surface">

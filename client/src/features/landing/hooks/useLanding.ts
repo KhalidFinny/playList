@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useWipeStore } from "@/shared/lib/routeWipe";
 import type { HeroState } from "../types";
 
 export const useLanding = () => {
@@ -11,9 +12,10 @@ export const useLanding = () => {
 
   const handleVinylClick = useCallback(() => {
     localStorage.setItem("has_visited_play_music", "true");
-    navigate({
-      to: "/r/$roomId/request",
-      params: { roomId: "join" },
+    // The circle covers the screen first, then the room code is navigated to
+    // underneath it and revealed as the circle contracts.
+    useWipeStore.getState().start(() => {
+      navigate({ to: "/r/$roomId/request", params: { roomId: "join" } });
     });
   }, [navigate]);
 

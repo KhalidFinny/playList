@@ -1,21 +1,21 @@
 import { Outlet, createRootRoute, useRouterState } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 
-import { springsFm } from "@/shared/motion/springs";
+import { CircleWipe } from "@/shared/components/CircleWipe";
 
 /**
  * Route content.
  *
- * Keyed by pathname so a change of screen is a change of element: the panel
- * fades and lifts in from just below, which is the M3 "content enters" pattern
- * rather than a slide across the whole surface. Only the pathname keys it, so a
- * tab switch inside one page (which does not touch the URL) does not animate,
- * and the audio element in a room is not torn down by its own re-render.
+ * One transition for every route: a short fade. Nothing moves, nothing scales,
+ * and every navigation looks the same, which is what makes moving around the app
+ * feel predictable rather than like a different effect per screen.
  *
- * The lift is a spatial spring and the fade is a short tween: a spring on opacity
- * looks like a flicker, and a tween on position reads mechanical. No exit
- * animation, because waiting for the old screen to leave delays the new one for
- * no benefit.
+ * The landing page's circle wipe is the one deliberate exception, and it is a
+ * separate overlay rather than a variation of this fade.
+ *
+ * Keyed by pathname so a change of screen is a change of element. Only the
+ * pathname keys it, so a tab switch inside one page does not animate, and the
+ * audio element in a room is not torn down by its own re-render.
  */
 function RouteContent() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
@@ -23,9 +23,9 @@ function RouteContent() {
   return (
     <motion.div
       key={pathname}
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ ...springsFm.defaultSpatial, opacity: { duration: 0.22, ease: "easeOut" } }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.18, ease: "easeOut" }}
     >
       <Outlet />
     </motion.div>
@@ -36,6 +36,7 @@ export const Route = createRootRoute({
   component: () => (
     <div className="min-h-screen bg-surface text-on-surface selection:bg-primary selection:text-on-primary">
       <RouteContent />
+      <CircleWipe />
     </div>
   ),
 });
