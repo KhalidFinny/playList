@@ -16,6 +16,14 @@ import type {
   Track,
 } from "../types";
 import { useAdminQueueStore } from "../../../stores/adminQueueStore";
+import {
+  begin,
+  idleGuard,
+  isRequesting,
+  reset,
+  settle,
+  type AdvanceGuard,
+} from "../lib/advanceGuard";
 import { rankSuggestions } from "../../../shared/lib/suggestions";
 
 export function useAdminDashboard(roomId: string) {
@@ -37,8 +45,8 @@ export function useAdminDashboard(roomId: string) {
   // lost to a dropped socket left the in-flight guard set for good.
   const ACK_TIMEOUT_MS = 10_000;
 
-  const isRequestingNextRef = useRef(false);
-  const isRequestingPreviousRef = useRef(false);
+  // Explicit advance machine; see `../lib/advanceGuard` and `specs/AdvanceGuard.tla`.
+  const guardRef = useRef<AdvanceGuard>(idleGuard);
 
   // --- STATE: MODERATION (Admin) ---
   const pendingQueue = useAdminQueueStore((state) => state.pendingQueue);
@@ -104,9 +112,11 @@ export function useAdminDashboard(roomId: string) {
   );
 
   const fetchNext = useCallback(() => {
-    if (!roomId || isRequestingNextRef.current) return;
+    if (!roomId) return;
+    const begun = begin(guardRef.current, "next");
+    if (!begun) return;
+    guardRef.current = begun;
 
-    isRequestingNextRef.current = true;
     socket
       .timeout(ACK_TIMEOUT_MS)
       .emit(
@@ -114,7 +124,7 @@ export function useAdminDashboard(roomId: string) {
         { roomId, idempotencyKey: crypto.randomUUID() },
         (err: Error | null, res: EoTrackEndedResponse) => {
           if (err || !res) {
-            isRequestingNextRef.current = false;
+            guardRef.current = settle(guardRef.current, "next");
             return;
           }
           if (res.success) {
@@ -122,7 +132,7 @@ export function useAdminDashboard(roomId: string) {
             setUpNext(res.upNext);
             if (res.oldTrackId) setHasPreviousTrack(true);
           }
-          isRequestingNextRef.current = false;
+          guardRef.current = settle(guardRef.current, "next");
         },
       );
   }, [applyNowPlaying, roomId]);
@@ -133,9 +143,11 @@ export function useAdminDashboard(roomId: string) {
   }, []);
 
   const onPlayerEnd = useCallback(() => {
-    if (!roomId || isRequestingNextRef.current) return Promise.resolve(false);
+    if (!roomId) return Promise.resolve(false);
+    const begun = begin(guardRef.current, "next");
+    if (!begun) return Promise.resolve(false);
+    guardRef.current = begun;
 
-    isRequestingNextRef.current = true;
     return new Promise<boolean>((resolve) => {
       socket
         .timeout(ACK_TIMEOUT_MS)
@@ -147,7 +159,7 @@ export function useAdminDashboard(roomId: string) {
             // than leaving the guard set, which used to block every later track
             // end until the page was reloaded.
             if (err || !res) {
-              isRequestingNextRef.current = false;
+              guardRef.current = settle(guardRef.current, "next");
               resolve(false);
               return;
             }
@@ -176,7 +188,7 @@ export function useAdminDashboard(roomId: string) {
                 });
               }
             }
-            isRequestingNextRef.current = false;
+            guardRef.current = settle(guardRef.current, "next");
             resolve(advanced);
           },
         );
@@ -184,9 +196,11 @@ export function useAdminDashboard(roomId: string) {
   }, [applyNowPlaying, roomId]);
 
   const onPrevious = useCallback(() => {
-    if (!roomId || isRequestingPreviousRef.current) return Promise.resolve(false);
+    if (!roomId) return Promise.resolve(false);
+    const begun = begin(guardRef.current, "previous");
+    if (!begun) return Promise.resolve(false);
+    guardRef.current = begun;
 
-    isRequestingPreviousRef.current = true;
     return new Promise<boolean>((resolve) => {
       socket.timeout(ACK_TIMEOUT_MS).emit(
         "previous_track",
@@ -201,7 +215,7 @@ export function useAdminDashboard(roomId: string) {
           },
         ) => {
           if (err || !res) {
-            isRequestingPreviousRef.current = false;
+            guardRef.current = settle(guardRef.current, "previous");
             resolve(false);
             return;
           }
@@ -213,7 +227,7 @@ export function useAdminDashboard(roomId: string) {
           } else {
             setHasPreviousTrack(false);
           }
-          isRequestingPreviousRef.current = false;
+          guardRef.current = settle(guardRef.current, "previous");
           resolve(moved);
         },
       );
@@ -255,8 +269,7 @@ export function useAdminDashboard(roomId: string) {
       setConnected(true);
       // A request that was in flight when the socket dropped will never be
       // acknowledged, so its guard has to be released here.
-      isRequestingNextRef.current = false;
-      isRequestingPreviousRef.current = false;
+      guardRef.current = reset(guardRef.current);
       // Re-join the room on reconnect (socket.io reconnects automatically but doesn't re-emit our events)
       const token = localStorage.getItem("adminToken");
       if (token && joinRoomRef.current) {
@@ -301,7 +314,11 @@ export function useAdminDashboard(roomId: string) {
       applyInitialQueues(pending, approved);
 
       // Only request next track if there is at least one approved song.
-      if (!nowPlayingRef.current && approved.length > 0 && !isRequestingNextRef.current) {
+      if (
+        !nowPlayingRef.current &&
+        approved.length > 0 &&
+        !isRequesting(guardRef.current, "next")
+      ) {
         fetchNext();
       }
     };
@@ -325,8 +342,7 @@ export function useAdminDashboard(roomId: string) {
 
     const handleDisconnect = () => {
       setConnected(false);
-      isRequestingNextRef.current = false;
-      isRequestingPreviousRef.current = false;
+      guardRef.current = reset(guardRef.current);
     };
 
     socket.on("connect", handleConnect);
@@ -372,7 +388,12 @@ export function useAdminDashboard(roomId: string) {
   ]);
 
   useEffect(() => {
-    if (connected && !nowPlaying && fullQueue.length > 0 && !isRequestingNextRef.current) {
+    if (
+      connected &&
+      !nowPlaying &&
+      fullQueue.length > 0 &&
+      !isRequesting(guardRef.current, "next")
+    ) {
       fetchNext();
     }
   }, [connected, fetchNext, fullQueue.length, nowPlaying]);

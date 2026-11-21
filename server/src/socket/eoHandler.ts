@@ -1,10 +1,26 @@
 import { Server, Socket } from "socket.io";
 import { roomManager } from "../state/roomManager";
+import { isAdminForRoom } from "./adminSession";
 import { getQueueWindow, previousTrack, transitionToNextTrack } from "../services/liveQueue/index";
 import { redis } from "../lib/redis";
 
-export function handleEOEvents(io: Server, socket: Socket) {
+/**
+ * Who may drive a room's playback.
+ *
+ * The old check was `activeEO && activeEO !== socket.id`, which passes for
+ * everyone whenever no EO is registered, and the client never registers one: the
+ * admin joins as "admin". That left advancing, pausing, seeking and previous open
+ * to any socket that knew a room id, so a participant could move the room.
+ *
+ * `isAdminForRoom` is the grant `join_room` records after it validates the admin
+ * token and room ownership, the same one the admin mutations use. A socket that
+ * did claim the playback-controller role is still allowed, so the slot keeps
+ * meaning something if a dedicated controller is ever added back.
+ */
+const mayDrivePlayback = (socket: Socket, roomId: string) =>
+  isAdminForRoom(socket, roomId) || roomManager.getPlaybackController(roomId) === socket.id;
 
+export function handleEOEvents(io: Server, socket: Socket) {
   // EO asks for the next track right away or when a track finishes
   socket.on("eo_track_ended", async (data: { roomId: string; idempotencyKey?: string }, callback) => {
     const { roomId } = data;
@@ -17,9 +33,8 @@ export function handleEOEvents(io: Server, socket: Socket) {
 
     try {
       console.log(`EO for room ${roomId} requested next track...`);
-      const activeEO = roomManager.getPlaybackController(roomId);
-      if (activeEO && activeEO !== socket.id) {
-        if (callback) callback({ success: false, error: "Unauthorized. You are not the active playback controller." });
+      if (!mayDrivePlayback(socket, roomId)) {
+        if (callback) callback({ success: false, error: "Unauthorized. You are not the playback controller for this room." });
         return;
       }
 
@@ -49,8 +64,7 @@ export function handleEOEvents(io: Server, socket: Socket) {
     const { roomId, currentTime, duration, isPlaying } = data;
     if (!roomId) return;
 
-    const activeEO = roomManager.getPlaybackController(roomId);
-    if (activeEO && activeEO !== socket.id) return;
+    if (!mayDrivePlayback(socket, roomId)) return;
 
     const playbackState = { currentTime, duration, isPlaying, updatedAt: Date.now() };
     await redis.hset(`room:${roomId}:playback`, playbackState);
@@ -68,8 +82,7 @@ export function handleEOEvents(io: Server, socket: Socket) {
     }
 
     try {
-      const activeEO = roomManager.getPlaybackController(roomId);
-      if (activeEO && activeEO !== socket.id) {
+      if (!mayDrivePlayback(socket, roomId)) {
         if (callback) callback({ success: false, error: "Unauthorized" });
         return;
       }
@@ -100,9 +113,7 @@ export function handleEOEvents(io: Server, socket: Socket) {
     const { roomId, isPlaying } = data;
     if (!roomId) return;
 
-    // Check if authorized
-    const activeEO = roomManager.getPlaybackController(roomId);
-    if (activeEO && activeEO !== socket.id) return;
+    if (!mayDrivePlayback(socket, roomId)) return;
 
     roomManager.setIsPlaying(roomId, isPlaying);
     redis.hset(`room:${roomId}:playback`, { isPlaying, updatedAt: Date.now() }).catch(console.error);

@@ -73,3 +73,8 @@ Thumbs.db
 # agent handoff / progress notes
 /HANDOFF.md
 /PROGRESS.md
+
+# TLA+ / TLC model-checker output (multi-GB state dumps)
+specs/states/
+specs/*_TTrace_*.tla
+specs/*_TTrace_*.bin

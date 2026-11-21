@@ -4,6 +4,16 @@ import type { Track } from "@/shared/types";
 import { normalizeGain, resolveLoudness } from "@/shared/lib/loudness";
 import { applyGain, watchAudioSettings } from "@/shared/lib/audioGraph";
 import { fetchStream } from "@/shared/lib/preview";
+import {
+  begin as beginLoad,
+  commit as commitLoad,
+  fail as failLoad,
+  idleSession,
+  isCurrent,
+  isReady,
+  teardown as teardownSession,
+  type LoadSession,
+} from "./loadSession";
 import { useAudioStore } from "@/stores/audioStore";
 import { setMediaSession, setMediaSessionPlaybackState } from "@/shared/lib/mediaSession";
 
@@ -29,11 +39,10 @@ let audio: HTMLAudioElement | null = null;
 let unsubscribe: (() => void) | null = null;
 let unwatchSettings: (() => void) | null = null;
 let driftTimer: ReturnType<typeof setInterval> | null = null;
-let loadedTrackId: string | null = null;
+// The load machine: which track the element is on, and whether a load is in
+// flight. See `./loadSession` and `specs/ListenerSession.tla`.
+let session: LoadSession = idleSession;
 let appliedPlaying: boolean | null = null;
-let ready = false;
-// Bumped on every load and teardown so a slow load cannot write to a newer one.
-let generation = 0;
 // Settles a `canplay` wait that teardown would otherwise leave hanging.
 let abortLoad: (() => void) | null = null;
 
@@ -73,7 +82,7 @@ function waitForCanPlay(element: HTMLAudioElement): Promise<void> {
 }
 
 async function startPlayback(element: HTMLAudioElement): Promise<void> {
-  if (!ready) return;
+  if (!isReady(session)) return;
   try {
     await element.play();
     useListenStore.getState().setPhase("ready");
@@ -85,30 +94,31 @@ async function startPlayback(element: HTMLAudioElement): Promise<void> {
 }
 
 async function loadTrack(element: HTMLAudioElement, track: Track): Promise<void> {
-  const token = ++generation;
-  ready = false;
+  const started = beginLoad(session, track.id);
+  session = started.session;
+  const token = started.token;
   useListenStore.getState().setPhase("loading");
 
   try {
     const { url, loudnessLufs } = await fetchStream(track.youtubeId);
-    if (token !== generation) return;
+    if (!isCurrent(session, token)) return;
 
     element.src = url;
     await waitForCanPlay(element);
-    if (token !== generation) return;
+    if (!isCurrent(session, token)) return;
 
     // Same normalizer as the host, so headphones and the room speaker agree on
     // level. YouTube's measurement arrives with the stream; only a track without
     // one costs a decode.
     applyGain(element, 1);
     void resolveLoudness(track.youtubeId, url, loudnessLufs).then((loudness) => {
-      if (token !== generation) return;
+      if (!isCurrent(session, token)) return;
       applyGain(element, useAudioStore.getState().normalize ? normalizeGain(loudness) : 1);
     });
 
     // Seek before playing, so it never starts from the top and jumps.
     element.currentTime = expectedPosition();
-    ready = true;
+    session = commitLoad(session, token);
 
     // Headphones stay on the lock screen: the media session is what lets the
     // OS keep this element running once the screen turns off or the app is
@@ -123,7 +133,8 @@ async function loadTrack(element: HTMLAudioElement, track: Track): Promise<void>
     if (isPlaying) await startPlayback(element);
     else useListenStore.getState().setPhase("ready");
   } catch (err) {
-    if (token !== generation) return;
+    if (!isCurrent(session, token)) return;
+    session = failLoad(session, token);
     fail(err instanceof Error ? err.message : "Audio is unavailable for this track");
   }
 }
@@ -136,10 +147,9 @@ function syncFromStore(): void {
   const { nowPlaying, isPlaying } = useRoomStore.getState();
   const trackId = nowPlaying?.id ?? null;
 
-  if (trackId !== loadedTrackId) {
-    loadedTrackId = trackId;
+  if (trackId !== session.trackId) {
     appliedPlaying = null;
-    ready = false;
+    session = teardownSession(session);
     if (nowPlaying) void loadTrack(element, nowPlaying);
     else {
       element.pause();
@@ -159,7 +169,7 @@ function syncFromStore(): void {
 /** A safety net for gross error — a stalled player or a suspended tab. */
 function correctDrift(): void {
   const element = audio;
-  if (!element || !ready || !useRoomStore.getState().isPlaying) return;
+  if (!element || !isReady(session) || !useRoomStore.getState().isPlaying) return;
 
   const target = expectedPosition();
   if (Math.abs(element.currentTime - target) > DRIFT_TOLERANCE_S) {
@@ -168,7 +178,7 @@ function correctDrift(): void {
 }
 
 function teardown(): void {
-  generation += 1;
+  session = teardownSession(session);
 
   abortLoad?.();
   abortLoad = null;
@@ -190,9 +200,7 @@ function teardown(): void {
     audio = null;
   }
 
-  loadedTrackId = null;
   appliedPlaying = null;
-  ready = false;
 }
 
 function fail(message: string): void {
@@ -210,7 +218,7 @@ function fail(message: string): void {
 function handleVisibility(): void {
   const element = audio;
   if (!element || document.visibilityState !== "visible") return;
-  if (!ready) {
+  if (!isReady(session)) {
     syncFromStore();
     return;
   }
