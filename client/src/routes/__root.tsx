@@ -1,14 +1,17 @@
 import { Outlet, createRootRoute, useRouterState } from "@tanstack/react-router";
-import { motion } from "framer-motion";
+import { MotionConfig, motion } from "framer-motion";
 
 import { CircleWipe } from "@/shared/components/CircleWipe";
+import { smooth } from "@/shared/motion/springs";
 
 /**
  * Route content.
  *
- * One transition for every route: a short fade. Nothing moves, nothing scales,
- * and every navigation looks the same, which is what makes moving around the app
- * feel predictable rather than like a different effect per screen.
+ * One transition for every route: a short fade with a small rise, on a critically
+ * damped spring. The content arrives with momentum and settles rather than
+ * appearing, and nothing overshoots, so it reads as weight rather than bounce.
+ * Every navigation uses the same move, which is what makes the app feel
+ * predictable rather than like a different effect per screen.
  *
  * The landing page's circle wipe is the one deliberate exception, and it is a
  * separate overlay rather than a variation of this fade.
@@ -23,9 +26,9 @@ function RouteContent() {
   return (
     <motion.div
       key={pathname}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.18, ease: "easeOut" }}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ ...smooth.base, opacity: { duration: 0.2, ease: "easeOut" } }}
     >
       <Outlet />
     </motion.div>
@@ -34,9 +37,14 @@ function RouteContent() {
 
 export const Route = createRootRoute({
   component: () => (
-    <div className="min-h-screen bg-surface text-on-surface selection:bg-primary selection:text-on-primary">
-      <RouteContent />
-      <CircleWipe />
-    </div>
+    // `reducedMotion="user"` is what makes every Framer animation in the app
+    // respect the OS setting: movement collapses to a crossfade, and the layout
+    // never jumps. Without it only the one component that checked by hand did.
+    <MotionConfig reducedMotion="user">
+      <div className="min-h-screen bg-surface text-on-surface selection:bg-primary selection:text-on-primary">
+        <RouteContent />
+        <CircleWipe />
+      </div>
+    </MotionConfig>
   ),
 });

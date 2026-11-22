@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 
 import { cn } from "@/shared/lib/utils";
-import { transitions } from "@/shared/motion/springs";
+import { smooth, transitions } from "@/shared/motion/springs";
 
 interface ModalProps {
   isOpen: boolean;
@@ -59,10 +59,12 @@ export function Modal({
             role="dialog"
             aria-modal="true"
             aria-label={title}
-            initial={{ opacity: 0, scale: 0.9, y: 12 }}
+            initial={{ opacity: 0, scale: 0.94, y: 14 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 8 }}
-            transition={transitions.base}
+            exit={{ opacity: 0, scale: 0.97, y: 8 }}
+            // One spring for both directions. The exit is shorter in distance, so
+            // it settles sooner without needing a separate curve.
+            transition={{ ...smooth.base, opacity: { duration: 0.16, ease: "easeOut" } }}
             className={cn(
               "relative w-full overflow-hidden rounded-m3-xl bg-surface-container-high text-on-surface",
               maxWidth,

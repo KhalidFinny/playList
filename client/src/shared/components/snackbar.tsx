@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle, XCircle, Info, X } from "lucide-react";
 
 import { cn } from "@/shared/lib/utils";
-import { transitions } from "@/shared/motion/springs";
+import { smooth } from "@/shared/motion/springs";
 
 export type SnackbarType = "info" | "success" | "error";
 
@@ -44,10 +44,13 @@ export function Snackbar({
       {isOpen && (
         <motion.div
           role="status"
-          initial={{ opacity: 0, y: 24, scale: 0.96 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 12, scale: 0.98 }}
-          transition={transitions.base}
+          initial={{ opacity: 0, y: 28 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 16 }}
+          transition={{
+            ...smooth.quick,
+            opacity: { duration: 0.16, ease: "easeOut" },
+          }}
           className={cn(
             "fixed bottom-24 left-1/2 z-100 flex -translate-x-1/2 items-center gap-3",
             "min-w-80 max-w-[calc(100vw-2rem)] rounded-m3-xs bg-inverse-surface px-4 py-3",

@@ -200,9 +200,10 @@ export function AdminHubPage() {
                 </div>
               ) : (
                 <div className="flex flex-col gap-4">
-                  {stations.map((station) => (
+                  {stations.map((station, index) => (
                     <StationCard
                       key={station.id}
+                      index={index}
                       station={station}
                       onDelete={() => handleDeleteStation(station)}
                     />

@@ -3,7 +3,7 @@ import { Play } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Shape } from "@/shared/shapes/shape";
 import { ShapeMorph } from "@/shared/shapes/shape-morph";
-import { transitions } from "@/shared/motion/springs";
+import { smooth } from "@/shared/motion/springs";
 import { cn } from "@/shared/lib/utils";
 import { trackThumbnail } from "@/shared/lib/youtube";
 import type { Track } from "@/shared/types";
@@ -37,10 +37,10 @@ export function NowPlayingBar({
     <AnimatePresence>
       {isVisible && nowPlaying && (
         <motion.div
-          initial={{ y: 96 }}
+          initial={{ y: "100%" }}
           animate={{ y: 0 }}
-          exit={{ y: 96 }}
-          transition={transitions.base}
+          exit={{ y: "100%" }}
+          transition={smooth.base}
           className="fixed inset-x-0 bottom-0 z-50 flex items-center justify-between gap-4 bg-surface-container-high p-4 elevation-3 md:px-8"
         >
           <div className="flex min-w-0 items-center gap-4">

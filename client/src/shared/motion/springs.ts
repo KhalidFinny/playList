@@ -93,3 +93,33 @@ export const springsFm = {
   defaultEffects: physics(motion.defaultEffects),
   slowEffects: physics(motion.slowEffects),
 } as const;
+
+/**
+ * Critically damped springs, for UI that enters or changes state.
+ *
+ * The expressive spatial tokens above overshoot by design (damping 0.6 to 0.8),
+ * which is right for something you are dragging and can interrupt, and wrong for
+ * a panel appearing: nothing is being pushed, so the overshoot reads as a bounce
+ * with no cause. These use damping 1, where the value approaches its target as
+ * fast as it can without ever passing it. That is the "weighted but calm" feel:
+ * it moves with momentum instead of arriving on a curve, and it never wobbles.
+ *
+ * Prefer these for anything that moves. Keep `transitions` for pure opacity,
+ * where a spring is invisible and a tween is cheaper.
+ */
+const damped = (stiffness: number): Transition => ({
+  type: "spring",
+  mass: 1,
+  stiffness,
+  damping: 2 * Math.sqrt(stiffness),
+  restDelta: 0.001,
+});
+
+export const smooth = {
+  /** Small moves: a row, a chip, a menu. Settles in about 0.2s. */
+  quick: damped(620),
+  /** The default for panels, dialogs, and page content. About 0.3s. */
+  base: damped(420),
+  /** Large surfaces and full-screen changes. About 0.45s. */
+  slow: damped(260),
+} as const;

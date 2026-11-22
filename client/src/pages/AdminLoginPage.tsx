@@ -9,7 +9,7 @@ import { Button } from "../shared/components/button";
 import { TextField } from "../shared/components/input";
 import { Logo } from "../shared/components/Logo";
 import { ThemeToggle } from "../shared/components/theme-toggle";
-import { transitions } from "../shared/motion/springs";
+import { smooth, transitions } from "../shared/motion/springs";
 import type { AdminUser } from "../shared/types";
 
 type AdminLoginResponse = {
@@ -70,9 +70,9 @@ export function AdminLoginPage() {
       <ThemeToggle className="absolute right-4 top-4" />
 
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
+        initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={transitions.base}
+        transition={{ ...smooth.base, opacity: { duration: 0.24, ease: "easeOut" } }}
         className="relative z-10 w-full max-w-sm"
       >
         <div className="mb-8 flex flex-col items-center text-center">

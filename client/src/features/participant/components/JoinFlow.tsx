@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/shared/components/button";
 import { Logo } from "@/shared/components/Logo";
-import { transitions } from "@/shared/motion/springs";
+import { smooth } from "@/shared/motion/springs";
 
 interface JoinFlowProps {
   passkey: string;
@@ -22,10 +22,10 @@ export function JoinFlow({ passkey, onPasskeyChange, onSubmit, isResolving }: Jo
   return (
     <motion.div
       key="join-flow"
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
-      transition={transitions.base}
+      transition={{ ...smooth.base, opacity: { duration: 0.24, ease: "easeOut" } }}
       className="relative z-20 flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center px-4 py-10"
     >
       <div className="w-full max-w-md text-center">

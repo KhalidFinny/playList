@@ -4,13 +4,15 @@ import { ChevronRight, Trash2 } from "lucide-react";
 import { Card } from "@/shared/components/card";
 import { Badge } from "@/shared/components/badge";
 import { Shape } from "@/shared/shapes/shape";
-import { transitions } from "@/shared/motion/springs";
+import { smooth } from "@/shared/motion/springs";
 import { roomModeLabel } from "@/shared/lib/roomMode";
 import type { Station } from "@/shared/types";
 
 interface StationCardProps {
   station: Station;
   onDelete: () => void;
+  /** Position in the list, for the staggered entrance. */
+  index?: number;
 }
 
 /**
@@ -23,12 +25,17 @@ interface StationCardProps {
  * together are why the station opens without a pause. The delete button sits
  * above the stretched link so it still takes its own clicks.
  */
-export function StationCard({ station, onDelete }: StationCardProps) {
+export function StationCard({ station, onDelete, index = 0 }: StationCardProps) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={transitions.base}
+      // Capped at six steps: past that a list should arrive, not perform.
+      transition={{
+        ...smooth.quick,
+        delay: Math.min(index, 6) * 0.045,
+        opacity: { duration: 0.2, ease: "easeOut", delay: Math.min(index, 6) * 0.045 },
+      }}
       key={station.id}
       className="relative"
     >

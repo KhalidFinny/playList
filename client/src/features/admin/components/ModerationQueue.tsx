@@ -4,7 +4,7 @@ import { X, Check, Loader2, Play, Headphones, Trash2 } from "lucide-react";
 import { Button } from "@/shared/components/button";
 import { Input } from "@/shared/components/input";
 import { Logo } from "@/shared/components/Logo";
-import { transitions } from "@/shared/motion/springs";
+import { smooth, transitions } from "@/shared/motion/springs";
 import { PreviewAudioPlayer } from "./PreviewAudioPlayer";
 import { useAudioOutput } from "@/shared/hooks/useAudioOutput";
 
@@ -95,10 +95,14 @@ export function ModerationQueue({
           {pendingQueue.map((song, index) => (
             <motion.article
               key={song.id}
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              transition={transitions.fast}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{
+                ...smooth.quick,
+                delay: Math.min(index, 6) * 0.04,
+                opacity: { duration: 0.18, ease: "easeOut", delay: Math.min(index, 6) * 0.04 },
+              }}
             >
               <div className="flex flex-col gap-3 rounded-m3-md bg-surface-container p-3 sm:flex-row sm:items-center sm:gap-4">
                 <div className="flex min-w-0 flex-1 items-center gap-3">
