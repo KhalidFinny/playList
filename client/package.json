@@ -12,9 +12,6 @@
   },
   "dependencies": {
     "@fontsource-variable/google-sans-flex": "^5.3.1",
-    "@fortawesome/fontawesome-svg-core": "^7.2.0",
-    "@fortawesome/free-solid-svg-icons": "^7.2.0",
-    "@fortawesome/react-fontawesome": "^3.3.0",
     "@radix-ui/react-slot": "^1.2.4",
     "@tailwindcss/vite": "^4.2.2",
     "@tanstack/react-router": "^1.168.22",
@@ -29,7 +26,6 @@
     "socket.io-client": "^4.8.3",
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.2.2",
-    "uuid": "^13.0.0",
     "xstate": "^5.32.0",
     "zustand": "^5.0.14"
   },
@@ -38,7 +34,6 @@
     "@types/node": "^24.12.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@types/uuid": "^11.0.0",
     "@vitejs/plugin-react": "^6.0.1",
     "globals": "^17.4.0",
     "typescript": "~6.0.2",

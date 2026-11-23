@@ -1,6 +1,7 @@
 import { Server, Socket } from "socket.io";
 import ytsort from "yt-search";
-import { countPendingSongs, submitSong, addApprovedSong, getQueueWindow } from "../services/liveQueue/index";
+import { pendingCounts, submitSong, addApprovedSong, getQueueWindow } from "../services/liveQueue/index";
+import { broadcastQueue } from "./queueBroadcast";
 import { getRoomMode } from "../services/rooms";
 import { normalizeSearchQuery, TtlLruCache } from "./searchCache";
 import { actorIdOf } from "../lib/actor";
@@ -258,22 +259,14 @@ export function handleParticipantEvents(io: Server, socket: Socket) {
 
       // 5. Max pending requests per user (guardrail; the client-supplied id is
       //    display metadata, so the IP limit above is the real enforcement)
+      // One call answers both caps: this used to be two full list reads.
       try {
-        const pendingCount = await countPendingSongs(roomId, userId);
-        if (pendingCount >= MAX_PENDING_PER_USER) {
+        const { mine, total } = await pendingCounts(roomId, userId);
+        if (mine >= MAX_PENDING_PER_USER) {
           if (callback) callback({ success: false, error: `You can only have ${MAX_PENDING_PER_USER} pending requests at a time` });
           return;
         }
-      } catch (err) {
-        console.error(err);
-        if (callback) callback({ success: false, error: "Database error" });
-        return;
-      }
-
-      // 6. Max total pending songs in room
-      try {
-        const totalPending = await countPendingSongs(roomId);
-        if (totalPending >= MAX_PENDING_PER_ROOM) {
+        if (total >= MAX_PENDING_PER_ROOM) {
           if (callback) callback({ success: false, error: "This room's request queue is full right now" });
           return;
         }
@@ -310,7 +303,7 @@ export function handleParticipantEvents(io: Server, socket: Socket) {
           io.to(`${roomId}:admin`).emit("song_approved", approvedSong);
           io.to(`${roomId}:participant`).emit("song_approved", approvedSong);
           io.to(`${roomId}:eo`).emit("song_approved", approvedSong);
-          io.to(roomId).emit("queue_updated", await getQueueWindow(roomId, "admin"));
+          await broadcastQueue(io, roomId);
 
           if (callback) callback({ success: true, message: "Added to the queue" });
           return;

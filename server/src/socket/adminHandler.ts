@@ -2,7 +2,8 @@ import { Server, Socket } from "socket.io";
 import { sql } from "../db/client";
 import { roomManager } from "../state/roomManager";
 import { redisCache } from "../lib/redis";
-import { addApprovedSong, approveSong, clearQueue, deleteSong, getQueueWindow, updateSongTitle } from "../services/liveQueue/index";
+import { addApprovedSong, approveSong, clearQueue, deleteSong, updateSongTitle } from "../services/liveQueue/index";
+import { broadcastQueue } from "./queueBroadcast";
 import { isAdminForRoom } from "./adminSession";
 import { generateUniquePasskey } from "../lib/passkey";
 import { normalizeRoomMode } from "../services/rooms";
@@ -127,8 +128,7 @@ export function handleAdminEvents(io: Server, socket: Socket) {
       io.to(roomId).emit("queue_cleared", { roomId });
       io.to(roomId).emit("now_playing_updated", null);
 
-      const queueSnapshotAfterClear = await getQueueWindow(roomId, "admin");
-      io.to(roomId).emit("queue_updated", queueSnapshotAfterClear);
+      await broadcastQueue(io, roomId);
 
       if (callback) callback({ success: true, clearedCount: result.clearedCount });
     } catch (err) {
@@ -171,8 +171,7 @@ export function handleAdminEvents(io: Server, socket: Socket) {
       io.to(`${roomId}:eo`).emit("song_approved", newSong);
 
       // Send authoritative queue snapshot
-      const queueSnapshotAfterAdd = await getQueueWindow(roomId, "admin");
-      io.to(roomId).emit("queue_updated", queueSnapshotAfterAdd);
+      await broadcastQueue(io, roomId);
 
       if (callback) callback({ success: true, song: newSong });
     } catch (err) {

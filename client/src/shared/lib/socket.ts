@@ -1,5 +1,4 @@
 import { io, type Socket } from "socket.io-client";
-import { v4 as uuidv4 } from "uuid";
 
 // Singleton socket instance
 // Socket.IO over WebSocket only: the Cloudflare Worker speaks the protocol in a
@@ -13,7 +12,9 @@ export const socket: Socket = io(import.meta.env.VITE_SOCKET_URL || "", {
 export const getUserId = () => {
   let userId = localStorage.getItem("music_queue_user_id");
   if (!userId) {
-    userId = uuidv4();
+    // `crypto.randomUUID` is available in every browser this app supports, so the
+    // uuid package was a dependency for one call.
+    userId = crypto.randomUUID();
     localStorage.setItem("music_queue_user_id", userId);
   }
   return userId;

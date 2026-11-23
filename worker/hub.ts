@@ -8,6 +8,9 @@ export interface Env {
 }
 
 type Role = "participant" | "admin" | "eo";
+
+/** A rate-limit key with no hits for this long is dead weight; drop it. */
+const RATE_KEY_TTL_MS = 10 * 60 * 1000;
 type Mode = "approval" | "party";
 
 type Song = {
@@ -57,7 +60,11 @@ export class RoomHub {
   private sockets = new Map<WebSocket, Session>();
   private ready: Promise<void>;
   // Per-isolate caches; losing them on eviction is acceptable.
+  // Bounded: a Durable Object lives for hours, and this used to keep every query
+  // a room ever searched, each with its full result set. Oldest-first eviction is
+  // enough here because a re-search is one upstream call.
   private searchCache = new Map<string, unknown>();
+  private static readonly SEARCH_CACHE_MAX = 100;
   private rateLimits = new Map<string, number[]>();
 
   constructor(state: DurableObjectState, env: Env) {
@@ -243,6 +250,8 @@ export class RoomHub {
     if (session?.room && session.role === "eo" && this.getMeta(session.room, "eo_socket") === session.sid) {
       this.setMeta(session.room, "eo_socket", "");
     }
+    // A disconnect is exactly when a socket's rate-limit keys become garbage.
+    this.pruneRateLimits();
   }
 
   private async handleEvent(
@@ -345,6 +354,10 @@ export class RoomHub {
           return { success: false, error: "Please wait before searching again" };
         }
         const results = await searchYouTube(query);
+        if (this.searchCache.size >= RoomHub.SEARCH_CACHE_MAX) {
+          const oldest = this.searchCache.keys().next().value;
+          if (oldest !== undefined) this.searchCache.delete(oldest);
+        }
         this.searchCache.set(query, results);
         return { success: true, results };
       }
@@ -381,7 +394,7 @@ export class RoomHub {
 
         if (song.status === "approved") {
           this.broadcast(roomId, "song_approved", song);
-          this.broadcast(roomId, "queue_updated", this.queueWindow(roomId, "admin"));
+          this.broadcastQueue(roomId);
           return { success: true, message: "Added to the queue" };
         }
         this.broadcastRole(roomId, "admin", "new_pending_song", song);
@@ -574,7 +587,7 @@ export class RoomHub {
           this.setMeta(roomId, "nowPlaying", "");
           this.broadcast(roomId, "now_playing_updated", null);
         }
-        this.broadcast(roomId, "queue_updated", this.queueWindow(roomId, "admin"));
+        this.broadcastQueue(roomId);
         return { success: true, message: "Song deleted" };
       }
 
@@ -600,7 +613,7 @@ export class RoomHub {
         this.setMeta(roomId, "nowPlaying", "");
         this.broadcast(roomId, "queue_cleared", { roomId });
         this.broadcast(roomId, "now_playing_updated", null);
-        this.broadcast(roomId, "queue_updated", this.queueWindow(roomId, "admin"));
+        this.broadcastQueue(roomId);
         return { success: true, clearedCount: cleared };
       }
 
@@ -615,7 +628,7 @@ export class RoomHub {
           status: "approved",
         });
         this.broadcast(roomId, "song_approved", song);
-        this.broadcast(roomId, "queue_updated", this.queueWindow(roomId, "admin"));
+        this.broadcastQueue(roomId);
         return { success: true, song };
       }
 
@@ -658,7 +671,7 @@ export class RoomHub {
         if (transition.nextTrack) {
           this.broadcast(roomId, "song_removed_from_queue", { songId: transition.nextTrack.id });
         }
-        this.broadcast(roomId, "queue_updated", this.queueWindow(roomId, "admin"));
+        this.broadcastQueue(roomId);
         return { success: true, ...transition };
       }
 
@@ -668,7 +681,7 @@ export class RoomHub {
         if (!result) return { success: false, error: "No previous track" };
         this.broadcast(roomId, "now_playing_updated", result.previousTrack);
         if (result.returnedTrack) this.broadcast(roomId, "song_approved", result.returnedTrack);
-        this.broadcast(roomId, "queue_updated", this.queueWindow(roomId, "admin"));
+        this.broadcastQueue(roomId);
         return { success: true, previousTrack: result.previousTrack, hasPrevious: result.hasPrevious };
       }
 
@@ -961,6 +974,22 @@ export class RoomHub {
     for (const ws of this.inRoom(roomId, role)) this.send(ws, event, payload);
   }
 
+  /**
+   * The queue snapshot after a change.
+   *
+   * Admins need the pending rows to moderate; everyone else only ever renders the
+   * approved ones, and `applyQueueSnapshot` throws the rest away. Sending the
+   * admin window to the whole room meant every listener received the titles of
+   * other people's unapproved requests on every change.
+   */
+  private broadcastQueue(roomId: string) {
+    const adminWindow = this.queueWindow(roomId, "admin");
+    const approved = adminWindow.filter((song) => (song as { status?: string }).status !== "pending");
+    this.broadcastRole(roomId, "admin", "queue_updated", adminWindow);
+    this.broadcastRole(roomId, "participant", "queue_updated", approved);
+    this.broadcastRole(roomId, "eo", "queue_updated", approved);
+  }
+
   /** Sliding-window limiter. State lives in memory; losing it on eviction is fine. */
   private rate(key: string, limit: number, windowMs: number): boolean {
     const now = Date.now();
@@ -972,6 +1001,22 @@ export class RoomHub {
     hits.push(now);
     this.rateLimits.set(key, hits);
     return true;
+  }
+
+  /**
+   * Drops rate-limit keys whose window has emptied.
+   *
+   * Keys are per socket (`submit:<sid>`, `search:<sid>`), so without this the map
+   * kept one entry for every socket that ever connected. A new hit on an expired
+   * key starts a fresh array anyway, so removing it loses nothing.
+   */
+  private pruneRateLimits(): void {
+    const now = Date.now();
+    for (const [key, hits] of this.rateLimits) {
+      if (hits.length === 0 || now - hits[hits.length - 1] > RATE_KEY_TTL_MS) {
+        this.rateLimits.delete(key);
+      }
+    }
   }
 }
 

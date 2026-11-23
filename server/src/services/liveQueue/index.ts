@@ -118,18 +118,29 @@ export async function getNowPlaying(roomId: string) {
   return raw ? (JSON.parse(raw) as QueueSong) : null;
 }
 
-export async function countPendingSongs(roomId: string, submittedBy?: string) {
+/**
+ * Pending counts for a room: the total, and optionally how many one submitter has.
+ *
+ * The total comes from `LLEN`, which is O(1) in Redis. It used to be
+ * `LRANGE 0 -1` followed by a length read, and the submit path called this twice
+ * per request, so every submission fetched the whole pending list twice and
+ * JSON-parsed every row once. The per-submitter count still needs the rows, so it
+ * is one list read plus one `MGET`; both counts now come from a single call.
+ */
+export async function pendingCounts(roomId: string, submittedBy?: string) {
   if ((await redis.exists(key.version(roomId))) === 0) await rebuildRoomQueue(roomId);
 
-  const pendingIds = await redis.lrange(key.pending(roomId), 0, -1);
-  if (!submittedBy) return pendingIds.length;
+  const total = await redis.llen(key.pending(roomId));
+  if (!submittedBy || total === 0) return { total, mine: 0 };
 
-  const songs = pendingIds.length > 0 ? await redis.mget(pendingIds.map(key.song)) : [];
-  return songs.reduce((count, raw) => {
+  const pendingIds = await redis.lrange(key.pending(roomId), 0, -1);
+  const songs = await redis.mget(pendingIds.map(key.song));
+  const mine = songs.reduce((count, raw) => {
     if (!raw) return count;
     const song = JSON.parse(raw) as QueueSong;
     return song.submittedBy === submittedBy ? count + 1 : count;
   }, 0);
+  return { total, mine };
 }
 
 export async function submitSong(roomId: string, song: Omit<QueueSong, "status">) {

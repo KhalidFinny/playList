@@ -29,11 +29,8 @@
     "vitest": "^4.1.8"
   },
   "dependencies": {
-    "@material/material-color-utilities": "^0.4.0",
     "@xstate/react": "^6.1.0",
     "effect": "4.0.0-beta.79",
-    "lucide-react": "^1.11.0",
-    "ngrok": "^5.0.0-beta.2",
     "xstate": "^5.32.0",
     "zustand": "^5.0.14"
   }

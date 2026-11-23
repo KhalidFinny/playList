@@ -1,7 +1,8 @@
 import { Server, Socket } from "socket.io";
 import { roomManager } from "../state/roomManager";
 import { isAdminForRoom } from "./adminSession";
-import { getQueueWindow, previousTrack, transitionToNextTrack } from "../services/liveQueue/index";
+import { previousTrack, transitionToNextTrack } from "../services/liveQueue/index";
+import { broadcastQueue } from "./queueBroadcast";
 import { redis } from "../lib/redis";
 
 /**
@@ -48,8 +49,7 @@ export function handleEOEvents(io: Server, socket: Socket) {
       if (nextTrack) io.to(roomId).emit("song_removed_from_queue", { songId: nextTrack.id });
 
       // Send authoritative queue snapshot
-      const queueSnapshotAfterTransition = await getQueueWindow(roomId, "admin");
-      io.to(roomId).emit("queue_updated", queueSnapshotAfterTransition);
+      await broadcastQueue(io, roomId);
 
       if (callback) callback({ success: true, oldTrackId, nextTrack, upNext, queueVersion });
 
@@ -98,8 +98,7 @@ export function handleEOEvents(io: Server, socket: Socket) {
       if (result.returnedTrack) io.to(roomId).emit("song_approved", result.returnedTrack);
 
       // Send authoritative queue snapshot
-      const queueSnapshotAfterPrev = await getQueueWindow(roomId, "admin");
-      io.to(roomId).emit("queue_updated", queueSnapshotAfterPrev);
+      await broadcastQueue(io, roomId);
 
       if (callback) callback({ success: true, previousTrack: result.previousTrack, hasPrevious: result.hasPrevious, queueVersion: result.queueVersion });
     } catch (err) {

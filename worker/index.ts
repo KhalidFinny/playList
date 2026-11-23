@@ -58,14 +58,6 @@ export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(req.url);
 
-    // Plain HTTP is redirected here rather than by the zone's "Always Use HTTPS"
-    // setting, which this deployment cannot toggle. The host check keeps local
-    // `wrangler dev` on http: without it every local request would bounce to a
-    // port that is not listening.
-    if (url.protocol === "http:" && !/^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(url.host)) {
-      return Response.redirect(`https://${url.host}${url.pathname}${url.search}`, 301);
-    }
-
     // 11-character ids only, so this never becomes an open proxy.
     const stream = /^\/api\/preview\/([A-Za-z0-9_-]{11})\/stream$/.exec(url.pathname);
     if (stream) return harden(await proxyStream(stream[1], req, ctx));
