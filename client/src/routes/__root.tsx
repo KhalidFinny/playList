@@ -2,6 +2,7 @@ import { Outlet, createRootRoute, useRouterState } from "@tanstack/react-router"
 import { MotionConfig, motion } from "framer-motion";
 
 import { CircleWipe } from "@/shared/components/CircleWipe";
+import { NotFound } from "@/shared/components/NotFound";
 import { smooth } from "@/shared/motion/springs";
 
 /**
@@ -36,6 +37,8 @@ function RouteContent() {
 }
 
 export const Route = createRootRoute({
+  // Any path the router cannot match renders this instead of an empty page.
+  notFoundComponent: NotFound,
   component: () => (
     // `reducedMotion="user"` is what makes every Framer animation in the app
     // respect the OS setting: movement collapses to a crossfade, and the layout
