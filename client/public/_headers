@@ -1,0 +1,27 @@
+# Security headers for every static asset response.
+#
+# Workers static assets apply this file at the edge; it is not itself served.
+# Worker-generated responses (/api/*, /socket.io/*) do not go through it, so the
+# same headers are attached in `worker/index.ts`.
+#
+# Each choice is deliberate:
+#
+# - HSTS without `includeSubDomains` or `preload`. Both are hard to undo and
+#   `includeSubDomains` would force HTTPS on every other subdomain of
+#   fiinnyy.my.id, including ones that may not serve it. Raise it once those are
+#   all HTTPS-only.
+# - CSP allows the YouTube embed and its player API because the room falls back to
+#   an iframe for videos the resolver cannot stream, and thumbnails come from
+#   i.ytimg.com and img.youtube.com.
+# - `style-src 'unsafe-inline'` is required: Framer Motion and the theme script set
+#   element style attributes. Scripts are NOT allowed inline, which is the part
+#   that matters for injection.
+# - `frame-ancestors 'none'` plus X-Frame-Options, for browsers without CSP support.
+
+/*
+  Strict-Transport-Security: max-age=31536000
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://www.youtube.com https://s.ytimg.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://i.ytimg.com https://img.youtube.com; media-src 'self' blob:; font-src 'self' data:; connect-src 'self' https://playlist.fiinnyy.my.id wss://playlist.fiinnyy.my.id; frame-src https://www.youtube.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
