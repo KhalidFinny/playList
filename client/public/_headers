@@ -13,6 +13,9 @@
 # - CSP allows the YouTube embed and its player API because the room falls back to
 #   an iframe for videos the resolver cannot stream, and thumbnails come from
 #   i.ytimg.com and img.youtube.com.
+# - `static.cloudflareinsights.com` is Cloudflare's Web Analytics beacon, which the
+#   edge injects into every HTML response when that product is on. Without it the
+#   CSP blocks the beacon and every visit logs a violation.
 # - `style-src 'unsafe-inline'` is required: Framer Motion and the theme script set
 #   element style attributes. Scripts are NOT allowed inline, which is the part
 #   that matters for injection.
@@ -20,7 +23,7 @@
 
 /*
   Strict-Transport-Security: max-age=31536000
-  Content-Security-Policy: default-src 'self'; script-src 'self' https://www.youtube.com https://s.ytimg.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://i.ytimg.com https://img.youtube.com; media-src 'self' blob:; font-src 'self' data:; connect-src 'self' https://playlist.fiinnyy.my.id wss://playlist.fiinnyy.my.id; frame-src https://www.youtube.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://www.youtube.com https://s.ytimg.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://i.ytimg.com https://img.youtube.com; media-src 'self' blob:; font-src 'self' data:; connect-src 'self' https://playlist.fiinnyy.my.id wss://playlist.fiinnyy.my.id https://cloudflareinsights.com; frame-src https://www.youtube.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin

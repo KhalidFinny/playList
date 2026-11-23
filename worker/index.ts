@@ -25,11 +25,13 @@ const json = (body: unknown, status = 200) =>
 const SECURITY_HEADERS: Record<string, string> = {
   "Strict-Transport-Security": "max-age=31536000",
   "Content-Security-Policy":
-    "default-src 'self'; script-src 'self' https://www.youtube.com https://s.ytimg.com; " +
+    "default-src 'self'; " +
+    "script-src 'self' https://www.youtube.com https://s.ytimg.com https://static.cloudflareinsights.com; " +
     "style-src 'self' 'unsafe-inline'; " +
     "img-src 'self' data: blob: https://i.ytimg.com https://img.youtube.com; " +
     "media-src 'self' blob:; font-src 'self' data:; " +
-    "connect-src 'self' https://playlist.fiinnyy.my.id wss://playlist.fiinnyy.my.id; " +
+    "connect-src 'self' https://playlist.fiinnyy.my.id wss://playlist.fiinnyy.my.id " +
+    "https://cloudflareinsights.com; " +
     "frame-src https://www.youtube.com; worker-src 'self'; manifest-src 'self'; " +
     "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
   "X-Content-Type-Options": "nosniff",
