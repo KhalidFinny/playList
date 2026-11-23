@@ -15,7 +15,7 @@
       document.documentElement.classList.add("dark");
       document.documentElement.style.colorScheme = "dark";
     }
-  } catch (e) {
+  } catch {
     /* private mode: fall through to light */
   }
 })();

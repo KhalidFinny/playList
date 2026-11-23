@@ -1,26 +1,26 @@
 import { create } from "zustand";
 
-type Phase = "idle" | "covering" | "revealing";
+type Phase = "idle" | "covering";
 
 type WipeState = {
   phase: Phase;
-  /** Runs at the moment the circle fully covers the screen. */
+  /** Runs once the circle fully covers the screen. */
   onCovered: (() => void) | null;
   start: (onCovered: () => void) => void;
   covered: () => void;
-  finished: () => void;
 };
 
 /**
- * The circle wipe between the landing page and the room-code page.
+ * The circle wipe out of the landing page.
+ *
+ * It only covers. The circle grows from the middle until the screen is one flat
+ * colour, the navigation happens underneath it, and then it is removed in the same
+ * frame, so the next page's own fade-in is what the visitor sees. Contracting the
+ * circle over the destination made the wipe the star of the next page too, which
+ * is why it read as two animations instead of one departure.
  *
  * A store rather than component state because the two ends live in different
- * places: the landing page starts it, and the root renders it, above every route.
- *
- * The circle covers the screen, the navigation happens while it is covered, then
- * it contracts to reveal the new page. Swapping while covered is what keeps the
- * two pages from ever being visible at once, which a plain fade cannot do when
- * the outgoing page is dark and the incoming one is light.
+ * places: the landing starts it, and the root renders it above every route.
  */
 export const useWipeStore = create<WipeState>((set, get) => ({
   phase: "idle",
@@ -35,7 +35,6 @@ export const useWipeStore = create<WipeState>((set, get) => ({
   },
   covered: () => {
     get().onCovered?.();
-    set({ phase: "revealing", onCovered: null });
+    set({ phase: "idle", onCovered: null });
   },
-  finished: () => set({ phase: "idle" }),
 }));

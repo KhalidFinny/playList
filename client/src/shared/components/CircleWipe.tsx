@@ -3,27 +3,26 @@ import { motion } from "framer-motion";
 import { useWipeStore } from "@/shared/lib/routeWipe";
 
 /**
- * Duration of each half, and the curve both halves share so they read as one move.
+ * Duration of the cover, and its curve.
  *
- * 0.42s was a snap. The curve is a strong ease-in-out (0.65/0/0.35/1) rather than
- * the shallow default: the circle starts slowly, accelerates through the middle
- * where it is least visible, and settles as it finishes. A constant-rate scale
- * looks mechanical at this size because the circle covers so much distance.
+ * A strong ease-in-out (0.65/0/0.35/1) rather than the shallow default: the circle
+ * starts slowly, accelerates through the middle where it covers the most area, and
+ * settles as it fills the screen. A constant rate looks mechanical at this size.
  */
-const HALF_S = 0.72;
+const COVER_S = 0.72;
 const EASE: [number, number, number, number] = [0.65, 0, 0.35, 1];
 
 /**
- * The circle that wipes the screen between the landing page and the room code.
+ * The circle that wipes the screen as the landing page is left.
  *
- * Rendered by the root, above every route, so it survives the navigation it is
- * covering. It is decorative and never interactive: `pointer-events-none` means a
- * click during the wipe reaches the page underneath rather than being eaten.
+ * It covers and stops there. Rendered by the root, above every route, so it
+ * survives the navigation it is hiding; when it finishes it removes itself and the
+ * destination's own fade-in takes over. Decorative and never interactive:
+ * `pointer-events-none` means a click during the wipe reaches the page underneath.
  */
 export function CircleWipe() {
   const phase = useWipeStore((state) => state.phase);
   const covered = useWipeStore((state) => state.covered);
-  const finished = useWipeStore((state) => state.finished);
 
   if (phase === "idle") return null;
 
@@ -34,9 +33,9 @@ export function CircleWipe() {
         // every corner regardless of aspect ratio.
         className="absolute left-1/2 top-1/2 size-[200vmax] -translate-x-1/2 -translate-y-1/2 rounded-m3-full bg-surface"
         initial={{ scale: 0 }}
-        animate={{ scale: phase === "covering" ? 1 : 0 }}
-        transition={{ duration: HALF_S, ease: EASE }}
-        onAnimationComplete={() => (phase === "covering" ? covered() : finished())}
+        animate={{ scale: 1 }}
+        transition={{ duration: COVER_S, ease: EASE }}
+        onAnimationComplete={covered}
       />
     </div>
   );
