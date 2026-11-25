@@ -96,12 +96,16 @@ const FullScreenVinyl: React.FC = () => {
 };
 
 export const Hero: React.FC = () => {
-  const { handleVinylClick } = useLanding();
+  const { handleVinylClick, preloadRoom } = useLanding();
 
   return (
     <section
       className="relative min-h-screen w-full bg-[#050505] flex items-center justify-center overflow-hidden"
       id="hero"
+      // The record and both headings all navigate, so the whole hero warms the
+      // route: any of them can be the thing the visitor reaches for first.
+      onMouseEnter={preloadRoom}
+      onTouchStart={preloadRoom}
     >
       <FullScreenVinyl />
 

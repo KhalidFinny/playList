@@ -1,7 +1,9 @@
+import { useEffect } from "react";
 import { Outlet, createRootRoute, useRouterState } from "@tanstack/react-router";
 import { MotionConfig, motion } from "framer-motion";
 
 import { CircleWipe } from "@/shared/components/CircleWipe";
+import { useWipeStore } from "@/shared/lib/routeWipe";
 import { NotFound } from "@/shared/components/NotFound";
 import { smooth } from "@/shared/motion/springs";
 
@@ -23,6 +25,32 @@ import { smooth } from "@/shared/motion/springs";
  */
 function RouteContent() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+
+  // The wipe holds until the next route is actually on screen.
+  //
+  // The pathname alone is the wrong signal. The router writes the new location
+  // into state in the same batch that marks itself pending, so `pathname` changes
+  // the instant navigation starts, while the old route is still the one being
+  // rendered. Releasing on that let the overlay fade away over the page it was
+  // meant to hide — the landing came back for a moment on a cold load, when the
+  // route chunks are slow enough to leave a gap. `isLoading` stays true until the
+  // new matches are ready, and the two frames after it let them paint.
+  const fromPath = useWipeStore((state) => state.fromPath);
+  const arrived = useWipeStore((state) => state.arrived);
+  const isLoading = useRouterState({ select: (state) => state.isLoading });
+
+  useEffect(() => {
+    if (fromPath === null || isLoading || pathname === fromPath) return;
+
+    let inner = 0;
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(arrived);
+    });
+    return () => {
+      cancelAnimationFrame(outer);
+      cancelAnimationFrame(inner);
+    };
+  }, [pathname, fromPath, isLoading, arrived]);
 
   return (
     <motion.div

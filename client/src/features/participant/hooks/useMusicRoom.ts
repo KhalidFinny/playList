@@ -74,10 +74,11 @@ export function useMusicRoom(roomId: string) {
       isPlaying: boolean;
     }) => useRoomStore.getState().applyPlaybackSync(state);
 
-    socket.on("connect", () => {
+    const handleConnect = () => {
       joinWithSavedPasskey();
       syncNowPlaying();
-    });
+    };
+    socket.on("connect", handleConnect);
     socket.on("room_key_info", handleRoomKeyInfo);
     socket.on("now_playing_updated", handleNowPlayingUpdated);
     socket.on("playback_updated", handlePlaybackUpdated);
@@ -91,7 +92,10 @@ export function useMusicRoom(roomId: string) {
 
     return () => {
       clearTimeout(fallbackTimer);
-      socket.off("connect");
+      // `off("connect")` with no handler removes EVERY connect listener on this
+      // shared socket, including the admin dashboard's, which is why navigating
+      // between routes could leave a page that never re-joined after a reconnect.
+      socket.off("connect", handleConnect);
       document.removeEventListener("visibilitychange", handleVisibility);
       socket.off("room_key_info", handleRoomKeyInfo);
       socket.off("now_playing_updated", handleNowPlayingUpdated);
