@@ -56,6 +56,11 @@ export function PlaybackController({
   const internalPauseRef = useRef(false);
   const streamIdRef = useRef<string | null>(null);
   const recoveryRef = useRef(false);
+  // When the track was first seen sitting at its end with no advance landing.
+  const stuckSinceRef = useRef(0);
+  // Longer than the room's ack timeout, so a retry never races an advance that is
+  // merely slow.
+  const RETRY_ADVANCE_MS = 15_000;
   // Last observed playback position, for the stall watchdog.
   const lastProgressRef = useRef({ at: 0, seenAt: Date.now() });
 
@@ -387,9 +392,8 @@ export function PlaybackController({
     [sendPlayback, togglePlayback, emitPlaybackSync],
   );
 
-  const handleTrackEnd = useCallback(() => {
-    if (playback.matches("transitioning")) return;
-    if (endedTrackRef.current === nowPlaying?.id) return;
+  /** Advances the queue, without the guards that stop a double advance. */
+  const advanceTrack = useCallback(() => {
     endedTrackRef.current = nowPlaying?.id ?? null;
     sendPlayback({ type: "TRACK_ENDED" });
     onPlayerEnd()
@@ -404,29 +408,55 @@ export function PlaybackController({
           error: error instanceof Error ? error.message : "Failed to skip track",
         });
       });
-  }, [onPlayerEnd, playback, sendPlayback, nowPlaying?.id]);
+  }, [onPlayerEnd, sendPlayback, nowPlaying?.id]);
+
+  const handleTrackEnd = useCallback(() => {
+    if (playback.matches("transitioning")) return;
+    if (endedTrackRef.current === nowPlaying?.id) return;
+    advanceTrack();
+  }, [advanceTrack, playback, nowPlaying?.id]);
 
   // A hidden tab throttles the iframe and can swallow `onEnd`, which leaves the
   // room silent on the last frame. Poll the player state so the queue advances
   // anyway; `endedTrackRef` keeps this from racing YouTube's own event.
+  //
+  // The poll also retries an advance that was lost. `transitioning` has no
+  // timeout in the machine, and `endedTrackRef` blocks a second attempt for the
+  // same track, so a dropped ack wedged the room on the last frame until the page
+  // was reloaded — the "it stops at the end" the host sees. An advance that has
+  // not landed well past the ack timeout is retried, which is safe because the
+  // track is verifiably at its end.
   useEffect(() => {
     const timer = setInterval(() => {
-      if (!isPlayingRef.current || playback.matches("transitioning")) return;
+      if (!isPlayingRef.current) return;
       const player = (activePlayer === "A" ? playerRefA : playerRefB).current;
       if (!player) return;
 
       const state = player.getPlayerState();
-      if (state === 0) {
+      const duration = player.getDuration();
+      const atEnd =
+        state === 0 || (state === 1 && duration > 0 && player.getCurrentTime() >= duration - 0.75);
+
+      if (!atEnd) {
+        stuckSinceRef.current = 0;
+        return;
+      }
+
+      const stuck = playback.matches("transitioning") || playback.matches("error");
+      if (!stuck) {
+        stuckSinceRef.current = 0;
         handleTrackEnd();
         return;
       }
-      const duration = player.getDuration();
-      if (state === 1 && duration > 0 && player.getCurrentTime() >= duration - 0.75) {
-        handleTrackEnd();
-      }
+
+      // Already advancing: give it longer than any ack can take before retrying.
+      if (!stuckSinceRef.current) stuckSinceRef.current = Date.now();
+      if (Date.now() - stuckSinceRef.current < RETRY_ADVANCE_MS) return;
+      stuckSinceRef.current = 0;
+      advanceTrack();
     }, 3000);
     return () => clearInterval(timer);
-  }, [activePlayer, handleTrackEnd, playback, nowPlaying?.id]);
+  }, [activePlayer, advanceTrack, handleTrackEnd, playback]);
 
   // The lock-screen player. This is what keeps the host's audio alive when the
   // screen turns off: the OS keeps a page with an active media session, and its

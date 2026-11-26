@@ -66,7 +66,8 @@ export default {
     // rather than in the hub. That also means it runs the code that was just
     // deployed, instead of whatever version the long-lived hub object started on.
     const preview = /^\/api\/preview\/([A-Za-z0-9_-]{11})$/.exec(url.pathname);
-    if (preview) return harden(await resolvePreview(preview[1], ctx, url.searchParams.has("fresh")));
+    if (preview)
+      return harden(await resolvePreview(preview[1], ctx, url.searchParams.has("fresh")));
 
     // A room id has to be known before the socket is accepted, and this app
     // joins by passkey, so every socket lands on the same hub object.
@@ -99,7 +100,11 @@ async function resolvePreview(
  * header, so the browser cannot play it directly. Streaming it through the
  * Worker fixes both, and keeps Range support so `<audio>` can seek.
  */
-async function proxyStream(videoId: string, req: Request, ctx: ExecutionContext): Promise<Response> {
+async function proxyStream(
+  videoId: string,
+  req: Request,
+  ctx: ExecutionContext,
+): Promise<Response> {
   let upstream: Awaited<ReturnType<typeof getAudioStream>>;
   try {
     upstream = await getAudioStream(videoId, ctx);
@@ -109,7 +114,20 @@ async function proxyStream(videoId: string, req: Request, ctx: ExecutionContext)
   }
 
   const range = req.headers.get("Range");
-  const response = await fetch(upstream.url, { headers: range ? { Range: range } : {} });
+  let response = await fetch(upstream.url, { headers: range ? { Range: range } : {} });
+
+  // A signed URL that the media server has started refusing is still valid for
+  // up to the resolve cache's five minutes, so a track could fail for all of it.
+  // One fresh resolve is enough to get past it, and it is the same recovery the
+  // resolve endpoint already offers — this path just had no way to ask for it.
+  if (response.status === 401 || response.status === 403) {
+    try {
+      upstream = await getAudioStream(videoId, ctx, true);
+      response = await fetch(upstream.url, { headers: range ? { Range: range } : {} });
+    } catch (err) {
+      console.error(`[stream] ${videoId} fresh retry:`, err);
+    }
+  }
 
   if (!response.ok && response.status !== 206) {
     return json({ error: `Upstream refused the stream (${response.status})` }, 502);
