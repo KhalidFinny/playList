@@ -3,6 +3,7 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/shared/components/button";
 import { Logo } from "@/shared/components/Logo";
 import { smooth } from "@/shared/motion/springs";
+import { useWipeStore } from "@/shared/lib/routeWipe";
 
 interface JoinFlowProps {
   passkey: string;
@@ -19,10 +20,15 @@ interface JoinFlowProps {
  * text field; the code is rendered large and tracked out.
  */
 export function JoinFlow({ passkey, onPasskeyChange, onSubmit, isResolving }: JoinFlowProps) {
+  // Arriving behind the circle wipe, this content must already be painted: the
+  // fade would otherwise run underneath the overlay and the reveal would open
+  // onto an empty page.
+  const hiding = useWipeStore((state) => state.hiding);
+
   return (
     <motion.div
       key="join-flow"
-      initial={{ opacity: 0, y: 18 }}
+      initial={hiding ? false : { opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
       transition={{ ...smooth.base, opacity: { duration: 0.24, ease: "easeOut" } }}

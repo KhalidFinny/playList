@@ -1,18 +1,15 @@
 import { AnimatePresence, motion } from "framer-motion";
 
-import { useWipeStore } from "@/shared/lib/routeWipe";
+import { COVER_S, REVEAL_S, useWipeStore } from "@/shared/lib/routeWipe";
 
 /**
- * Duration of the cover, and its curve.
+ * The cover's curve.
  *
  * A strong ease-in-out (0.65/0/0.35/1) rather than the shallow default: the circle
  * starts slowly, accelerates through the middle where it covers the most area, and
  * settles as it fills the screen. A constant rate looks mechanical at this size,
  * and at a second long the opening and closing of the curve are what you feel.
  */
-const COVER_S = 1;
-/** The reveal: a plain fade, so the new page appears rather than being wiped over. */
-const REVEAL_S = 0.34;
 const EASE: [number, number, number, number] = [0.65, 0, 0.35, 1];
 
 /**

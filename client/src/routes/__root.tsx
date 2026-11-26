@@ -38,6 +38,9 @@ function RouteContent() {
   const fromPath = useWipeStore((state) => state.fromPath);
   const arrived = useWipeStore((state) => state.arrived);
   const isLoading = useRouterState({ select: (state) => state.isLoading });
+  // A wipe is covering: the destination must be fully painted when it is
+  // revealed, not still fading in from opacity zero.
+  const hiding = useWipeStore((state) => state.hiding);
 
   useEffect(() => {
     if (fromPath === null || isLoading || pathname === fromPath) return;
@@ -55,7 +58,7 @@ function RouteContent() {
   return (
     <motion.div
       key={pathname}
-      initial={{ opacity: 0, y: 10 }}
+      initial={hiding ? false : { opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ ...smooth.base, opacity: { duration: 0.2, ease: "easeOut" } }}
     >

@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useNavigate, useRouter } from "@tanstack/react-router";
-import { useWipeStore } from "@/shared/lib/routeWipe";
+import { NAVIGATE_AT_MS, useWipeStore } from "@/shared/lib/routeWipe";
 import type { HeroState } from "../types";
 
 export const useLanding = () => {
@@ -13,11 +13,21 @@ export const useLanding = () => {
 
   const handleVinylClick = useCallback(() => {
     localStorage.setItem("has_visited_play_music", "true");
-    // The circle covers the screen first, then the room code is navigated to
-    // underneath it and revealed as the circle contracts.
-    useWipeStore.getState().start(() => {
-      navigate({ to: "/r/$roomId/request", params: { roomId: "join" } });
-    }, window.location.pathname);
+    // The circle covers, then the room code is revealed as it fades out. The
+    // route is already warm — `preloadRoom` runs on idle — so this never waits
+    // on the network.
+    useWipeStore.getState().start(() => {}, window.location.pathname);
+
+    // Navigate while the circle is still growing, not after it has covered.
+    //
+    // Starting the route only once the cover finished left the screen on the
+    // overlay's own fill for the whole mount — about 370ms of blank white, which
+    // is what made the reveal land on nothing. Mounting it under the growing
+    // circle means the room-code page is already painted when the circle fills
+    // the screen, so the reveal opens onto the real page.
+    setTimeout(() => {
+      void navigate({ to: "/r/$roomId/request", params: { roomId: "join" } });
+    }, NAVIGATE_AT_MS);
   }, [navigate]);
 
   /**
