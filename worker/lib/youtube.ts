@@ -88,11 +88,75 @@ const CLIENTS: PlayerClient[] = [
   },
 ];
 
-let visitorData = "";
+/**
+ * A guest cookie jar from YouTube's own homepage.
+ *
+ * The player answers `LOGIN_REQUIRED: Sign in to confirm you're not a bot` when
+ * it does not like the request, and it decides that per address. Cloudflare's
+ * egress addresses are shared by a great deal of scraping, so the refusal comes
+ * and goes with no change on our side. A request carrying the cookies YouTube
+ * itself hands out to a first-time visitor is treated as a browser rather than a
+ * script, which is what stops the refusals.
+ *
+ * Cached rather than fetched per request: one page load per worker, and the
+ * cookies it sets are long lived.
+ */
+const COOKIE_KEY = "https://preview.internal/yt-cookies";
+const COOKIE_TTL_SECONDS = 1800;
 
-async function ensureVisitor(fresh = false): Promise<string> {
-  if (!fresh && visitorData) return visitorData;
+async function ensureCookies(ctx?: ExecutionContext, fresh = false): Promise<string> {
+  const cache = caches.default;
+  if (!fresh) {
+    const hit = await cache.match(new Request(COOKIE_KEY));
+    if (hit) return await hit.text();
+  }
 
+  try {
+    const response = await fetch("https://www.youtube.com/", {
+      headers: { "User-Agent": VISIONOS_USER_AGENT, "Accept-Language": "en-US,en;q=0.9" },
+    });
+    const jar = new Map<string, string>();
+    for (const raw of response.headers.getSetCookie()) {
+      const [pair = ""] = raw.split(";");
+      const at = pair.indexOf("=");
+      if (at > 0) jar.set(pair.slice(0, at).trim(), pair.slice(at + 1).trim());
+    }
+    const cookie = [...jar].map(([name, value]) => `${name}=${value}`).join("; ");
+    const stored = new Response(cookie, {
+      headers: { "Cache-Control": `public, max-age=${COOKIE_TTL_SECONDS}` },
+    });
+    if (ctx) ctx.waitUntil(cache.put(new Request(COOKIE_KEY), stored));
+    else await cache.put(new Request(COOKIE_KEY), stored);
+    return cookie;
+  } catch (err) {
+    // No cookies is the old behaviour, not a failure: the request still works
+    // whenever YouTube is willing to answer it.
+    console.log(`[youtube] cookie jar unavailable: ${err instanceof Error ? err.message : err}`);
+    return "";
+  }
+}
+
+/**
+ * The visitor id the player expects, shared through the cache.
+ *
+ * A module-level string only reaches the isolate that fetched it, and every new
+ * isolate asking YouTube for one is more traffic from an address that is already
+ * being watched. The cache is shared by all of them.
+ */
+const VISITOR_KEY = "https://preview.internal/yt-visitor";
+const VISITOR_TTL_SECONDS = 1800;
+
+async function ensureVisitor(ctx?: ExecutionContext, fresh = false): Promise<string> {
+  const cache = caches.default;
+  if (!fresh) {
+    const hit = await cache.match(new Request(VISITOR_KEY));
+    if (hit) {
+      const cached = await hit.text();
+      if (cached) return cached;
+    }
+  }
+
+  const cookie = await ensureCookies(ctx);
   const response = await fetch(VISITOR_ENDPOINT, {
     method: "POST",
     headers: {
@@ -102,6 +166,7 @@ async function ensureVisitor(fresh = false): Promise<string> {
       Origin: "https://music.youtube.com",
       Referer: "https://music.youtube.com/",
       "User-Agent": VISIONOS_USER_AGENT,
+      ...(cookie ? { Cookie: cookie } : {}),
     },
     body: JSON.stringify({
       context: {
@@ -112,8 +177,15 @@ async function ensureVisitor(fresh = false): Promise<string> {
 
   if (!response.ok) throw new Error(`YouTube visitor request failed (${response.status})`);
   const data = (await response.json()) as { responseContext?: { visitorData?: string } };
-  visitorData = data.responseContext?.visitorData ?? "";
-  return visitorData;
+  const visitor = data.responseContext?.visitorData ?? "";
+  if (visitor) {
+    const stored = new Response(visitor, {
+      headers: { "Cache-Control": `public, max-age=${VISITOR_TTL_SECONDS}` },
+    });
+    if (ctx) ctx.waitUntil(cache.put(new Request(VISITOR_KEY), stored));
+    else await cache.put(new Request(VISITOR_KEY), stored);
+  }
+  return visitor;
 }
 
 // Resolving costs a YouTube player call, and an `<audio>` element makes several
@@ -141,7 +213,7 @@ export async function getAudioStream(
   const hit = fresh ? null : await cache.match(key);
   if (hit) return (await hit.json()) as AudioStream;
 
-  const stream = await resolveAudio(videoId);
+  const stream = await resolveAudio(videoId, ctx);
   const stored = new Response(JSON.stringify(stream), {
     headers: {
       "Content-Type": "application/json",
@@ -156,26 +228,27 @@ export async function getAudioStream(
   return stream;
 }
 
-export async function resolveAudio(videoId: string): Promise<AudioStream> {
-  const visitor = await ensureVisitor();
+export async function resolveAudio(videoId: string, ctx?: ExecutionContext): Promise<AudioStream> {
+  const cookie = await ensureCookies(ctx);
+  const visitor = await ensureVisitor(ctx);
   let lastError = new Error("No playable audio format found");
 
   for (const client of CLIENTS) {
     try {
-      return await resolveWith(client, videoId, visitor);
+      return await resolveWith(client, videoId, visitor, cookie);
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       console.log(`[youtube] ${client.name} refused ${videoId}: ${lastError.message}`);
     }
   }
 
-  // A stale visitor is the usual cause of a refusal, so one retry with a new
-  // one costs a request and rescues the common case.
-  visitorData = "";
-  const fresh = await ensureVisitor(true);
+  // A stale visitor or cookie jar is the usual cause of a refusal, so one retry
+  // with both replaced costs two requests and rescues the common case.
+  const freshCookie = await ensureCookies(ctx, true);
+  const fresh = await ensureVisitor(ctx, true);
   for (const client of CLIENTS) {
     try {
-      return await resolveWith(client, videoId, fresh);
+      return await resolveWith(client, videoId, fresh, freshCookie);
     } catch {
       // Every client has now been tried; fall through to the last error.
     }
@@ -184,7 +257,12 @@ export async function resolveAudio(videoId: string): Promise<AudioStream> {
   throw lastError;
 }
 
-async function resolveWith(client: PlayerClient, videoId: string, visitor: string): Promise<AudioStream> {
+async function resolveWith(
+  client: PlayerClient,
+  videoId: string,
+  visitor: string,
+  cookie: string,
+): Promise<AudioStream> {
   const response = await fetch(PLAYER_ENDPOINT, {
     method: "POST",
     headers: {
@@ -195,6 +273,7 @@ async function resolveWith(client: PlayerClient, videoId: string, visitor: strin
       Referer: "https://www.youtube.com/",
       "User-Agent": client.userAgent,
       ...(visitor ? { "X-Goog-Visitor-Id": visitor } : {}),
+      ...(cookie ? { Cookie: cookie } : {}),
     },
     body: JSON.stringify({
       context: {
@@ -230,8 +309,6 @@ async function resolveWith(client: PlayerClient, videoId: string, visitor: strin
     responseContext?: { visitorData?: string };
     playerConfig?: { audioConfig?: { perceptualLoudnessDb?: number } };
   };
-
-  if (data.responseContext?.visitorData) visitorData = data.responseContext.visitorData;
 
   const status = data.playabilityStatus?.status;
   if (status && status !== "OK") {
