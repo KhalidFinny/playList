@@ -63,6 +63,7 @@ export function PlaybackController({
   // Consecutive failed resolves for the current track, so an unplayable one is
   // skipped instead of stopping the room for good.
   const resolveFailuresRef = useRef(0);
+  const lastResolveAtRef = useRef(0);
   const recoveryRef = useRef(false);
   // When the track was first seen sitting at its end with no advance landing.
   const stuckSinceRef = useRef(0);
@@ -129,6 +130,7 @@ export function PlaybackController({
     streamIdRef.current = videoId ?? null;
     loadedTrackIdRef.current = null;
     resolveFailuresRef.current = 0;
+    lastResolveAtRef.current = 0;
     if (!videoId) {
       setStreamUrl(null);
       setStreamFailed(false);
@@ -457,7 +459,17 @@ export function PlaybackController({
       if (!streamUrl) {
         const videoId = streamIdRef.current;
         if (!videoId || !isPlayingRef.current) return;
-        void fetchStream(videoId, true)
+
+        // Back off between attempts, and do not ask for a fresh resolve every
+        // time. Hammering the resolver is what makes it refuse: it is rate
+        // limited per client, and a refusal loop turns one slow track into a
+        // room that skips through its queue.
+        const failures = resolveFailuresRef.current;
+        const wait = Math.min(3000 * 2 ** failures, 30_000);
+        if (Date.now() - lastResolveAtRef.current < wait) return;
+        lastResolveAtRef.current = Date.now();
+        // Only skip the cache once a plain attempt has already failed.
+        void fetchStream(videoId, failures >= 2)
           .then((data) => {
             if (streamIdRef.current !== videoId) return;
             console.warn("[PLAYER] stream resolved on retry");
@@ -468,7 +480,9 @@ export function PlaybackController({
           })
           .catch(() => {
             // A track YouTube will not serve is skipped rather than held forever;
-            // the rest of the queue should keep playing.
+            // the rest of the queue should keep playing. With the backoff above
+            // this is around two and a half minutes of trying, which is long
+            // enough that a passing refusal never costs a song.
             resolveFailuresRef.current += 1;
             if (resolveFailuresRef.current >= 8 && streamIdRef.current === videoId) {
               resolveFailuresRef.current = 0;
