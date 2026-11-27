@@ -32,9 +32,24 @@ const PING_INTERVAL_MS = 25_000;
 
 /** Seed accounts. Password `12345678`, the same as the Bun server. */
 const SEED_ADMINS = [
-  ["admin1", "admin1@playit.com", "super_admin", "pbkdf2$10000$9f2c1a7b4e6d80315c9a2f7e6b1d4c08$c8d6867afb872fe57fcf21c560004469802388e71c621917101fbbdf56a93db5"],
-  ["admin2", "admin2@playit.com", "admin", "pbkdf2$10000$3a7e0c5b9d2f1648a1c6e0b7d3f5924a$88eb837ceada379cc10fc0e9de51651441331370607ab5349add9b11557d4b9c"],
-  ["admin3", "admin3@playit.com", "admin", "pbkdf2$10000$c4b8f1e6a0d372955e1b7c2a8f604d13$7a1d880c401f157bcdc4d81ab8b8f873730aa5af32847af4a3c6eab9722fc581"],
+  [
+    "admin1",
+    "admin1@playit.com",
+    "super_admin",
+    "pbkdf2$10000$9f2c1a7b4e6d80315c9a2f7e6b1d4c08$c8d6867afb872fe57fcf21c560004469802388e71c621917101fbbdf56a93db5",
+  ],
+  [
+    "admin2",
+    "admin2@playit.com",
+    "admin",
+    "pbkdf2$10000$3a7e0c5b9d2f1648a1c6e0b7d3f5924a$88eb837ceada379cc10fc0e9de51651441331370607ab5349add9b11557d4b9c",
+  ],
+  [
+    "admin3",
+    "admin3@playit.com",
+    "admin",
+    "pbkdf2$10000$c4b8f1e6a0d372955e1b7c2a8f604d13$7a1d880c401f157bcdc4d81ab8b8f873730aa5af32847af4a3c6eab9722fc581",
+  ],
 ] as const;
 
 const json = (body: unknown, status = 200) =>
@@ -252,7 +267,11 @@ export class RoomHub {
   private dropSocket(ws: WebSocket) {
     const session = this.sockets.get(ws);
     this.sockets.delete(ws);
-    if (session?.room && session.role === "eo" && this.getMeta(session.room, "eo_socket") === session.sid) {
+    if (
+      session?.room &&
+      session.role === "eo" &&
+      this.getMeta(session.room, "eo_socket") === session.sid
+    ) {
       this.setMeta(session.room, "eo_socket", "");
     }
     // A disconnect is exactly when a socket's rate-limit keys become garbage.
@@ -286,7 +305,11 @@ export class RoomHub {
 
         if (role === "participant") {
           if (str("passkey").trim() !== room.passkey) {
-            return { success: false, code: "WRONG_PASSKEY", message: "Invalid room key. Please check with your Admin." };
+            return {
+              success: false,
+              code: "WRONG_PASSKEY",
+              message: "Invalid room key. Please check with your Admin.",
+            };
           }
         }
 
@@ -294,7 +317,11 @@ export class RoomHub {
           const adminId = this.sessionAdmin(str("adminToken"));
           if (!adminId) return { success: false, error: "Session expired. Please log in again." };
           if (!room.owner_id) {
-            this.ctx.storage.sql.exec("UPDATE rooms SET owner_id = ? WHERE id = ?", adminId, roomId);
+            this.ctx.storage.sql.exec(
+              "UPDATE rooms SET owner_id = ? WHERE id = ?",
+              adminId,
+              roomId,
+            );
           } else if (room.owner_id !== adminId) {
             return { success: false, error: "You do not own this room." };
           }
@@ -321,7 +348,9 @@ export class RoomHub {
         if (playback) {
           this.send(ws, "playback_sync", JSON.parse(playback));
         } else {
-          this.send(ws, "playback_updated", { isPlaying: this.getMeta(roomId, "isPlaying") === "true" });
+          this.send(ws, "playback_updated", {
+            isPlaying: this.getMeta(roomId, "isPlaying") === "true",
+          });
         }
         this.send(ws, "queue_updated", this.queueWindow(roomId, role));
         return { success: true, mode: room.mode as Mode };
@@ -334,7 +363,9 @@ export class RoomHub {
         const row = this.ctx.storage.sql
           .exec("SELECT id FROM rooms WHERE passkey = ? LIMIT 1", str("passkey").trim())
           .toArray()[0] as { id: string } | undefined;
-        return row ? { success: true, roomId: row.id } : { success: false, error: "Invalid room code. Please check with your Admin." };
+        return row
+          ? { success: true, roomId: row.id }
+          : { success: false, error: "Invalid room code. Please check with your Admin." };
       }
 
       case "get_now_playing":
@@ -342,9 +373,13 @@ export class RoomHub {
 
       case "get_queue_page": {
         const status = str("status");
-        if (status !== "pending" && status !== "approved") return { success: false, error: "Missing fields" };
+        if (status !== "pending" && status !== "approved")
+          return { success: false, error: "Missing fields" };
         if (!this.isAdminOf(session, roomId)) return { success: false, error: "Forbidden" };
-        return { success: true, ...this.queuePage(roomId, status, Number(data.cursor ?? 0), Number(data.limit ?? 50)) };
+        return {
+          success: true,
+          ...this.queuePage(roomId, status, Number(data.cursor ?? 0), Number(data.limit ?? 50)),
+        };
       }
 
       // --------------------------------------------------------- participant
@@ -416,9 +451,20 @@ export class RoomHub {
         if (!username || !password) return { success: false, error: "Missing credentials" };
 
         const admin = this.ctx.storage.sql
-          .exec("SELECT id, username, email, password_hash, role, status FROM admins WHERE username = ? OR email = ?", username, username)
+          .exec(
+            "SELECT id, username, email, password_hash, role, status FROM admins WHERE username = ? OR email = ?",
+            username,
+            username,
+          )
           .toArray()[0] as
-          | { id: string; username: string; email: string; password_hash: string; role: string; status: string }
+          | {
+              id: string;
+              username: string;
+              email: string;
+              password_hash: string;
+              role: string;
+              status: string;
+            }
           | undefined;
 
         if (!admin) return { success: false, error: "Invalid credentials" };
@@ -464,11 +510,15 @@ export class RoomHub {
 
       case "admin_register": {
         if (!this.rate("register:" + session.sid, 5, 3_600_000)) {
-          return { success: false, error: "Too many registration attempts. Please try again later." };
+          return {
+            success: false,
+            error: "Too many registration attempts. Please try again later.",
+          };
         }
         const expected = this.env.ADMIN_INVITE_CODE;
         if (!expected) return { success: false, error: "Registration is currently disabled." };
-        if (str("inviteCode") !== expected) return { success: false, error: "Invalid invite code." };
+        if (str("inviteCode") !== expected)
+          return { success: false, error: "Invalid invite code." };
 
         const email = str("email");
         const username = str("username");
@@ -476,12 +526,14 @@ export class RoomHub {
         if (!email.toLowerCase().endsWith("@playit.com")) {
           return { success: false, error: "Only @playit.com corporate emails are allowed." };
         }
-        if (!username || password.length < 6) return { success: false, error: "Invalid username or password" };
+        if (!username || password.length < 6)
+          return { success: false, error: "Invalid username or password" };
 
         const existing = this.ctx.storage.sql
           .exec("SELECT id FROM admins WHERE username = ? OR email = ?", username, email)
           .toArray();
-        if (existing.length > 0) return { success: false, error: "Username or Email already registered" };
+        if (existing.length > 0)
+          return { success: false, error: "Username or Email already registered" };
 
         const id = crypto.randomUUID();
         this.ctx.storage.sql.exec(
@@ -503,20 +555,30 @@ export class RoomHub {
         const admin = this.requireSuperAdmin(str("adminToken"));
         if (!admin) return { success: false, error: "Unauthorized" };
         const admins = this.ctx.storage.sql
-          .exec("SELECT id, username, email, createdAt FROM (SELECT id, username, email, created_at AS createdAt FROM admins WHERE status = 'pending' ORDER BY created_at DESC)")
+          .exec(
+            "SELECT id, username, email, createdAt FROM (SELECT id, username, email, created_at AS createdAt FROM admins WHERE status = 'pending' ORDER BY created_at DESC)",
+          )
           .toArray();
         return { success: true, admins };
       }
 
       case "approve_admin": {
-        if (!this.requireSuperAdmin(str("adminToken"))) return { success: false, error: "Unauthorized" };
-        this.ctx.storage.sql.exec("UPDATE admins SET status = 'active' WHERE id = ?", str("targetId"));
+        if (!this.requireSuperAdmin(str("adminToken")))
+          return { success: false, error: "Unauthorized" };
+        this.ctx.storage.sql.exec(
+          "UPDATE admins SET status = 'active' WHERE id = ?",
+          str("targetId"),
+        );
         return { success: true };
       }
 
       case "deny_admin": {
-        if (!this.requireSuperAdmin(str("adminToken"))) return { success: false, error: "Unauthorized" };
-        this.ctx.storage.sql.exec("DELETE FROM admins WHERE id = ? AND status = 'pending'", str("targetId"));
+        if (!this.requireSuperAdmin(str("adminToken")))
+          return { success: false, error: "Unauthorized" };
+        this.ctx.storage.sql.exec(
+          "DELETE FROM admins WHERE id = ? AND status = 'pending'",
+          str("targetId"),
+        );
         return { success: true };
       }
 
@@ -585,7 +647,11 @@ export class RoomHub {
           return { success: false, error: "Song not found or already processed" };
         }
 
-        this.sql("UPDATE songs SET status = 'approved', approved_at = ? WHERE id = ?", Date.now(), existing.id);
+        this.sql(
+          "UPDATE songs SET status = 'approved', approved_at = ? WHERE id = ?",
+          Date.now(),
+          existing.id,
+        );
         const approved = { ...existing, status: "approved" as const };
         this.broadcast(roomId, "song_approved", approved);
         return { success: true, message: "Song approved", song: approved };
@@ -673,11 +739,22 @@ export class RoomHub {
 
       case "eo_track_ended": {
         if (!this.isActiveEo(session, roomId)) {
-          return { success: false, error: "Unauthorized. You are not the active playback controller." };
+          return {
+            success: false,
+            error: "Unauthorized. You are not the active playback controller.",
+          };
         }
         const key = str("idempotencyKey") || crypto.randomUUID();
         const seen = this.getMeta(roomId, "lastTransition");
         if (seen === key) return { success: true };
+
+        // The caller names the track it is ending. If the room has already moved
+        // on, this request is stale: a second dashboard tab, or a retry, would
+        // otherwise advance again and skip the song that just started.
+        const endedTrackId = str("trackId");
+        if (endedTrackId && this.getMeta(roomId, "nowPlaying") !== endedTrackId) {
+          return { success: true, stale: true };
+        }
 
         const transition = this.transition(roomId);
         this.setMeta(roomId, "lastTransition", key);
@@ -697,7 +774,11 @@ export class RoomHub {
         this.broadcast(roomId, "now_playing_updated", result.previousTrack);
         if (result.returnedTrack) this.broadcast(roomId, "song_approved", result.returnedTrack);
         this.broadcastQueue(roomId);
-        return { success: true, previousTrack: result.previousTrack, hasPrevious: result.hasPrevious };
+        return {
+          success: true,
+          previousTrack: result.previousTrack,
+          hasPrevious: result.hasPrevious,
+        };
       }
 
       default:
@@ -714,7 +795,9 @@ export class RoomHub {
   private roomById(roomId: string) {
     return this.ctx.storage.sql
       .exec("SELECT id, passkey, owner_id, mode FROM rooms WHERE id = ?", roomId)
-      .toArray()[0] as { id: string; passkey: string; owner_id: string | null; mode: string } | undefined;
+      .toArray()[0] as
+      | { id: string; passkey: string; owner_id: string | null; mode: string }
+      | undefined;
   }
 
   private roomList() {
@@ -738,7 +821,9 @@ export class RoomHub {
     for (;;) {
       const bytes = crypto.getRandomValues(new Uint8Array(4));
       const value = String(10_000 + (new DataView(bytes.buffer).getUint32(0) % 90_000));
-      const taken = this.ctx.storage.sql.exec("SELECT 1 FROM rooms WHERE passkey = ?", value).toArray();
+      const taken = this.ctx.storage.sql
+        .exec("SELECT 1 FROM rooms WHERE passkey = ?", value)
+        .toArray();
       if (taken.length === 0) return value;
     }
   }
@@ -797,16 +882,30 @@ export class RoomHub {
 
   private playback(roomId: string) {
     const raw = this.getMeta(roomId, "playback");
-    return raw ? (JSON.parse(raw) as { currentTime: number; duration: number; isPlaying: boolean; updatedAt: number }) : { currentTime: 0, duration: 0, isPlaying: false, updatedAt: 0 };
+    return raw
+      ? (JSON.parse(raw) as {
+          currentTime: number;
+          duration: number;
+          isPlaying: boolean;
+          updatedAt: number;
+        })
+      : { currentTime: 0, duration: 0, isPlaying: false, updatedAt: 0 };
   }
 
   // ----------------------------------------------------------------- songs ---
 
   private songById(songId: string): Song | null {
-    return (this.ctx.storage.sql.exec(SONG_COLUMNS + " WHERE id = ?", songId).toArray()[0] as Song) ?? null;
+    return (
+      (this.ctx.storage.sql.exec(SONG_COLUMNS + " WHERE id = ?", songId).toArray()[0] as Song) ??
+      null
+    );
   }
 
-  private mutateSong(roomId: string, songId: string, mutate: (song: Song) => Song | null): Song | null {
+  private mutateSong(
+    roomId: string,
+    songId: string,
+    mutate: (song: Song) => Song | null,
+  ): Song | null {
     const song = this.songById(songId);
     if (!song) return null;
     return mutate(song);
@@ -814,7 +913,13 @@ export class RoomHub {
 
   private insertSong(
     roomId: string,
-    input: { youtubeId: string; title: string; author: string; submittedBy: string; status: "pending" | "approved" },
+    input: {
+      youtubeId: string;
+      title: string;
+      author: string;
+      submittedBy: string;
+      status: "pending" | "approved";
+    },
   ): Song {
     const max = this.ctx.storage.sql
       .exec("SELECT COALESCE(MAX(position), 0) AS max FROM songs WHERE room_id = ?", roomId)
@@ -909,7 +1014,10 @@ export class RoomHub {
     }
 
     const upNext = this.ctx.storage.sql
-      .exec(`${SONG_COLUMNS} WHERE room_id = ? AND status = 'approved' ORDER BY position LIMIT 1`, roomId)
+      .exec(
+        `${SONG_COLUMNS} WHERE room_id = ? AND status = 'approved' ORDER BY position LIMIT 1`,
+        roomId,
+      )
       .toArray()[0] as Song | undefined;
 
     return {
@@ -930,7 +1038,11 @@ export class RoomHub {
     if (!lastDone) return null;
 
     if (current) {
-      this.sql("UPDATE songs SET status = 'approved', approved_at = ? WHERE id = ?", Date.now(), current.id);
+      this.sql(
+        "UPDATE songs SET status = 'approved', approved_at = ? WHERE id = ?",
+        Date.now(),
+        current.id,
+      );
     }
     this.sql("UPDATE songs SET status = 'playing', done_at = NULL WHERE id = ?", lastDone.id);
     this.setMeta(roomId, "nowPlaying", lastDone.id);
@@ -999,7 +1111,9 @@ export class RoomHub {
    */
   private broadcastQueue(roomId: string) {
     const adminWindow = this.queueWindow(roomId, "admin");
-    const approved = adminWindow.filter((song) => (song as { status?: string }).status !== "pending");
+    const approved = adminWindow.filter(
+      (song) => (song as { status?: string }).status !== "pending",
+    );
     this.broadcastRole(roomId, "admin", "queue_updated", adminWindow);
     this.broadcastRole(roomId, "participant", "queue_updated", approved);
     this.broadcastRole(roomId, "eo", "queue_updated", approved);

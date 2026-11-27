@@ -14,6 +14,8 @@ export type QueueSong = PendingSong & Partial<Track>;
 
 export type EoTrackEndedResponse = {
   success: boolean;
+  /** The room had already moved past the track this client was ending. */
+  stale?: boolean;
   oldTrackId?: string | null;
   nextTrack: Track | null;
   upNext: Track | null;

@@ -64,6 +64,8 @@ export function PlaybackController({
   // skipped instead of stopping the room for good.
   const resolveFailuresRef = useRef(0);
   const lastResolveAtRef = useRef(0);
+  // Pending "the host paused" report, so a transient pause can be ignored.
+  const pauseReportRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recoveryRef = useRef(false);
   // When the track was first seen sitting at its end with no advance landing.
   const stuckSinceRef = useRef(0);
@@ -170,11 +172,40 @@ export function PlaybackController({
     onPlayerReady("A", audioPlayer);
     onPlayerReady("B", audioPlayer);
 
+    // A recovery has already loaded this URL and seeked back to where the track
+    // was. Reloading it here would restart from zero, which is why a refused
+    // stream made the track rewind instead of resume.
+    const absolute = new URL(streamUrl, window.location.origin).href;
+    if (audio.currentSrc === absolute) {
+      loadedTrackIdRef.current = nowPlaying?.id ?? null;
+      return;
+    }
+
+    // A reload of a track that was already playing has to return to where it
+    // was. This is the other half of the rewind: recovery and the resolve retry
+    // both load a fresh source, which starts at zero, so the room jumped back to
+    // the beginning of the track. A genuinely new track has nothing to restore,
+    // and must not inherit the previous track's position.
+    const reloading = loadedTrackIdRef.current === nowPlaying?.id;
+    const resumeAt = reloading ? lastProgressRef.current.at : 0;
+
     internalPauseRef.current = true;
     audio.src = streamUrl;
     audio.load();
     internalPauseRef.current = false;
     loadedTrackIdRef.current = nowPlaying?.id ?? null;
+
+    if (reloading && resumeAt > 1) {
+      const restore = () => {
+        audio.removeEventListener("loadedmetadata", restore);
+        if (streamIdRef.current !== videoId) return;
+        const end = Number.isFinite(audio.duration) ? audio.duration : 0;
+        audio.currentTime = end > 1 ? Math.min(resumeAt, end - 1) : resumeAt;
+      };
+      audio.addEventListener("loadedmetadata", restore);
+    } else if (!reloading) {
+      lastProgressRef.current = { at: 0, seenAt: Date.now() };
+    }
 
     // The room was already playing, so the next track starts on its own. A
     // fresh page load waits for the host's first play, as browsers require.
@@ -208,7 +239,15 @@ export function PlaybackController({
     if (!audio || !videoId || recoveryRef.current) return;
 
     recoveryRef.current = true;
-    const resumeAt = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
+
+    // Where to resume. The element's own clock is not trustworthy here: a stream
+    // that errors resets `currentTime` to 0 before this runs, so resuming from it
+    // restarted the track from the beginning — the rewind the host saw. The
+    // watchdog records the last position that actually played, which is the
+    // position to return to.
+    const known = lastProgressRef.current.at;
+    const local = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
+    const resumeAt = Math.max(known, local);
 
     try {
       // `fresh` skips the resolver cache: a cached URL is what just failed.
@@ -568,15 +607,19 @@ export function PlaybackController({
           if (streamIdRef.current) handlePlayerPlay({ current: audioPlayer });
         }}
         onPause={() => {
-          // Only a real pause is reported; a source swap pauses the element too.
+          // Only a real pause is reported. A source swap, a seek, and a buffering
+          // stall all fire this event too, and reporting those told the room it
+          // had been paused — which then paused the element through the state
+          // effect, so the room paused itself.
           if (internalPauseRef.current) return;
-          // That pause arrives on a later task, after `internalPauseRef` has been
-          // cleared, so the flag cannot tell it apart from the host pausing. A
-          // swap leaves nothing loaded, while a real pause can only happen on a
-          // track that is. Without this the room was told it was paused at the
-          // moment a track changed, and the next one never started.
-          if (!audioRef.current || audioRef.current.readyState === 0) return;
-          if (streamIdRef.current) handlePlayerPause({ current: audioPlayer });
+          if (pauseReportRef.current) clearTimeout(pauseReportRef.current);
+          pauseReportRef.current = setTimeout(() => {
+            const audio = audioRef.current;
+            if (!audio || internalPauseRef.current) return;
+            // Still paused a moment later, with a track loaded and not finished.
+            if (!audio.paused || audio.ended || audio.readyState === 0) return;
+            if (streamIdRef.current) handlePlayerPause({ current: audioPlayer });
+          }, 900);
         }}
         onError={() => {
           // The URL resolved but the media server refused it, which usually means

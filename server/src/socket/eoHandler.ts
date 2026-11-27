@@ -23,54 +23,72 @@ const mayDrivePlayback = (socket: Socket, roomId: string) =>
 
 export function handleEOEvents(io: Server, socket: Socket) {
   // EO asks for the next track right away or when a track finishes
-  socket.on("eo_track_ended", async (data: { roomId: string; idempotencyKey?: string }, callback) => {
-    const { roomId } = data;
-    const idempotencyKey = data.idempotencyKey ?? crypto.randomUUID();
+  socket.on(
+    "eo_track_ended",
+    async (data: { roomId: string; trackId?: string; idempotencyKey?: string }, callback) => {
+      const { roomId, trackId } = data;
+      const idempotencyKey = data.idempotencyKey ?? crypto.randomUUID();
 
-    if (!roomId) {
-      if (callback) callback({ success: false, error: "Missing roomId" });
-      return;
-    }
-
-    try {
-      console.log(`EO for room ${roomId} requested next track...`);
-      if (!mayDrivePlayback(socket, roomId)) {
-        if (callback) callback({ success: false, error: "Unauthorized. You are not the playback controller for this room." });
+      if (!roomId) {
+        if (callback) callback({ success: false, error: "Missing roomId" });
         return;
       }
 
-      const transition = await transitionToNextTrack(roomId, idempotencyKey);
-      const { oldTrackId, nextTrack, upNext, queueVersion } = transition;
+      try {
+        console.log(`EO for room ${roomId} requested next track...`);
+        if (!mayDrivePlayback(socket, roomId)) {
+          if (callback)
+            callback({
+              success: false,
+              error: "Unauthorized. You are not the playback controller for this room.",
+            });
+          return;
+        }
 
-      roomManager.setNowPlaying(roomId, nextTrack);
+        // The caller names the track it is ending, and the comparison happens
+        // inside the transition script. Checking it here instead would not be
+        // enough: two requests that both read the old track before either
+        // updates it would both advance, skipping the song that just started.
+        const transition = await transitionToNextTrack(roomId, idempotencyKey, trackId);
+        if (transition.stale) {
+          if (callback) callback({ success: true, stale: true });
+          return;
+        }
 
-      io.to(roomId).emit("track_transitioned", { oldTrackId, nextTrack, upNext, queueVersion });
-      io.to(roomId).emit("now_playing_updated", nextTrack);
-      if (nextTrack) io.to(roomId).emit("song_removed_from_queue", { songId: nextTrack.id });
+        const { oldTrackId, nextTrack, upNext, queueVersion } = transition;
 
-      // Send authoritative queue snapshot
-      await broadcastQueue(io, roomId);
+        roomManager.setNowPlaying(roomId, nextTrack);
 
-      if (callback) callback({ success: true, oldTrackId, nextTrack, upNext, queueVersion });
+        io.to(roomId).emit("track_transitioned", { oldTrackId, nextTrack, upNext, queueVersion });
+        io.to(roomId).emit("now_playing_updated", nextTrack);
+        if (nextTrack) io.to(roomId).emit("song_removed_from_queue", { songId: nextTrack.id });
 
-    } catch (err) {
-      console.error(err);
-      if (callback) callback({ success: false, error: "Database error" });
-    }
-  });
+        // Send authoritative queue snapshot
+        await broadcastQueue(io, roomId);
+
+        if (callback) callback({ success: true, oldTrackId, nextTrack, upNext, queueVersion });
+      } catch (err) {
+        console.error(err);
+        if (callback) callback({ success: false, error: "Database error" });
+      }
+    },
+  );
 
   // Admin syncs playback progress to all participants
-  socket.on("sync_playback", async (data: { roomId: string; currentTime: number; duration: number; isPlaying: boolean }) => {
-    const { roomId, currentTime, duration, isPlaying } = data;
-    if (!roomId) return;
+  socket.on(
+    "sync_playback",
+    async (data: { roomId: string; currentTime: number; duration: number; isPlaying: boolean }) => {
+      const { roomId, currentTime, duration, isPlaying } = data;
+      if (!roomId) return;
 
-    if (!mayDrivePlayback(socket, roomId)) return;
+      if (!mayDrivePlayback(socket, roomId)) return;
 
-    const playbackState = { currentTime, duration, isPlaying, updatedAt: Date.now() };
-    await redis.hset(`room:${roomId}:playback`, playbackState);
-    await redis.expire(`room:${roomId}:playback`, 24 * 60 * 60);
-    io.to(roomId).emit("playback_sync", playbackState);
-  });
+      const playbackState = { currentTime, duration, isPlaying, updatedAt: Date.now() };
+      await redis.hset(`room:${roomId}:playback`, playbackState);
+      await redis.expire(`room:${roomId}:playback`, 24 * 60 * 60);
+      io.to(roomId).emit("playback_sync", playbackState);
+    },
+  );
 
   // EO requests previous track
   socket.on("previous_track", async (data: { roomId: string }, callback) => {
@@ -100,7 +118,13 @@ export function handleEOEvents(io: Server, socket: Socket) {
       // Send authoritative queue snapshot
       await broadcastQueue(io, roomId);
 
-      if (callback) callback({ success: true, previousTrack: result.previousTrack, hasPrevious: result.hasPrevious, queueVersion: result.queueVersion });
+      if (callback)
+        callback({
+          success: true,
+          previousTrack: result.previousTrack,
+          hasPrevious: result.hasPrevious,
+          queueVersion: result.queueVersion,
+        });
     } catch (err) {
       console.error(err);
       if (callback) callback({ success: false, error: "Database error" });
@@ -108,14 +132,16 @@ export function handleEOEvents(io: Server, socket: Socket) {
   });
 
   // EO toggles playback (Play/Pause)
-  socket.on("toggle_playback", (data: { roomId: string, isPlaying: boolean }) => {
+  socket.on("toggle_playback", (data: { roomId: string; isPlaying: boolean }) => {
     const { roomId, isPlaying } = data;
     if (!roomId) return;
 
     if (!mayDrivePlayback(socket, roomId)) return;
 
     roomManager.setIsPlaying(roomId, isPlaying);
-    redis.hset(`room:${roomId}:playback`, { isPlaying, updatedAt: Date.now() }).catch(console.error);
+    redis
+      .hset(`room:${roomId}:playback`, { isPlaying, updatedAt: Date.now() })
+      .catch(console.error);
     redis.expire(`room:${roomId}:playback`, 24 * 60 * 60).catch(console.error);
     io.to(roomId).emit("playback_updated", { isPlaying });
     console.log(`Playback for room ${roomId} set to: ${isPlaying}`);

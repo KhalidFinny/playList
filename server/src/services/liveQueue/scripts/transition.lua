@@ -17,6 +17,16 @@ if cached then return cached end
 local DONE_HISTORY_MAX = 50
 
 local oldTrackId = redis.call('GET', nowPlayingKey)
+
+-- The caller names the track it is ending. Comparing it here, inside the script,
+-- is what makes the advance safe: two requests that both read "now playing is X"
+-- would otherwise both pass a check made outside and advance twice, skipping a
+-- song. A stale request answers without changing anything.
+local expectedTrackId = ARGV[5]
+if expectedTrackId and expectedTrackId ~= '' and expectedTrackId ~= (oldTrackId or '') then
+  return cjson.encode({ stale = true, oldTrackId = oldTrackId or cjson.null })
+end
+
 local nextTrackId = redis.call('LPOP', approvedKey)
 local oldTrack = nil
 local nextTrack = nil

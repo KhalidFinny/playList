@@ -35,6 +35,8 @@ export function useAdminDashboard(roomId: string) {
 
   // --- STATE: PLAYER (EO) ---
   const [nowPlaying, setNowPlaying] = useState<Track | null>(null);
+  // The track the room is on, readable from callbacks without re-creating them.
+  const nowPlayingIdRef = useRef<string | null>(null);
   const [upNext, setUpNext] = useState<Track | null>(null);
   const [hasPreviousTrack, setHasPreviousTrack] = useState(false);
   const [activePlayer, setActivePlayer] = useState<"A" | "B">("A");
@@ -106,6 +108,7 @@ export function useAdminDashboard(roomId: string) {
   const applyNowPlaying = useCallback(
     (track: Track | null) => {
       setNowPlaying(track);
+      nowPlayingIdRef.current = track?.id ?? null;
       if (track) applySongDeleted(track.id);
     },
     [applySongDeleted],
@@ -117,24 +120,30 @@ export function useAdminDashboard(roomId: string) {
     if (!begun) return;
     guardRef.current = begun;
 
-    socket
-      .timeout(ACK_TIMEOUT_MS)
-      .emit(
-        "eo_track_ended",
-        { roomId, idempotencyKey: crypto.randomUUID() },
-        (err: Error | null, res: EoTrackEndedResponse) => {
-          if (err || !res) {
-            guardRef.current = settle(guardRef.current, "next");
-            return;
-          }
-          if (res.success) {
-            applyNowPlaying(res.nextTrack);
-            setUpNext(res.upNext);
-            if (res.oldTrackId) setHasPreviousTrack(true);
-          }
+    socket.timeout(ACK_TIMEOUT_MS).emit(
+      "eo_track_ended",
+      // The track this client believes is ending. The room ignores the request
+      // if it has already moved on, so a second dashboard tab — or a retry —
+      // cannot advance twice and skip a song.
+      { roomId, trackId: nowPlayingIdRef.current, idempotencyKey: crypto.randomUUID() },
+      (err: Error | null, res: EoTrackEndedResponse) => {
+        if (err || !res) {
           guardRef.current = settle(guardRef.current, "next");
-        },
-      );
+          return;
+        }
+        // The room had already moved on, so there is nothing to apply.
+        if (res.stale) {
+          guardRef.current = settle(guardRef.current, "next");
+          return;
+        }
+        if (res.success) {
+          applyNowPlaying(res.nextTrack);
+          setUpNext(res.upNext);
+          if (res.oldTrackId) setHasPreviousTrack(true);
+        }
+        guardRef.current = settle(guardRef.current, "next");
+      },
+    );
   }, [applyNowPlaying, roomId]);
 
   const onPlayerReady = useCallback((id: "A" | "B", player: PlayerRef) => {
@@ -153,7 +162,7 @@ export function useAdminDashboard(roomId: string) {
         .timeout(ACK_TIMEOUT_MS)
         .emit(
           "eo_track_ended",
-          { roomId, idempotencyKey: crypto.randomUUID() },
+          { roomId, trackId: nowPlayingIdRef.current, idempotencyKey: crypto.randomUUID() },
           (err: Error | null, res: EoTrackEndedResponse) => {
             // The room did not answer in time. Treat it as a failed advance rather
             // than leaving the guard set, which used to block every later track
@@ -164,6 +173,11 @@ export function useAdminDashboard(roomId: string) {
               return;
             }
             let advanced = false;
+            if (res.stale) {
+              guardRef.current = settle(guardRef.current, "next");
+              resolve(false);
+              return;
+            }
             if (res.success) {
               applyNowPlaying(res.nextTrack);
               setUpNext(res.upNext);

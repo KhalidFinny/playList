@@ -272,7 +272,11 @@ export async function updateSongTitle(roomId: string, songId: string, title: str
     | { ok: false; error: "missing_song" };
 }
 
-export async function transitionToNextTrack(roomId: string, idempotencyKey: string) {
+export async function transitionToNextTrack(
+  roomId: string,
+  idempotencyKey: string,
+  expectedTrackId?: string | null,
+) {
   if ((await redis.exists(key.version(roomId))) === 0) await rebuildRoomQueue(roomId);
 
   const event = makeDbEvent({
@@ -295,9 +299,12 @@ export async function transitionToNextTrack(roomId: string, idempotencyKey: stri
     roomId,
     event.eventId,
     event.createdAt,
+    expectedTrackId ?? "",
   );
 
   return JSON.parse(String(raw)) as {
+    /** The room had already moved past the track the caller named. */
+    stale?: boolean;
     oldTrackId: string | null;
     nextTrack: QueueSong | null;
     upNext: QueueSong | null;
