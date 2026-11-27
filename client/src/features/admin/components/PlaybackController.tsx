@@ -175,9 +175,13 @@ export function PlaybackController({
     // A recovery has already loaded this URL and seeked back to where the track
     // was. Reloading it here would restart from zero, which is why a refused
     // stream made the track rewind instead of resume.
+    //
+    // Only for the track that is already loaded: a new track that happens to use
+    // the same video must still start from the beginning, or it inherits the
+    // previous track's position.
     const absolute = new URL(streamUrl, window.location.origin).href;
-    if (audio.currentSrc === absolute) {
-      loadedTrackIdRef.current = nowPlaying?.id ?? null;
+    const sameTrack = loadedTrackIdRef.current === nowPlaying?.id;
+    if (sameTrack && audio.currentSrc === absolute) {
       return;
     }
 
@@ -186,7 +190,7 @@ export function PlaybackController({
     // both load a fresh source, which starts at zero, so the room jumped back to
     // the beginning of the track. A genuinely new track has nothing to restore,
     // and must not inherit the previous track's position.
-    const reloading = loadedTrackIdRef.current === nowPlaying?.id;
+    const reloading = sameTrack;
     const resumeAt = reloading ? lastProgressRef.current.at : 0;
 
     internalPauseRef.current = true;
@@ -574,16 +578,11 @@ export function PlaybackController({
             setStreamFailed(false);
           })
           .catch(() => {
-            // A track YouTube will not serve is skipped rather than held forever;
-            // the rest of the queue should keep playing. With the backoff above
-            // this is around two and a half minutes of trying, which is long
-            // enough that a passing refusal never costs a song.
+            // Never advance from here. A refusal is usually momentary — YouTube
+            // answers the same video on the next try — so skipping on it took
+            // songs out of the room that would have played. The track stays put
+            // and the next attempt retries it.
             resolveFailuresRef.current += 1;
-            if (resolveFailuresRef.current >= 8 && streamIdRef.current === videoId) {
-              resolveFailuresRef.current = 0;
-              console.warn("[PLAYER] giving up on this track, advancing");
-              advanceTrack();
-            }
           });
         return;
       }
@@ -617,7 +616,7 @@ export function PlaybackController({
     }, 4000);
 
     return () => clearInterval(timer);
-  }, [streamUrl, recoverStream, advanceTrack]);
+  }, [streamUrl, recoverStream]);
 
   // The lock-screen player. This is what keeps the host's audio alive when the
   // screen turns off: the OS keeps a page with an active media session, and its
