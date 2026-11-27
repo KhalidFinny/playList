@@ -399,29 +399,30 @@ export function useAdminDashboard(roomId: string) {
   }, [connected, fetchNext, fullQueue.length, nowPlaying]);
 
   // --- LOGIC: MODERATION ---
+  // Both of these roll back the one song they touched, never a snapshot.
+  //
+  // They used to capture the whole queue before the click and restore it if the
+  // server refused. Approving two songs quickly made the second refusal revert
+  // the first approval too, so a song that had been accepted vanished from the
+  // dashboard — and the restored order was the stale one, which is why the queue
+  // also looked rearranged.
   const handleApprove = (songId: string) => {
-    const originalPending = [...pendingQueue];
-    const originalFull = [...fullQueue];
+    const song = pendingQueue.find((item) => item.id === songId);
     applySongDeleted(songId);
     setProcessingId(songId);
     socket.emit("approve_song", { roomId, songId }, (res: BasicResponse) => {
       setProcessingId(null);
-      if (!res.success) {
-        applyInitialQueues(originalPending, originalFull);
-      }
+      if (!res.success && song) applyNewPendingSong(song);
     });
   };
 
   const handleDelete = (songId: string) => {
-    const originalPending = [...pendingQueue];
-    const originalFull = [...fullQueue];
+    const song = pendingQueue.find((item) => item.id === songId);
     applySongDeleted(songId);
     setProcessingId(songId);
     socket.emit("delete_song", { roomId, songId }, (res: BasicResponse) => {
       setProcessingId(null);
-      if (!res.success) {
-        applyInitialQueues(originalPending, originalFull);
-      }
+      if (!res.success && song) applyNewPendingSong(song);
     });
   };
 

@@ -143,6 +143,11 @@ export class RoomHub {
         now,
       );
     }
+
+    // No websocket survives a restart, so any playback-controller id recorded
+    // before this one is dead. Left in place it locks the host out of playback
+    // control on the first reconnect after every deploy, which stops the room.
+    await this.ctx.storage.sql.exec(`UPDATE meta SET value = '' WHERE key = 'eo_socket'`);
   }
 
   async fetch(req: Request): Promise<Response> {
@@ -565,13 +570,23 @@ export class RoomHub {
 
       case "approve_song": {
         if (!this.isAdminOf(session, roomId)) return { success: false, error: "Unauthorized" };
-        const song = this.mutateSong(roomId, str("songId"), (current) => {
-          if (current.status !== "pending") return null;
-          this.sql("UPDATE songs SET status = 'approved', approved_at = ? WHERE id = ?", Date.now(), current.id);
-          return current;
-        });
-        if (!song) return { success: false, error: "Song not found or already processed" };
-        const approved = { ...song, status: "approved" as const };
+        const songId = str("songId");
+        const existing = this.songById(songId);
+        if (!existing) return { success: false, error: "Song not found or already processed" };
+
+        // Approving is idempotent. A double click lands after the first has
+        // already moved the song, and a failure here made the dashboard roll its
+        // whole queue back to a snapshot taken before the click, dropping any
+        // song approved in between.
+        if (existing.status !== "pending") {
+          if (existing.status === "approved" || existing.status === "playing") {
+            return { success: true, message: "Song approved", song: existing };
+          }
+          return { success: false, error: "Song not found or already processed" };
+        }
+
+        this.sql("UPDATE songs SET status = 'approved', approved_at = ? WHERE id = ?", Date.now(), existing.id);
+        const approved = { ...existing, status: "approved" as const };
         this.broadcast(roomId, "song_approved", approved);
         return { success: true, message: "Song approved", song: approved };
       }

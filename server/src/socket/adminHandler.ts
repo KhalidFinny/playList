@@ -31,9 +31,13 @@ export function handleAdminEvents(io: Server, socket: Socket) {
         return;
       }
 
-      io.to(`${roomId}:admin`).emit("song_approved", result.song);
-      io.to(`${roomId}:participant`).emit("song_approved", result.song);
-      io.to(`${roomId}:eo`).emit("song_approved", result.song);
+      // A repeat approve is already in every client's queue, so broadcasting it
+      // again would be noise rather than news.
+      if (!("alreadyApproved" in result)) {
+        io.to(`${roomId}:admin`).emit("song_approved", result.song);
+        io.to(`${roomId}:participant`).emit("song_approved", result.song);
+        io.to(`${roomId}:eo`).emit("song_approved", result.song);
+      }
 
       if (callback) callback({ success: true, message: "Song approved", song: result.song });
     } catch (err) {

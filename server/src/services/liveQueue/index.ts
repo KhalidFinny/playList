@@ -205,9 +205,24 @@ export async function approveSong(roomId: string, songId: string) {
     event.createdAt,
   );
 
-  return JSON.parse(String(raw)) as
-    | { ok: true; song: QueueSong; queueVersion: number }
+  const result = JSON.parse(String(raw)) as
+    | { ok: true; song: QueueSong; queueVersion: number; alreadyApproved?: boolean }
     | { ok: false; error: "missing_song" | "not_pending" };
+
+  // Approving is idempotent. A second click lands after the first has already
+  // moved the song, and answering "not pending" made the dashboard roll the whole
+  // queue back to the snapshot it took before the click — which dropped any song
+  // approved in between. A song that is already approved is the desired end
+  // state, so report success and let the caller skip the duplicate broadcast.
+  if (!result.ok && result.error === "not_pending") {
+    const existing = await redis.get(key.song(songId));
+    if (existing) {
+      const song = JSON.parse(existing) as QueueSong;
+      if (song.status === "approved") return { ok: true as const, song, alreadyApproved: true };
+    }
+  }
+
+  return result;
 }
 
 export async function deleteSong(roomId: string, songId: string) {
