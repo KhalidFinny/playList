@@ -250,26 +250,82 @@ export function PlaybackController({
     const resumeAt = Math.max(known, local);
 
     try {
-      // `fresh` skips the resolver cache: a cached URL is what just failed.
-      const { url } = await fetchStream(videoId, true);
+      // Keep playing what is already loaded when possible. Reloading the source
+      // is what restarted the track, and most stalls are a paused element rather
+      // than a dead URL.
+      if (audio.readyState >= 2) {
+        const end = Number.isFinite(audio.duration) ? audio.duration : 0;
+        audio.currentTime = end > 1 ? Math.min(resumeAt, end - 1) : resumeAt;
+        if (isPlayingRef.current) {
+          await audio.play().catch(() => {});
+          if (!audio.paused) return;
+        }
+      }
+
+      // The URL itself is dead. The proxy re-resolves on a refusal, so the cached
+      // one is worth a try before asking for a fresh resolve: a fresh resolve
+      // costs a YouTube call, and asking too often is what gets refused.
+      let resolved;
+      try {
+        resolved = await fetchStream(videoId);
+      } catch {
+        resolved = await fetchStream(videoId, true);
+      }
+      const { url } = resolved;
       if (streamIdRef.current !== videoId) return;
 
-      internalPauseRef.current = true;
-      audio.src = url;
-      audio.load();
+      // The same URL is the common case, because the resolve is cached. Reloading
+      // an unchanged source resets the element to zero, and `setStreamUrl` with
+      // the same value changes no React state, so nothing restored the position
+      // afterwards — that is the rewind. When the source is unchanged, just put
+      // the clock back and play.
+      const absolute = new URL(url, window.location.origin).href;
+      // A dead element has to be reloaded even for the same URL: `play()` on an
+      // errored source does nothing, so the position would never come back.
+      if (!audio.error && audio.currentSrc === absolute) {
+        // Only move the clock when the element has metadata to seek within;
+        // writing it earlier is clamped to zero, which loses the position. The
+        // watchdog keeps the last good position, so the next attempt restores it.
+        if (audio.readyState >= 1) {
+          const end = Number.isFinite(audio.duration) ? audio.duration : 0;
+          audio.currentTime = end > 1 ? Math.min(resumeAt, end - 1) : resumeAt;
+        }
+        if (isPlayingRef.current) void audio.play().catch(() => {});
+        return;
+      }
 
-      await new Promise<void>((resolve) => {
+      internalPauseRef.current = true;
+
+      // Seek inside the metadata handler, and attach it before loading: a source
+      // that comes from the cache can fire `loadedmetadata` during `load()`, and
+      // a listener added afterwards never sees it, so the position was lost.
+      const seekToResume = () => {
+        const end = Number.isFinite(audio.duration) ? audio.duration : 0;
+        audio.currentTime = end > 1 ? Math.min(resumeAt, end - 1) : resumeAt;
+      };
+      const loaded = new Promise<void>((resolve) => {
         const settle = () => {
-          audio.removeEventListener("loadedmetadata", settle);
+          audio.removeEventListener("loadedmetadata", onMeta);
           resolve();
         };
-        audio.addEventListener("loadedmetadata", settle);
-        setTimeout(settle, 4000);
+        const onMeta = () => {
+          seekToResume();
+          settle();
+        };
+        audio.addEventListener("loadedmetadata", onMeta);
+        // If metadata never arrives the source is dead; leave the position alone
+        // rather than writing it to an element that cannot take it.
+        setTimeout(settle, 8000);
       });
 
+      audio.src = url;
+      audio.load();
+      // Already buffered: the metadata event has been and gone.
+      if (audio.readyState >= 1) seekToResume();
+
+      await loaded;
+
       internalPauseRef.current = false;
-      const end = Number.isFinite(audio.duration) ? audio.duration : 0;
-      audio.currentTime = end > 1 ? Math.min(resumeAt, end - 1) : resumeAt;
 
       if (isPlayingRef.current) void audio.play().catch(() => {});
       setStreamUrl(url);
@@ -533,12 +589,15 @@ export function PlaybackController({
       }
 
       if (!isPlayingRef.current) {
-        lastProgressRef.current = { at: audio.currentTime, seenAt: Date.now() };
+        lastProgressRef.current.seenAt = Date.now();
         return;
       }
 
-      const moved = Math.abs(audio.currentTime - lastProgressRef.current.at) > 0.25;
-      if (moved) {
+      // Only forward movement is progress. A failing stream resets the element's
+      // clock to zero, and treating that jump backwards as movement recorded 0 as
+      // the last position — so recovery then "resumed" at the start of the track.
+      // That is the rewind.
+      if (audio.currentTime > lastProgressRef.current.at + 0.25) {
         lastProgressRef.current = { at: audio.currentTime, seenAt: Date.now() };
         return;
       }
@@ -646,6 +705,11 @@ export function PlaybackController({
               playerRefB.current = player;
               onPlayerReady("A", player);
               onPlayerReady("B", player);
+              // The fallback starts from the beginning, which restarted the track
+              // whenever the stream was refused mid-song. It has to pick up where
+              // the audio element left off.
+              const resumeAt = lastProgressRef.current.at;
+              if (resumeAt > 1) player.seekTo(resumeAt, true);
               if (isPlayingRef.current) player.playVideo();
             }}
             onEnd={handleTrackEnd}
