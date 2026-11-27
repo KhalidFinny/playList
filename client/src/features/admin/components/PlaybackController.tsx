@@ -55,6 +55,14 @@ export function PlaybackController({
   // server the room stopped.
   const internalPauseRef = useRef(false);
   const streamIdRef = useRef<string | null>(null);
+  // Which track the audio element is actually loaded with. The element keeps the
+  // previous track's end state until the next stream URL arrives, so without this
+  // the end-of-track poll can read "ended" for a track that is already gone and
+  // advance a second time — skipping a song and draining the queue.
+  const loadedTrackIdRef = useRef<string | null>(null);
+  // Consecutive failed resolves for the current track, so an unplayable one is
+  // skipped instead of stopping the room for good.
+  const resolveFailuresRef = useRef(0);
   const recoveryRef = useRef(false);
   // When the track was first seen sitting at its end with no advance landing.
   const stuckSinceRef = useRef(0);
@@ -114,9 +122,13 @@ export function PlaybackController({
     endedTrackRef.current = null;
   }, [nowPlaying?.id]);
 
+  // Keyed on the track, not the video: the same video twice in a row still has to
+  // reload the element, or it stays on the first copy's end state.
   useEffect(() => {
     const videoId = nowPlaying?.youtubeId;
     streamIdRef.current = videoId ?? null;
+    loadedTrackIdRef.current = null;
+    resolveFailuresRef.current = 0;
     if (!videoId) {
       setStreamUrl(null);
       setStreamFailed(false);
@@ -145,7 +157,7 @@ export function PlaybackController({
     return () => {
       cancelled = true;
     };
-  }, [nowPlaying?.youtubeId]);
+  }, [nowPlaying?.id]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -160,6 +172,7 @@ export function PlaybackController({
     audio.src = streamUrl;
     audio.load();
     internalPauseRef.current = false;
+    loadedTrackIdRef.current = nowPlaying?.id ?? null;
 
     // The room was already playing, so the next track starts on its own. A
     // fresh page load waits for the host's first play, as browsers require.
@@ -177,7 +190,7 @@ export function PlaybackController({
         applyGain(audio, useAudioStore.getState().normalize ? gainRef.current : 1);
       });
     }
-  }, [streamUrl, trackLoudness, audioPlayer, onPlayerReady]);
+  }, [streamUrl, trackLoudness, audioPlayer, onPlayerReady, nowPlaying?.id]);
 
   /**
    * Re-resolve the current track and resume where it was.
@@ -228,38 +241,6 @@ export function PlaybackController({
       recoveryRef.current = false;
     }
   }, []);
-
-  /**
-   * The watchdog. A stream that has been refused, or a page that slept, leaves
-   * the element "playing" while its clock stands still; that is the one signal
-   * that distinguishes a dead stream from a quiet passage.
-   */
-  useEffect(() => {
-    if (!streamUrl) return;
-
-    const timer = setInterval(() => {
-      const audio = audioRef.current;
-      if (!audio || recoveryRef.current) return;
-
-      if (!isPlayingRef.current) {
-        lastProgressRef.current = { at: audio.currentTime, seenAt: Date.now() };
-        return;
-      }
-
-      const moved = Math.abs(audio.currentTime - lastProgressRef.current.at) > 0.25;
-      if (moved) {
-        lastProgressRef.current = { at: audio.currentTime, seenAt: Date.now() };
-        return;
-      }
-
-      // Paused with the room playing, or the clock has not moved for 8s.
-      if (audio.paused || Date.now() - lastProgressRef.current.seenAt > 8000) {
-        void recoverStream();
-      }
-    }, 4000);
-
-    return () => clearInterval(timer);
-  }, [streamUrl, recoverStream]);
 
   // The equalizer is per device, so it is applied to this element as the settings
   // change rather than being carried through the room.
@@ -429,6 +410,8 @@ export function PlaybackController({
   useEffect(() => {
     const timer = setInterval(() => {
       if (!isPlayingRef.current) return;
+      // The element is still holding the previous track: nothing to decide yet.
+      if (loadedTrackIdRef.current !== nowPlaying?.id) return;
       const player = (activePlayer === "A" ? playerRefA : playerRefB).current;
       if (!player) return;
 
@@ -456,7 +439,73 @@ export function PlaybackController({
       advanceTrack();
     }, 3000);
     return () => clearInterval(timer);
-  }, [activePlayer, advanceTrack, handleTrackEnd, playback]);
+  }, [activePlayer, advanceTrack, handleTrackEnd, playback, nowPlaying?.id]);
+
+  /**
+   * The watchdog. A stream that has been refused, or a page that slept, leaves
+   * the element "playing" while its clock stands still; that is the one signal
+   * that distinguishes a dead stream from a quiet passage.
+   */
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const audio = audioRef.current;
+      if (!audio || recoveryRef.current) return;
+
+      // Nothing resolved for this track: the iframe fallback cannot be relied on
+      // to start without a gesture, so the room went silent until a reload. Keep
+      // asking for a stream instead — a refusal is usually momentary.
+      if (!streamUrl) {
+        const videoId = streamIdRef.current;
+        if (!videoId || !isPlayingRef.current) return;
+        void fetchStream(videoId, true)
+          .then((data) => {
+            if (streamIdRef.current !== videoId) return;
+            console.warn("[PLAYER] stream resolved on retry");
+            resolveFailuresRef.current = 0;
+            setStreamUrl(data.url);
+            setTrackLoudness(data.loudnessLufs ?? null);
+            setStreamFailed(false);
+          })
+          .catch(() => {
+            // A track YouTube will not serve is skipped rather than held forever;
+            // the rest of the queue should keep playing.
+            resolveFailuresRef.current += 1;
+            if (resolveFailuresRef.current >= 8 && streamIdRef.current === videoId) {
+              resolveFailuresRef.current = 0;
+              console.warn("[PLAYER] giving up on this track, advancing");
+              advanceTrack();
+            }
+          });
+        return;
+      }
+
+      if (!isPlayingRef.current) {
+        lastProgressRef.current = { at: audio.currentTime, seenAt: Date.now() };
+        return;
+      }
+
+      const moved = Math.abs(audio.currentTime - lastProgressRef.current.at) > 0.25;
+      if (moved) {
+        lastProgressRef.current = { at: audio.currentTime, seenAt: Date.now() };
+        return;
+      }
+
+      // Paused with the room playing, or the clock has not moved for 8s.
+      if (audio.paused || Date.now() - lastProgressRef.current.seenAt > 8000) {
+        // A paused element with a usable source is a resume, not a dead stream.
+        // Re-resolving would only restart it from the synced position, and a
+        // refused play leaves the room silent until someone reloads.
+        if (audio.paused && audio.readyState >= 2 && !audio.ended) {
+          void audio.play().catch(() => void recoverStream());
+          lastProgressRef.current = { at: audio.currentTime, seenAt: Date.now() };
+          return;
+        }
+        void recoverStream();
+      }
+    }, 4000);
+
+    return () => clearInterval(timer);
+  }, [streamUrl, recoverStream, advanceTrack]);
 
   // The lock-screen player. This is what keeps the host's audio alive when the
   // screen turns off: the OS keeps a page with an active media session, and its
@@ -507,6 +556,12 @@ export function PlaybackController({
         onPause={() => {
           // Only a real pause is reported; a source swap pauses the element too.
           if (internalPauseRef.current) return;
+          // That pause arrives on a later task, after `internalPauseRef` has been
+          // cleared, so the flag cannot tell it apart from the host pausing. A
+          // swap leaves nothing loaded, while a real pause can only happen on a
+          // track that is. Without this the room was told it was paused at the
+          // moment a track changed, and the next one never started.
+          if (!audioRef.current || audioRef.current.readyState === 0) return;
           if (streamIdRef.current) handlePlayerPause({ current: audioPlayer });
         }}
         onError={() => {
